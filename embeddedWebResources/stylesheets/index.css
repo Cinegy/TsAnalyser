@@ -1,0 +1,178 @@
+body {
+    background-color: rgb(50, 50, 50);
+}
+
+#mainHeader {
+    background-color: dimgray;
+    color: rgb(170, 170, 170);
+    font-family: 'Segoe UI';
+    font-weight: 700;
+    margin: 10px;
+    padding: 0 10px 3px 10px;
+}
+
+#mainHeaderProductName { font-size: 24px; }
+
+#mainHeaderServer { font-size: 18px; }
+
+.engineList { margin: 10px; }
+
+.engineActions { margin: 10px; }
+
+/*Group boxes and label styles*/
+
+    .groupBox {
+        border: solid 1px rgb(170, 170, 170);
+        margin: 0 0 0 0;
+        padding: 0px;
+        z-index: 3;
+        width: 410px;
+    }
+    
+    .groupBoxLabel {
+        background-color: rgb(50, 50, 50);
+        color: #AAAAAA;
+        font-family: 'Segoe UI';
+        font-size: 14px;
+        margin: 0 0 5px 5px;
+        position: relative;
+        z-index: 4;
+    }
+
+/*General Air buttons*/
+
+    .btn {
+        border: 0 none;
+        font-weight: 700;
+        height: 40px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        width: 40px;
+        margin: 0 0 10px 20px;
+        background: #797979;
+    }
+    .btn:hover, .btn:focus, .btn:active, .btn.active, .open > .btn.btn-actiontoggle {
+        background: #595959;
+    }
+    
+    .btn:focus, .btn:active:focus, .btn.active:focus 
+    { 
+        outline: 0 none; 
+    }
+    
+     /*Toggle Button*/
+    
+    .btn-select {
+        background: #51c8b0;
+    }
+    .btn-select:hover, .btn-select:focus, .btn-select:active, .btn-select.active, .open > .btn-select.btn-actiontoggle {
+        background: #31a890;
+    }
+    .btn-select-depressed {
+        background: #51d8ff;
+    }
+    .btn-select-depressed:hover, .btn-select-depressed:focus, .btn-select-depressed:active, .btn-select-depressed.active, .open > .btn-select-depressed.btn-actiontoggle {
+        background: #31c8df;
+    }
+    
+    .btn-toggle:hover, .btn-toggle:focus, .btn-toggle:active, .btn-toggle.active, .open > .btn-toggle.btn-actiontoggle {
+        cursor: pointer;
+    }
+
+/* Disabled button */
+
+    .btn-disable {
+        background: gray;
+        pointer-events: none;
+    }
+
+/* Caption for over-button label */
+
+    .buttonCaption {
+        color: #e4e4e4;
+        font-family: 'Segoe UI';
+        font-size: 12px;
+        font-weight: 600;
+        text-align: center;
+        width: 40px;
+        margin: 5px 0 5px 20px;
+    }
+    
+    .buttonCaption-selectAll
+    {
+        margin: 5px 0 5px 50px
+    }
+
+    
+/* ENGINE SELECTION section */
+
+/*nothing yet...*/
+
+/* ACTIONS section */
+
+    .groupBox-actions
+    {
+        width: 320px;
+    }
+    
+    .btn-startCued
+    {
+        background: #e5e5b2
+    }
+    .btn-startCued:hover, .btn-startCued:focus, .btn-startCued:active, .btn-startCued.active {
+        background: #c5c592;
+    }
+    
+    .btn-goNormal
+    {
+        background: #338033     
+    }
+    .btn-goNormal:hover, .btn-goNormal:focus, .btn-goNormal:active, .btn-goNormal.active, .open > .btn-goNormal.btn-actiontoggle {
+        background: #136013;
+    }
+    
+    .btn-goLive
+    {
+        background: #ed2424
+    }
+    .btn-goLive:hover, .btn-goLive:focus, .btn-goLive:active, .btn-goLive.active, .open > .btn-goLive.btn-actiontoggle {
+        background: #dd1414;
+    }
+    
+    .btn-goClean
+    {
+        background: #ed2424
+    }
+    .btn-goClean:hover, .btn-goClean:focus, .btn-goClean:active, .btn-goClean.active, .open > .btn-goClean.btn-actiontoggle {
+        background: #cd0404;
+    }
+    
+    .btn-goBlack
+    {
+        background: #ed2424
+    }
+    .btn-goBlack:hover, .btn-goBlack:focus, .btn-goBlack:active, .btn-goBlack.active, .open > .btn-goBlack.btn-actiontoggle {
+        background: #cd0404;
+    }
+        
+
+/* Shapes and other reusable content */
+
+    .circle {
+        -moz-border-radius: 5px;
+        -webkit-border-radius: 5px;
+        background: wheat;
+        border-radius: 25px;
+        height: 14px;
+        margin: 7px 0 0 1px;
+        width: 14px;
+    }
+    
+    .square {
+        background: wheat;
+        height: 14px;
+        margin: 7px 0 0 1px;
+        width: 14px;
+    }
+
+

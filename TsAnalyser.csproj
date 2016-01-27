@@ -45,6 +45,7 @@
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ServiceModel" />
     <Reference Include="System.ServiceModel.Web" />
+    <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -73,6 +74,14 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="embeddedWebResources\index.html" />
+    <EmbeddedResource Include="embeddedWebResources\javascripts\bootstrap.min.js" />
+    <EmbeddedResource Include="embeddedWebResources\javascripts\index.js" />
+    <EmbeddedResource Include="embeddedWebResources\javascripts\jquery-2.1.1.min.js" />
+    <EmbeddedResource Include="embeddedWebResources\javascripts\knockout-3.4.0.js" />
+    <EmbeddedResource Include="embeddedWebResources\stylesheets\bootstrap-theme.min.css" />
+    <EmbeddedResource Include="embeddedWebResources\stylesheets\bootstrap.min.css" />
+    <EmbeddedResource Include="embeddedWebResources\stylesheets\index.css" />
     <Content Include="FodyWeavers.xml" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

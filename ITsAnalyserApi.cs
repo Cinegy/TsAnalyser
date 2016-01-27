@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,7 +18,11 @@ namespace TsAnalyser
         void GetGlobalOptions();
 
         [OperationContract]
-        [WebInvoke(Method = "GET", UriTemplate = "/V1/CurrentMetrics")]
+        [WebGet(UriTemplate = "/*")]
+        Stream ServeEmbeddedStaticFile();
+
+        [OperationContract]
+        [WebGet(UriTemplate = "/V1/CurrentMetrics")]
         SerialisableMetrics GetCurrentMetrics();
 
         [OperationContract]
