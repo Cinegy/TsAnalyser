@@ -6,6 +6,9 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.ServiceModel;
+using System.ServiceModel.Description;
+using System.ServiceModel.Web;
 using System.Threading;
 using CommandLine;
 using static System.String;
@@ -18,6 +21,8 @@ namespace TsAnalyser
         private static readonly DateTime StartTime = DateTime.UtcNow;
         private static string _logFile;
         private static bool _pendingExit;
+        private static ServiceHost _serviceHost;
+        private static TsAnalyserApi _tsAnalyserApi;
 
         private static readonly NetworkMetric NetworkMetric = new NetworkMetric();
         private static readonly RtpMetric RtpMetric = new RtpMetric();
@@ -26,15 +31,17 @@ namespace TsAnalyser
         static void Main(string[] args)
         {
             var options = new Options();
-            
+
             Console.CancelKeyPress += Console_CancelKeyPress;
 
-            Console.WriteLine("Cinegy Simple RTP monitoring tool v1.0.0 ({0})\n", File.GetCreationTime(Assembly.GetExecutingAssembly().Location));
+            Console.WriteLine("Cinegy Simple RTP monitoring tool v1.0.0 ({0})\n",
+                File.GetCreationTime(Assembly.GetExecutingAssembly().Location));
 
             if (!Parser.Default.ParseArguments(args, options))
             {
                 //ask the user interactively for an address and group
-                Console.WriteLine("\nSince parameters were not passed at the start, you can now enter the two most important (or just hit enter to quit)");
+                Console.WriteLine(
+                    "\nSince parameters were not passed at the start, you can now enter the two most important (or just hit enter to quit)");
                 Console.Write("\nPlease enter the multicast address to listen to (e.g. 239.1.1.1): ");
                 var address = Console.ReadLine();
 
@@ -51,7 +58,6 @@ namespace TsAnalyser
                     return;
                 }
                 options.MulticastGroup = int.Parse(port);
-
             }
 
             WorkLoop(options);
@@ -70,37 +76,53 @@ namespace TsAnalyser
                     Console.WriteLine("Logging events to file {0}", _logFile);
                 }
                 LogMessage("Logging started.");
+
+                if (options.EnableWebServices)
+                {
+                    SetupRestService(options.ServiceUrl);
+                }
+                
                 StartListeningToNetwork(options.MulticastAddress, options.MulticastGroup, options.AdapterAddress);
                 RtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
-                NetworkMetric.BufferOverflow +=NetworkMetric_BufferOverflow;
+                NetworkMetric.BufferOverflow += NetworkMetric_BufferOverflow;
             }
 
             Console.Clear();
-            
+
             while (!_pendingExit)
             {
                 var runningTime = DateTime.UtcNow.Subtract(StartTime);
-               
+
                 Console.SetCursorPosition(0, 0);
-                Console.WriteLine("URL: rtp://@{0}:{1}\tRunning time: {2:hh\\:mm\\:ss}\t\t\n", options.MulticastAddress, options.MulticastGroup,runningTime);
-                Console.WriteLine("Network Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%\t\t\nTotal Data (MB): {2}\t\tPackets per sec:{3}",
-                    NetworkMetric.TotalPackets, NetworkMetric.NetworkBufferUsage, NetworkMetric.TotalData / 1048576, NetworkMetric.PacketsPerSecond);
-                Console.WriteLine("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",NetworkMetric.TimeBetweenLastPacket,NetworkMetric.ShortestTimeBetweenPackets,NetworkMetric.LongestTimeBetweenPackets);
-                Console.WriteLine("Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t", (NetworkMetric.CurrentBitrate / 131072.0), NetworkMetric.AverageBitrate / 131072.0, (NetworkMetric.HighestBitrate / 131072.0), (NetworkMetric.LowestBitrate / 131072.0));
-                Console.WriteLine("\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t", RtpMetric.LastSequenceNumber, RtpMetric.MinLostPackets,RtpMetric.LastTimestamp ,RtpMetric.Ssrc);
+                Console.WriteLine("URL: rtp://@{0}:{1}\tRunning time: {2:hh\\:mm\\:ss}\t\t\n", options.MulticastAddress,
+                    options.MulticastGroup, runningTime);
+                Console.WriteLine(
+                    "Network Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%\t\t\nTotal Data (MB): {2}\t\tPackets per sec:{3}",
+                    NetworkMetric.TotalPackets, NetworkMetric.NetworkBufferUsage, NetworkMetric.TotalData/1048576,
+                    NetworkMetric.PacketsPerSecond);
+                Console.WriteLine("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
+                    NetworkMetric.TimeBetweenLastPacket, NetworkMetric.ShortestTimeBetweenPackets,
+                    NetworkMetric.LongestTimeBetweenPackets);
+                Console.WriteLine("Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
+                    (NetworkMetric.CurrentBitrate/131072.0), NetworkMetric.AverageBitrate/131072.0,
+                    (NetworkMetric.HighestBitrate/131072.0), (NetworkMetric.LowestBitrate/131072.0));
+                Console.WriteLine(
+                    "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
+                    RtpMetric.LastSequenceNumber, RtpMetric.MinLostPackets, RtpMetric.LastTimestamp, RtpMetric.Ssrc);
                 Console.WriteLine("\nTS Details\n----------------");
                 lock (TsMetrics)
                 {
                     var patMetric = TsMetrics.FirstOrDefault(m => m.IsProgAssociationTable);
                     if (patMetric != null && patMetric.ProgAssociationTable.ProgramNumbers != null)
                     {
-                        Console.WriteLine("Unique PID count: {0}\t\tProgram Count: {1}\t\t\t",TsMetrics.Count, patMetric.ProgAssociationTable.ProgramNumbers.Length);
+                        Console.WriteLine("Unique PID count: {0}\t\tProgram Count: {1}\t\t\t", TsMetrics.Count,
+                            patMetric.ProgAssociationTable.ProgramNumbers.Length);
                     }
 
                     foreach (var tsMetric in TsMetrics.OrderByDescending(m => m.Pid))
                     {
                         Console.WriteLine("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", tsMetric.Pid,
-                            tsMetric.PacketCount, tsMetric.CcErrorCount);  
+                            tsMetric.PacketCount, tsMetric.CcErrorCount);
                     }
                 }
                 Thread.Sleep(20);
@@ -110,7 +132,8 @@ namespace TsAnalyser
         }
 
 
-        private static void StartListeningToNetwork(string multicastAddress, int multicastGroup, string listenAdapter = "")
+        private static void StartListeningToNetwork(string multicastAddress, int multicastGroup,
+            string listenAdapter = "")
         {
             var client = new UdpClient {ExclusiveAddressUse = false};
 
@@ -133,7 +156,7 @@ namespace TsAnalyser
             });
 
             var receiverThread = new Thread(ts) {Priority = ThreadPriority.Highest};
-            
+
             receiverThread.Start();
         }
 
@@ -173,24 +196,24 @@ namespace TsAnalyser
             }
         }
 
-        static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
+        private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
             if (_pendingExit) return; //already trying to exit - allow normal behaviour on subsequent presses
             _pendingExit = true;
             e.Cancel = true;
         }
 
-        static void currentMetric_DiscontinuityDetected(object sender, DiscontinutityEventArgs e)
+        private static void currentMetric_DiscontinuityDetected(object sender, DiscontinutityEventArgs e)
         {
             LogMessage($"Discontinuity on TS PID {e.TsPid}");
         }
 
-        static void RtpMetric_SequenceDiscontinuityDetected(object sender, EventArgs e)
+        private static void RtpMetric_SequenceDiscontinuityDetected(object sender, EventArgs e)
         {
             LogMessage("Discontinuity in RTP sequence.");
         }
 
-        static void NetworkMetric_BufferOverflow(object sender, EventArgs e)
+        private static void NetworkMetric_BufferOverflow(object sender, EventArgs e)
         {
             LogMessage("Network buffer > 99% - probably loss of data from overflow.");
         }
@@ -217,7 +240,67 @@ namespace TsAnalyser
             }
 
         }
+
+        private static void SetupRestService(string ServiceAddress)
+        {
+            var baseAddress = new Uri(ServiceAddress);
+
+            _serviceHost?.Close();
+
+            _tsAnalyserApi = new TsAnalyserApi
+            {
+                NetworkMetric = NetworkMetric,
+                TsMetrics = TsMetrics,
+                RtpMetric = RtpMetric
+            };
+            
+            _serviceHost = new ServiceHost(_tsAnalyserApi, baseAddress);
+            var webBinding = new WebHttpBinding();
+
+            var serviceEndpoint = new ServiceEndpoint(ContractDescription.GetContract(typeof (ITsAnalyserApi)))
+            {
+                Binding = webBinding, 
+                Address = new EndpointAddress(baseAddress)
+            };
+
+            _serviceHost.AddServiceEndpoint(serviceEndpoint);
+
+            var webBehavior = new WebHttpBehavior
+            {
+                AutomaticFormatSelectionEnabled = true,
+                DefaultOutgoingRequestFormat = WebMessageFormat.Json,
+                HelpEnabled = true
+            };
+            
+            serviceEndpoint.Behaviors.Add(webBehavior);
+            
+            //Metadata Exchange
+            var serviceBehavior = new ServiceMetadataBehavior {HttpGetEnabled = true};
+            _serviceHost.Description.Behaviors.Add(serviceBehavior);
+
+            try
+            {
+                _serviceHost.Open();
+            }
+            catch (Exception ex)
+            {
+                var msg =
+                    "Failed to start local web API for player - either something is already using the requested URL, the tool is not running as local administrator, or netsh url reservations have not been made " +
+                    "to allow non-admin users to host services.\n\n" +
+                    "To make a URL reservation, permitting non-admin execution, run:\n" +
+                    "netsh http add urlacl http://+:8124/analyser user=BUILTIN\\Users\n\n" +
+                    "This is the details of the exception thrown:" +
+                    ex.Message +
+                    "\n\nHit enter to continue without services.\n\n";
+
+                Console.WriteLine(msg);
+
+                Console.ReadLine();
+
+                LogMessage(msg);
+            }
+        }
     }
 
-   
 }
+
