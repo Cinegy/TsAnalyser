@@ -27,7 +27,7 @@ namespace TsAnalyser
 
         [OperationContract]
         [WebInvoke(Method = "POST", UriTemplate = "/V1/ResetMetrics")]
-        void ResetMetrics(string itemPath);
+        void ResetMetrics();
         
         [OperationContract]
         [WebInvoke(Method = "POST", UriTemplate = "/V1/Start")]

@@ -10,6 +10,10 @@ namespace TsAnalyser
     // Define a class to receive parsed values
     internal class Options 
     {
+        [Option('q', "quiet", Required = false, DefaultValue = false,
+        HelpText = "Don't print anything to the console")]
+        public bool SuppressOutput { get; set; }
+        
         [Option('m', "multicastaddress", Required = true,
         HelpText = "Input multicast address to read from.")]
         public string MulticastAddress { get; set; }
@@ -29,9 +33,7 @@ namespace TsAnalyser
         [Option('w', "webservices", Required = false, DefaultValue = false,
         HelpText = "Enable Web Services (available on http://localhost:8124/analyser by default).")]
         public bool EnableWebServices { get; set; }
-
         
-
         [Option('u', "serviceurl", Required = false, DefaultValue = "http://localhost:8124/analyser",
         HelpText = "Optional service URL for REST web services (must change if running multiple instances with web services enabled.")]
         public string ServiceUrl { get; set; }

@@ -2,11 +2,9 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.ServiceModel;
-using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Reflection;
 using System.ServiceModel.Web;
 
@@ -80,7 +78,6 @@ namespace TsAnalyser
 
             try
             {
-                var items = _assembly.GetManifestResourceNames();
                 var manifestAddress = wildcardSegments.Aggregate("TsAnalyser.embeddedWebResources", (current, wildcardPathSegment) => current + ("." + wildcardPathSegment));
 
                 return _assembly.GetManifestResourceStream(manifestAddress);
@@ -101,11 +98,14 @@ namespace TsAnalyser
             return _serialisableMetric;
         }
 
-        public void ResetMetrics(string itemPath)
+        public void ResetMetrics()
         {
-            WebOperationContext.Current?.OutgoingResponse.Headers.Add("Access-Control-Allow-Origin", "*");
+            if (WebOperationContext.Current == null) return;
 
-            throw new NotImplementedException();
+            WebOperationContext.Current.OutgoingResponse.Headers.Add("Access-Control-Allow-Origin", "*");
+            WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.OK;
+
+            OnStreamCommand(StreamCommandType.ResetMetrics);
         }
         
         public void StartStream()
@@ -161,8 +161,32 @@ namespace TsAnalyser
 
         }
 
+        public delegate void StreamCommandEventHandler(object sender, StreamCommandEventArgs e);
+
+        public event StreamCommandEventHandler StreamCommand;
+
+        protected virtual void OnStreamCommand(StreamCommandType command)
+        {
+            var handler = StreamCommand;
+            if (handler == null) return;
+            var args = new StreamCommandEventArgs {Command = command};
+            handler(this, args);
+        }
     }
-    
+
+    public class StreamCommandEventArgs : EventArgs
+    {
+        public StreamCommandType Command { get; set; }
+    }
+
+    public enum StreamCommandType
+    {
+        ResetMetrics,
+        StopStream,
+        StartStream
+    }
 
 }
+    
+
 
