@@ -46,6 +46,10 @@ namespace TsAnalyser
         private static NetworkMetric _networkMetric = new NetworkMetric();
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<TsMetrics> _tsMetrics = new List<TsMetrics>();
+        private static ProgAssociationTable _progAssociationTable;
+        private static ProgramMapTable _programMapTable;
+        private static ServiceDescriptionTable _serviceDescriptionTable;
+        private static Object _serviceDescriptionTableLock = new Object();
 
         static void Main(string[] args)
         {
@@ -140,6 +144,18 @@ namespace TsAnalyser
                     PrintToConsole(
                         "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
                         _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
+
+                    if (null != _serviceDescriptionTable)
+                    {
+                        lock (_serviceDescriptionTableLock)
+                        {
+                            foreach (ServiceDescriptionTable.Section section in _serviceDescriptionTable.Sections)
+                            {
+                                PrintToConsole("Service Information\n----------------\nService Name {0}\tService Provider {1}\n\n", section.ServiceName, section.ServiceProviderName);
+                            }
+                        }
+                    }
+
                     PrintToConsole("\nTS Details\n----------------");
                     lock (_tsMetrics)
                     {
@@ -156,6 +172,7 @@ namespace TsAnalyser
                                 tsMetric.PacketCount, tsMetric.CcErrorCount);
                         }
                     }
+                   
                 }
 
                 Thread.Sleep(20);
@@ -217,8 +234,24 @@ namespace TsAnalyser
                                 _tsMetrics.Add(currentMetric);
                             }
                             currentMetric.AddPacket(tsPacket);
+                            if (currentMetric.IsProgAssociationTable)
+                            {
+                                _progAssociationTable = currentMetric.ProgAssociationTable;
+                            }
+
+                            if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PMTPid)
+                            {
+                                _programMapTable = ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
+                            }
+                            if(tsPacket.Pid == 0x0011)
+                            {
+                                lock (_serviceDescriptionTableLock)
+                                {
+                                    _serviceDescriptionTable = ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
+                                }
+                            }
                         }
-                    }
+                    }                   
                 }
                 catch (Exception ex)
                 {
