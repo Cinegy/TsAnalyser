@@ -54,6 +54,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Descriptor.cs" />
     <Compile Include="ITsAnalyserApi.cs" />
     <Compile Include="SerialisableMetrics.cs" />
     <Compile Include="NetworkMetric.cs" />
@@ -84,6 +85,7 @@
     <EmbeddedResource Include="embeddedWebResources\stylesheets\bootstrap-theme.min.css" />
     <EmbeddedResource Include="embeddedWebResources\stylesheets\bootstrap.min.css" />
     <EmbeddedResource Include="embeddedWebResources\stylesheets\index.css" />
+    <EmbeddedResource Include="embeddedWebResources\default.html" />
     <Content Include="FodyWeavers.xml" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

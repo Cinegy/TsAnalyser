@@ -10,6 +10,26 @@ body {
     margin: 10px;
     padding: 0 10px 3px 10px;
 }
+#currentMetrics1 {
+    width : 30%;
+    float : left;
+}
+
+#currentMetrics2 {
+    width : 45%;
+    float : left;
+}
+#currentMetrics1 > tbody > tr > td,#currentMetrics2 > tbody > tr > td{
+    white-space : nowrap;
+}
+
+#currentMetrics1 > tbody > tr > td, #currentMetrics2 > tbody > tr > td{
+    padding-left : 32px;
+}
+
+#currentMetrics2 > tbody > tr.blockStart:nth-child(1n+1) > td{
+    padding-top : 16px;
+}
 
 #mainHeaderProductName { font-size: 24px; }
 
