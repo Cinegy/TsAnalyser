@@ -328,7 +328,7 @@ namespace TsAnalyser
                     "Failed to start local web API for player - either something is already using the requested URL, the tool is not running as local administrator, or netsh url reservations have not been made " +
                     "to allow non-admin users to host services.\n\n" +
                     "To make a URL reservation, permitting non-admin execution, run:\n" +
-                    "netsh http add urlacl http://+:8124/analyser user=BUILTIN\\Users\n\n" +
+                    "netsh http add urlacl http://+:8124/ user=BUILTIN\\Users\n\n" +
                     "This is the details of the exception thrown:" +
                     ex.Message +
                     "\n\nHit enter to continue without services.\n\n";

@@ -31,10 +31,10 @@ namespace TsAnalyser
         public string AdapterAddress { get; set; }
 
         [Option('w', "webservices", Required = false, DefaultValue = false,
-        HelpText = "Enable Web Services (available on http://localhost:8124/analyser by default).")]
+        HelpText = "Enable Web Services (available on http://localhost:8124/ by default).")]
         public bool EnableWebServices { get; set; }
         
-        [Option('u', "serviceurl", Required = false, DefaultValue = "http://localhost:8124/analyser",
+        [Option('u', "serviceurl", Required = false, DefaultValue = "http://localhost:8124/",
         HelpText = "Optional service URL for REST web services (must change if running multiple instances with web services enabled.")]
         public string ServiceUrl { get; set; }
 

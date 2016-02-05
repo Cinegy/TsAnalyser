@@ -78,7 +78,7 @@ namespace TsAnalyser
 
             try
             {
-                var manifestAddress = wildcardSegments.Aggregate("TsAnalyser.embeddedWebResources", (current, wildcardPathSegment) => current + ("." + wildcardPathSegment));
+                var manifestAddress = wildcardSegments.Aggregate(_assembly.GetName().Name + ".embeddedWebResources", (current, wildcardPathSegment) => current + ("." + wildcardPathSegment));
 
                 return _assembly.GetManifestResourceStream(manifestAddress);
             }
