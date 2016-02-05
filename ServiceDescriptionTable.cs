@@ -94,12 +94,29 @@ namespace TsAnalyser
                     section.DVBDescriptorTag = packets[i].Payload[currentSectionStart + 5];
                     section.DescriptorLength = packets[i].Payload[currentSectionStart + 6];
                     section.ServiceType = packets[i].Payload[currentSectionStart + 7];
-                    section.ServiceProviderNameLength = packets[i].Payload[currentSectionStart + 8];
-                    section.Charset1 = packets[i].Payload[currentSectionStart + 9];
-                    section.ServiceProviderName = System.Text.Encoding.UTF8.GetString(packets[i].Payload, currentSectionStart + 10, section.ServiceProviderNameLength - 1);
+                    section.ServiceProviderNameLength = packets[i].Payload[currentSectionStart + 8];                                        
+                    if (section.ServiceProviderNameLength > 1)
+                    {
+                        section.Charset1 = packets[i].Payload[currentSectionStart + 9];
+                        section.ServiceProviderName = System.Text.Encoding.UTF8.GetString(packets[i].Payload, currentSectionStart + 10, section.ServiceProviderNameLength - 1);
+                        if (section.Charset1 > 65)
+                        {
+                            section.ServiceProviderName = (char)(section.Charset1) + section.ServiceProviderName;
+                            section.ServiceProviderName = section.ServiceProviderName.Substring(0, section.ServiceProviderName.Length);
+                        }
+                    }
                     section.ServiceNameLength = packets[i].Payload[currentSectionStart + 11 + section.ServiceProviderNameLength - 2];
-                    section.Charset2 = packets[i].Payload[currentSectionStart + 12 + section.ServiceProviderNameLength - 2];
-                    section.ServiceName = System.Text.Encoding.UTF8.GetString(packets[i].Payload, currentSectionStart + 13 + section.ServiceProviderNameLength - 2, section.ServiceNameLength);
+                    if (section.ServiceNameLength > 2)
+                    {
+                        section.Charset2 = packets[i].Payload[currentSectionStart + 12 + section.ServiceProviderNameLength - 2];
+                        section.ServiceName = System.Text.Encoding.UTF8.GetString(packets[i].Payload, currentSectionStart + 13 + section.ServiceProviderNameLength - 2, section.ServiceNameLength);
+                        if (section.Charset2 > 65)
+                        {
+                            section.ServiceName = (char)(section.Charset2) + section.ServiceName;
+                            section.ServiceName = section.ServiceName.Substring(0, section.ServiceName.Length - 1);
+                        }
+                    }
+
 
                     currentSectionStart = currentSectionStart + 5 + section.DescriptorsLoopLength;
                     sdt.Sections.Add(section);
