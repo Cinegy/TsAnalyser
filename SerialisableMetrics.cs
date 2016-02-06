@@ -9,12 +9,14 @@ namespace TsAnalyser
             Network = new SerialisableNetworkMetric();
             Ts = new SerialisableTsMetric();
             Rtp = new SerialisableRtpMetric();
+            Service = new ServiceDescriptionMetric();
         }
 
         public SerialisableNetworkMetric Network { get; set; }
         public SerialisableTsMetric Ts { get; set; }
 
         public SerialisableRtpMetric Rtp { get; set; }
+        public ServiceDescriptionMetric Service { get; set; }
 
         public class SerialisableNetworkMetric
         {
@@ -47,6 +49,7 @@ namespace TsAnalyser
                 public bool IsProgAssociationTable { get; set; }
 
                 public long PacketCount { get; set; }
+                public string StreamType { get; set; }
             }
         }
 
@@ -56,6 +59,12 @@ namespace TsAnalyser
             public long SequenceNumber { get; set; }
             public long Timestamp { get; set; }
             public long SSRC { get; set; }
+        }
+
+        public class ServiceDescriptionMetric
+        {
+            public string ServiceName { get; set; }
+            public string ServiceProvider { get; set; }
         }
     }
 }

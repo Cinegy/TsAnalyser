@@ -42,7 +42,7 @@ namespace TsAnalyser
                 var pos = 1 + pat.PointerField;
 
                 pat.TableId = packets[i].Payload[pos];
-                pat.SectionLength = (short) ((packets[i].Payload[pos + 1] & 0x3 << 8) + packets[i].Payload[pos + 2]);
+                pat.SectionLength = (short) (((packets[i].Payload[pos + 1] & 0x3) << 8) + packets[i].Payload[pos + 2]);
                 pat.TransportStreamId = (short) ((packets[i].Payload[pos + 3] << 8) + packets[i].Payload[pos + 4]);
                 pat.VersionNumber = (byte) (packets[i].Payload[pos + 5] & 0x3E);
                 pat.CurrentNextIndicator = (packets[i].Payload[pos + 5] & 0x1) != 0;
@@ -56,7 +56,7 @@ namespace TsAnalyser
                 for (int ii = 0; ii < (pat.SectionLength - 9) / 4; ii++)
                 {
                     pat.ProgramNumbers[ii] = (short)((packets[i].Payload[programStart + (ii * 4)] << 8) + packets[i].Payload[programStart + 1 + (ii * 4)]);
-                    pat.PIDS[ii] = (short)((packets[i].Payload[programStart + 2 + (ii * 4)] & 0x1F << 8) + packets[i].Payload[programStart + 3 + (ii * 4)]);
+                    pat.PIDS[ii] = (short)(((packets[i].Payload[programStart + 2 + (ii * 4)] & 0x1F) << 8) + packets[i].Payload[programStart + 3 + (ii * 4)]);
                     if(pat.ProgramNumbers[ii] != 0)
                     {
                         pat.PMTPid = pat.PIDS[ii];

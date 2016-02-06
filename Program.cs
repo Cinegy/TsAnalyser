@@ -151,7 +151,7 @@ namespace TsAnalyser
                         {
                             foreach (ServiceDescriptionTable.Section section in _serviceDescriptionTable.Sections)
                             {
-                                PrintToConsole("Service Information\n----------------\nService Name {0}\tService Provider {1}\n\n", section.ServiceName, section.ServiceProviderName);
+                                PrintToConsole("Service Information\n----------------\nService Name {0}\tService Provider {1}\n\t\t\t\t\t\t\t\t\t\t", section.ServiceName, section.ServiceProviderName);
                             }
                         }
                     }
@@ -242,12 +242,14 @@ namespace TsAnalyser
                             if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PMTPid)
                             {
                                 _programMapTable = ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
+                                _tsAnalyserApi.ProgramMetrics = _programMapTable;
                             }
                             if(tsPacket.Pid == 0x0011)
                             {
                                 lock (_serviceDescriptionTableLock)
                                 {
                                     _serviceDescriptionTable = ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
+                                    _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
                                 }
                             }
                         }

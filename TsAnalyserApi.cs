@@ -24,6 +24,9 @@ namespace TsAnalyser
 
         public List<TsMetrics> TsMetrics = new List<TsMetrics>();
 
+        public ServiceDescriptionTable ServiceMetrics = new ServiceDescriptionTable();
+        public ProgramMapTable ProgramMetrics = new ProgramMapTable();
+
         public void GetGlobalOptions()
         {
             if (WebOperationContext.Current == null) return;
@@ -145,19 +148,39 @@ namespace TsAnalyser
                     SequenceNumber = RtpMetric.LastSequenceNumber,
                     SSRC = RtpMetric.Ssrc,
                     Timestamp = RtpMetric.LastTimestamp
-                }
+                },
+                
             };
 
             foreach (var ts in TsMetrics)
             {
+                String StreamType = "";
+                if (ProgramMetrics.Sections != null)
+                {
+                    ProgramMapTable.Section section = ProgramMetrics.Sections.Where(P => P.ElementaryPID == ts.Pid).FirstOrDefault();
+                    if (section != null)
+                    {
+                        if (ProgramMapTable.ElementarystreamTypes.ContainsKey(section.StreamType))
+                        {
+                            StreamType = ProgramMapTable.ElementarystreamTypes[section.StreamType];
+                        }
+                    }
+                }
                 _serialisableMetric.Ts.Pids.Add(new SerialisableMetrics.SerialisableTsMetric.PidDetails()
                 {
                     CcErrorCount = ts.CcErrorCount,
                     Pid = ts.Pid,
                     IsProgAssociationTable = ts.IsProgAssociationTable,
-                    PacketCount = ts.PacketCount
+                    PacketCount = ts.PacketCount,
+                    StreamType = StreamType
                 });
             }
+
+            if (ServiceMetrics.Sections != null && ServiceMetrics.Sections.Count > 0) {
+                _serialisableMetric.Service.ServiceName = ServiceMetrics.Sections[0].ServiceName;
+                _serialisableMetric.Service.ServiceProvider = ServiceMetrics.Sections[0].ServiceProviderName;
+            }
+
 
         }
 

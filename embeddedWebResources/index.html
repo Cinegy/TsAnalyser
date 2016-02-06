@@ -13,12 +13,134 @@
     <script type="text/javascript" src="./javascripts/bootstrap.min.js"></script>
     <script type="text/javascript" src="./javascripts/knockout-3.4.0.js"></script>
     <script type="text/javascript" src="./javascripts/index.js"></script>
+   
 </head>
 <body>
 
 <div id="mainHeader">
-    <div id="mainHeaderProductName">I'm a page</div>
+  TsAnalyser
 </div>
+    <div id="mainHeaderProductName"></div>
+    <div style="color : white;">        
+        <table id="currentMetrics1">
+            <thead class="network">
+                <tr>
+                    <th colspan="2">Network</th>
+                </tr>
+            </thead>
+            <tbody class="network">                
+                <tr>
+                    <td>Average Bitrate</td>
+                    <td data-bind="text: Network.AverageBitrate"></td>
+                </tr>
+                <tr>
+                    <td>Current Bitrate</td>
+                    <td data-bind="text: Network.CurrentBitrate"></td>
+                </tr>
+                <tr>
+                    <td>Highest Bitrate</td>
+                    <td data-bind="text: Network.HighestBitrate"></td>
+                </tr>
+                <tr>
+                    <td>Longest Time Between Packets</td>
+                    <td data-bind="text: Network.LongestTimeBetweenPackets"></td>
+                </tr>
+                <tr>
+                    <td>Lowest Bitrate</td>
+                    <td data-bind="text: Network.LowestBitrate"></td>
+                </tr>
+                <tr>
+                    <td>Network Buffer Usage</td>
+                    <td data-bind="text: Network.NetworkBufferUsage"></td>
+                </tr>
+                <tr>
+                    <td>Packets Per Second</td>
+                    <td data-bind="text: Network.PacketsPerSecond"></td>
+                </tr>
+                <tr>
+                    <td>Shortest Time Between Packets</td>
+                    <td data-bind="text: Network.ShortestTimeBetweenPackets"></td>
+                </tr>
+                <tr>
+                    <td>Time Between Last Packet</td>
+                    <td data-bind="text: Network.TimeBetweenLastPacket"></td>
+                </tr>
+                <tr>
+                    <td>Total Packets Recieved</td>
+                    <td data-bind="text: Network.TotalPacketsRecieved"></td>
+                    </tr>
+            </tbody>    
+            <thead class="rtp">
+                <tr>
+                    <th colspan="2">RTP</th>
+                </tr>
+            </thead>
+            <tbody class="rtp">
+                <tr>
+                    <td>Min Lost Packets</td>
+                    <td data-bind="text: Rtp.MinLostPackets"></td>
+                </tr>
+                <tr>
+                    <td>SSRC</td>
+                    <td data-bind="text: Rtp.SSRC"></td>
+                </tr>
+                <tr>
+                    <td>Sequence Number</td>
+                    <td data-bind="text: Rtp.SequenceNumber"></td>
+                </tr>
+                <tr>
+                    <td>Timestamp</td>
+                    <td data-bind="text: Rtp.Timestamp"></td>
+                </tr>                                                                
+            </tbody> 
+            <thead class="service">
+                <tr>
+                    <th colspan="2">Service</th>
+                </tr>
+            </thead>
+            <tbody class="service">
+                <tr>
+                    <td>Service Name</td>
+                    <td data-bind="text: Service.ServiceName"></td>
+                </tr>
+                <tr>
+                    <td>Service Provider</td>
+                    <td data-bind="text: Service.ServiceProvider"></td>
+                </tr>
+               
+            </tbody> 
+        </table>
+        <table id="currentMetrics2">
+            <thead class="ts">
+                <tr>
+                    <th colspan="2">TS</th>
+                </tr>
+            </thead>     
+            <tbody class="ts" data-bind="foreach: Ts.Pids" >                
+                <tr class="blockStart">
+                    <td>Pid</td>
+                    <td data-bind="text: Pid"></td>
+                </tr>
 
+                <tr>
+                    <td>Cc Error Count</td>
+                    <td data-bind="text: CcErrorCount"></td>
+                </tr>
+                <tr>
+                    <td>Is ProgAssociationTable</td>
+                    <td data-bind="text: IsProgAssociationTable"></td>
+                </tr>
+                <tr>
+                    <td>Packet Count</td>
+                    <td data-bind="text: PacketCount"></td>
+                </tr>                               
+                <tr>
+                    <td>StreamType</td>
+                    <td data-bind="text: StreamType"></td>
+                </tr> 
+            </tbody>
+        </table>
+    </div>
+     
 </body>
 </html>
