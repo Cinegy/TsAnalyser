@@ -60,6 +60,15 @@ namespace TsAnalyser
             Console.WriteLine("Cinegy Simple RTP monitoring tool v1.0.0 ({0})\n",
                 File.GetCreationTime(Assembly.GetExecutingAssembly().Location));
 
+            try
+            {
+                Console.SetWindowSize(100, 40);
+            }
+            catch
+            {
+                Console.WriteLine("Failed to increase console size - probably screen resolution is low");
+            }
+
             if (!Parser.Default.ParseArguments(args, options))
             {
                 //ask the user interactively for an address and group
@@ -124,6 +133,12 @@ namespace TsAnalyser
             {
                 var runningTime = DateTime.UtcNow.Subtract(_startTime);
 
+                //causes occasional total refresh to erase glitches that build up
+                if (runningTime.Milliseconds < 20)
+                {
+                    Console.Clear();
+                }
+
                 if (!_suppressConsoleOutput)
 
                 {
@@ -149,9 +164,14 @@ namespace TsAnalyser
                     {
                         lock (_serviceDescriptionTableLock)
                         {
-                            foreach (ServiceDescriptionTable.Section section in _serviceDescriptionTable.Sections)
+                            if (_serviceDescriptionTable.Sections != null)
                             {
-                                PrintToConsole("Service Information\n----------------\nService Name {0}\tService Provider {1}\n\t\t\t\t\t\t\t\t\t\t", section.ServiceName, section.ServiceProviderName);
+                                foreach (ServiceDescriptionTable.Section section in _serviceDescriptionTable.Sections)
+                                {
+                                    PrintToConsole(
+                                        "Service Information\n----------------\nService Name {0}\tService Provider {1}\n\t\t\t\t\t\t\t\t\t\t",
+                                        section.ServiceName, section.ServiceProviderName);
+                                }
                             }
                         }
                     }
@@ -160,13 +180,13 @@ namespace TsAnalyser
                     lock (_tsMetrics)
                     {
                         var patMetric = _tsMetrics.FirstOrDefault(m => m.IsProgAssociationTable);
-                        if (patMetric != null && patMetric.ProgAssociationTable.ProgramNumbers != null)
+                        if (patMetric?.ProgAssociationTable.ProgramNumbers != null)
                         {
-                            PrintToConsole("Unique PID count: {0}\t\tProgram Count: {1}\t\t\t", _tsMetrics.Count,
+                            PrintToConsole("Unique PID count: {0}\t\tProgram Count: {1}\t\t\nShowing up to 10 PID streams in table:", _tsMetrics.Count,
                                 patMetric.ProgAssociationTable.ProgramNumbers.Length);
                         }
 
-                        foreach (var tsMetric in _tsMetrics.OrderByDescending(m => m.Pid))
+                        foreach (var tsMetric in _tsMetrics.OrderByDescending(m => m.Pid).Take(10))
                         {
                             PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", tsMetric.Pid,
                                 tsMetric.PacketCount, tsMetric.CcErrorCount);
@@ -242,14 +262,15 @@ namespace TsAnalyser
                             if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PMTPid)
                             {
                                 _programMapTable = ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
-                                _tsAnalyserApi.ProgramMetrics = _programMapTable;
+                                if(_tsAnalyserApi!=null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
                             }
+
                             if(tsPacket.Pid == 0x0011)
                             {
                                 lock (_serviceDescriptionTableLock)
                                 {
                                     _serviceDescriptionTable = ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
-                                    _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
+                                    if (_tsAnalyserApi != null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
                                 }
                             }
                         }
