@@ -216,7 +216,7 @@ namespace TsAnalyser
             _networkMetric.UdpClient = _udpClient;
 
             var parsedMcastAddr = IPAddress.Parse(multicastAddress);
-            _udpClient.JoinMulticastGroup(parsedMcastAddr);
+            _udpClient.JoinMulticastGroup(parsedMcastAddr, listenAddress);
 
             var ts = new ThreadStart(delegate
             {
@@ -227,6 +227,8 @@ namespace TsAnalyser
 
             receiverThread.Start();
         }
+
+
 
         private static void ReceivingNetworkWorkerThread(UdpClient client, IPEndPoint localEp)
         {
