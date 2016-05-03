@@ -29,6 +29,7 @@ using System.ServiceModel.Web;
 using System.Threading;
 using CommandLine;
 using static System.String;
+using System.ComponentModel;
 
 namespace TsAnalyser
 {
@@ -37,12 +38,15 @@ namespace TsAnalyser
         private static bool _receiving;
         private static bool _suppressConsoleOutput;
         private static bool _readServiceDescriptions;
+        private static bool _noRtpHeaders;
         private static DateTime _startTime = DateTime.UtcNow;
         private static string _logFile;
         private static bool _pendingExit;
         private static ServiceHost _serviceHost;
         private static TsAnalyserApi _tsAnalyserApi;
         private static UdpClient _udpClient = new UdpClient { ExclusiveAddressUse = false };
+        private static object _logfileWriteLock = new object();
+        private static StreamWriter _logFileStream = null;
 
         private static NetworkMetric _networkMetric = new NetworkMetric();
         private static RtpMetric _rtpMetric = new RtpMetric();
@@ -92,7 +96,6 @@ namespace TsAnalyser
                 }
                 options.MulticastGroup = int.Parse(port);
 
-                _readServiceDescriptions = options.ReadServiceDescriptions;
             }
 
             WorkLoop(options);
@@ -107,6 +110,8 @@ namespace TsAnalyser
                 _receiving = true;
                 _logFile = options.LogFile;
                 _suppressConsoleOutput = options.SuppressOutput;
+                _readServiceDescriptions = options.ReadServiceDescriptions;
+                _noRtpHeaders = options.NoRtpHeaders;
 
                 if (!IsNullOrWhiteSpace(_logFile))
                 {
@@ -151,17 +156,21 @@ namespace TsAnalyser
                         options.MulticastGroup, runningTime);
                     PrintToConsole(
                         "Network Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%\t\t\nTotal Data (MB): {2}\t\tPackets per sec:{3}",
-                        _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, _networkMetric.TotalData/1048576,
+                        _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, _networkMetric.TotalData / 1048576,
                         _networkMetric.PacketsPerSecond);
                     PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
                         _networkMetric.TimeBetweenLastPacket, _networkMetric.ShortestTimeBetweenPackets,
                         _networkMetric.LongestTimeBetweenPackets);
                     PrintToConsole("Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
-                        (_networkMetric.CurrentBitrate/131072.0), _networkMetric.AverageBitrate/131072.0,
-                        (_networkMetric.HighestBitrate/131072.0), (_networkMetric.LowestBitrate/131072.0));
-                    PrintToConsole(
-                        "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
-                        _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
+                        (_networkMetric.CurrentBitrate / 131072.0), _networkMetric.AverageBitrate / 131072.0,
+                        (_networkMetric.HighestBitrate / 131072.0), (_networkMetric.LowestBitrate / 131072.0));
+
+                    if (!_noRtpHeaders)
+                    { 
+                        PrintToConsole(
+                            "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
+                            _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
+                    }
 
                     if (null != _serviceDescriptionTable && _readServiceDescriptions)
                     {
@@ -242,7 +251,11 @@ namespace TsAnalyser
                 try
                 {
                     _networkMetric.AddPacket(data);
-                    _rtpMetric.AddPacket(data);
+
+                    if (!_noRtpHeaders)
+                    {
+                        _rtpMetric.AddPacket(data);
+                    }
 
                     //TS packet metrics
                     var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
@@ -320,29 +333,40 @@ namespace TsAnalyser
             
             Console.WriteLine(message, arguments);
         }
-
+        
         private static void LogMessage(string message)
         {
-            try
-            {
-                if (IsNullOrWhiteSpace(_logFile)) return;
-
-                var fs = new FileStream(_logFile, FileMode.Append, FileAccess.Write);
-                var sw = new StreamWriter(fs);
-
-                sw.WriteLine("{0} - {1}", DateTime.Now, message);
-
-                sw.Close();
-                fs.Close();
-                sw.Dispose();
-                fs.Dispose();
-            }
-            catch (Exception)
-            {
-                Debug.WriteLine("Concurrency error writing to log file...");
-            }
-
+            ThreadPool.QueueUserWorkItem(WriteToFile, message);
         }
+
+        public static void WriteToFile(object msg)
+        {
+            lock (_logfileWriteLock)
+            {
+                try
+                {
+                    if (_logFileStream == null || _logFileStream.BaseStream.CanWrite != true)
+                    {
+                        if (IsNullOrWhiteSpace(_logFile)) return;
+
+                        var fs = new FileStream(_logFile, FileMode.Append, FileAccess.Write);
+
+                        _logFileStream = new StreamWriter(fs);
+                        _logFileStream.AutoFlush = true;
+                    }
+
+                    _logFileStream.WriteLine("{0} - {1}", DateTime.Now, msg);
+                }
+                catch (Exception)
+                {
+                    Debug.WriteLine("Concurrency error writing to log file...");
+                    _logFileStream.Close();
+                    _logFileStream.Dispose();
+                }
+            }
+        }
+
+  
 
         private static void StartHttpService(string serviceAddress)
         {
