@@ -36,6 +36,7 @@ namespace TsAnalyser
     {
         private static bool _receiving;
         private static bool _suppressConsoleOutput;
+        private static bool _readServiceDescriptions;
         private static DateTime _startTime = DateTime.UtcNow;
         private static string _logFile;
         private static bool _pendingExit;
@@ -90,6 +91,8 @@ namespace TsAnalyser
                     return;
                 }
                 options.MulticastGroup = int.Parse(port);
+
+                _readServiceDescriptions = options.ReadServiceDescriptions;
             }
 
             WorkLoop(options);
@@ -160,7 +163,7 @@ namespace TsAnalyser
                         "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
                         _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
 
-                    if (null != _serviceDescriptionTable)
+                    if (null != _serviceDescriptionTable && _readServiceDescriptions)
                     {
                         lock (_serviceDescriptionTableLock)
                         {
@@ -256,23 +259,27 @@ namespace TsAnalyser
                                 _tsMetrics.Add(currentMetric);
                             }
                             currentMetric.AddPacket(tsPacket);
+
                             if (currentMetric.IsProgAssociationTable)
                             {
                                 _progAssociationTable = currentMetric.ProgAssociationTable;
                             }
 
-                            if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PMTPid)
+                            if (_readServiceDescriptions)
                             {
-                                _programMapTable = ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
-                                if(_tsAnalyserApi!=null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
-                            }
-
-                            if(tsPacket.Pid == 0x0011)
-                            {
-                                lock (_serviceDescriptionTableLock)
+                                if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PMTPid)
                                 {
-                                    _serviceDescriptionTable = ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
-                                    if (_tsAnalyserApi != null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
+                                    _programMapTable = ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
+                                    if (_tsAnalyserApi != null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
+                                }
+
+                                if (tsPacket.Pid == 0x0011)
+                                {
+                                    lock (_serviceDescriptionTableLock)
+                                    {
+                                        _serviceDescriptionTable = ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
+                                        if (_tsAnalyserApi != null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
+                                    }
                                 }
                             }
                         }
