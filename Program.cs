@@ -260,6 +260,11 @@ namespace TsAnalyser
                     //TS packet metrics
                     var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
 
+                    if(tsPackets == null)
+                    {
+                        break;
+                    }
+
                     lock (_tsMetrics)
                     {
                         foreach (var tsPacket in tsPackets)
@@ -269,10 +274,11 @@ namespace TsAnalyser
                             {
                                 currentMetric = new TsMetrics {Pid = tsPacket.Pid};
                                 currentMetric.DiscontinuityDetected += currentMetric_DiscontinuityDetected;
+                                currentMetric.TransportErrorIndicatorDetected += currentMetric_TransportErrorIndicatorDetected;
                                 _tsMetrics.Add(currentMetric);
                             }
                             currentMetric.AddPacket(tsPacket);
-
+                            
                             if (currentMetric.IsProgAssociationTable)
                             {
                                 _progAssociationTable = currentMetric.ProgAssociationTable;
@@ -300,11 +306,11 @@ namespace TsAnalyser
                 }
                 catch (Exception ex)
                 {
-                    LogMessage($@"Unhandled exception withing network receiver: {ex.Message}");
+                    LogMessage($@"Unhandled exception within network receiver: {ex.Message}");
                 }
             }
         }
-
+        
         private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
             if (_pendingExit) return; //already trying to exit - allow normal behaviour on subsequent presses
@@ -312,9 +318,14 @@ namespace TsAnalyser
             e.Cancel = true;
         }
 
-        private static void currentMetric_DiscontinuityDetected(object sender, DiscontinutityEventArgs e)
+        private static void currentMetric_DiscontinuityDetected(object sender, TransportStreamEventArgs e)
         {
             LogMessage($"Discontinuity on TS PID {e.TsPid}");
+        }
+
+        private static void currentMetric_TransportErrorIndicatorDetected(object sender, TransportStreamEventArgs e)
+        {
+            LogMessage($"Transport Error Indicator on TS PID {e.TsPid}");
         }
 
         private static void RtpMetric_SequenceDiscontinuityDetected(object sender, EventArgs e)

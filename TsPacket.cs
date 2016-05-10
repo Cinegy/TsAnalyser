@@ -34,97 +34,114 @@ namespace TsAnalyser
 
         public static TsPacket[] GetTsPacketsFromData(byte[] data)
         {
-            var maxPackets = (data.Length) / TsPacketSize;
-            var tsPackets = new TsPacket[maxPackets];
-
-            var start = FindSync(data, 0);
-            var packetCounter = 0;
-
-            while (start >= 0)
+            try
             {
-                var tsPacket = new TsPacket
+                var maxPackets = (data.Length) / TsPacketSize;
+                var tsPackets = new TsPacket[maxPackets];
+
+                var start = FindSync(data, 0);
+                var packetCounter = 0;
+
+                while (start >= 0)
                 {
-                    SyncByte = data[start],
-                    Pid = (short)(((data[start + 1] & 0x1F) << 8) + (data[start + 2])),
-                    TransportErrorIndicator = (data[start + 1] & 0x80) != 0,
-                    PayloadUnitStartIndicator = (data[start + 1] & 0x40) != 0,
-                    TransportPriority = (data[start + 1] & 0x20) != 0,
-                    ScramblingControl = (short)(data[start + 3] >> 6),
-                    AdaptationFieldExists = (data[start + 3] & 0x20) != 0,
-                    ContainsPayload = (data[start + 3] & 0x10) != 0,
-                    ContinuityCounter = (short)(data[start + 3] & 0xF)
-                };
-
-                if (tsPacket.ContainsPayload)
-                {
-                    var payloadOffs = start + 4;
-                    var payloadSize = TsPacketSize - 4;
-
-                    if (tsPacket.AdaptationFieldExists)
+                    var tsPacket = new TsPacket
                     {
-                        var adaptationFieldSize = 1 + data[payloadOffs];
-                        payloadSize -= adaptationFieldSize;
-                        payloadOffs += adaptationFieldSize;
-                    }
+                        SyncByte = data[start],
+                        Pid = (short)(((data[start + 1] & 0x1F) << 8) + (data[start + 2])),
+                        TransportErrorIndicator = (data[start + 1] & 0x80) != 0,
+                        PayloadUnitStartIndicator = (data[start + 1] & 0x40) != 0,
+                        TransportPriority = (data[start + 1] & 0x20) != 0,
+                        ScramblingControl = (short)(data[start + 3] >> 6),
+                        AdaptationFieldExists = (data[start + 3] & 0x20) != 0,
+                        ContainsPayload = (data[start + 3] & 0x10) != 0,
+                        ContinuityCounter = (short)(data[start + 3] & 0xF)
+                    };
 
-                    if (tsPacket.PayloadUnitStartIndicator)
+                    if (tsPacket.ContainsPayload & !tsPacket.TransportErrorIndicator)
                     {
-                        if (data[payloadOffs] != 0 || data[payloadOffs + 1] != 0 || data[payloadOffs + 2] != 1)
+                        var payloadOffs = start + 4;
+                        var payloadSize = TsPacketSize - 4;
+
+                        if (tsPacket.AdaptationFieldExists)
                         {
+                            var adaptationFieldSize = 1 + data[payloadOffs];
+                            payloadSize -= adaptationFieldSize;
+                            payloadOffs += adaptationFieldSize;
+                        }
+
+                        if (tsPacket.PayloadUnitStartIndicator)
+                        {
+                            if (payloadOffs > (data.Length - 2) || data[payloadOffs] != 0 || data[payloadOffs + 1] != 0 || data[payloadOffs + 2] != 1)
+                            {
 #if DEBUG
-                            Debug.WriteLine("PES syntax error: no PES startcode found");
+                                Debug.WriteLine("PES syntax error: no PES startcode found, or payload offset exceeds boundary of data");
 #endif
+                            }
+                            else
+                            {
+                                tsPacket.PesHeader = new PesHdr
+                                {
+                                    StartCode = 0x100 + data[payloadOffs + 3],
+                                    Pts = -1,
+                                    Dts = -1
+                                };
+
+                                var ptsDtsFlag = data[payloadOffs + 7] >> 6;
+
+                                switch (ptsDtsFlag)
+                                {
+                                    case 2:
+                                        tsPacket.PesHeader.Pts = Get_TimeStamp(2, data, payloadOffs + 9);
+                                        break;
+                                    case 3:
+                                        tsPacket.PesHeader.Pts = Get_TimeStamp(3, data, payloadOffs + 9);
+                                        tsPacket.PesHeader.Dts = Get_TimeStamp(1, data, payloadOffs + 14);
+                                        break;
+                                    case 1:
+                                        throw new Exception("PES Syntax error: pts_dts_flag = 1");
+                                }
+
+                                var pesLength = 9 + data[payloadOffs + 8];
+                                tsPacket.PesHeader.Payload = new byte[pesLength];
+                                Buffer.BlockCopy(data, payloadOffs, tsPacket.PesHeader.Payload, 0, pesLength);
+
+                                payloadOffs += pesLength;
+                                payloadSize -= pesLength;
+                            }
+                        }
+
+                        if (payloadSize < 1)
+                        {
+                            tsPacket.TransportErrorIndicator = true;
                         }
                         else
                         {
-                            tsPacket.PesHeader = new PesHdr
-                            {
-                                StartCode = 0x100 + data[payloadOffs + 3],
-                                Pts = -1,
-                                Dts = -1
-                            };
-
-                            var ptsDtsFlag = data[payloadOffs + 7] >> 6;
-
-                            switch (ptsDtsFlag)
-                            {
-                                case 2:
-                                    tsPacket.PesHeader.Pts = Get_TimeStamp(2, data, payloadOffs + 9);
-                                    break;
-                                case 3:
-                                    tsPacket.PesHeader.Pts = Get_TimeStamp(3, data, payloadOffs + 9);
-                                    tsPacket.PesHeader.Dts = Get_TimeStamp(1, data, payloadOffs + 14);
-                                    break;
-                                case 1:
-                                    throw new Exception("PES Syntax error: pts_dts_flag = 1");
-                            }
-
-                            var pesLength = 9 + data[payloadOffs + 8];
-                            tsPacket.PesHeader.Payload = new byte[pesLength];
-                            Buffer.BlockCopy(data, payloadOffs, tsPacket.PesHeader.Payload, 0, pesLength);
-
-                            payloadOffs += pesLength;
-                            payloadSize -= pesLength;
+                            tsPacket.Payload = new byte[payloadSize];
+                            Buffer.BlockCopy(data, payloadOffs, tsPacket.Payload, 0, payloadSize);
                         }
                     }
 
-                    tsPacket.Payload = new byte[payloadSize];
-                    Buffer.BlockCopy(data, payloadOffs, tsPacket.Payload, 0, payloadSize);
+                    tsPackets[packetCounter++] = tsPacket;
+
+                    start += TsPacketSize;
+
+                    if (start >= data.Length)
+                        break;
+                    if (data[start] != SyncByte)
+                        break;  // but this is strange!
                 }
 
-                tsPackets[packetCounter++] = tsPacket;
-
-                start += TsPacketSize;
-
-                if (start >= data.Length)
-                    break;
-                if (data[start] != SyncByte)
-                    break;	// but this is strange!
+                return tsPackets;
             }
 
-            return tsPackets;
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Exception within GetTsPacketsFromData method: " + ex.Message);
+            }
+
+            return null;
         }
-        
+
         private static long Get_TimeStamp(int code, IList<byte> data, int offs)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
