@@ -174,6 +174,12 @@ namespace TsAnalyser
         private static int FindSync(IList<byte> tsData, int offset)
         {
             if (tsData == null) throw new ArgumentNullException(nameof(tsData));
+            
+            //not big enough to be any kind of single TS packet
+            if (tsData.Count < 188)
+            {
+                return -1;
+            }
 
             try
             {
