@@ -29,6 +29,7 @@ using System.ServiceModel.Web;
 using System.Threading;
 using CommandLine;
 using static System.String;
+using System.ComponentModel;
 
 namespace TsAnalyser
 {
@@ -36,12 +37,16 @@ namespace TsAnalyser
     {
         private static bool _receiving;
         private static bool _suppressConsoleOutput;
+        private static bool _readServiceDescriptions;
+        private static bool _noRtpHeaders;
         private static DateTime _startTime = DateTime.UtcNow;
         private static string _logFile;
         private static bool _pendingExit;
         private static ServiceHost _serviceHost;
         private static TsAnalyserApi _tsAnalyserApi;
         private static UdpClient _udpClient = new UdpClient { ExclusiveAddressUse = false };
+        private static object _logfileWriteLock = new object();
+        private static StreamWriter _logFileStream = null;
 
         private static NetworkMetric _networkMetric = new NetworkMetric();
         private static RtpMetric _rtpMetric = new RtpMetric();
@@ -59,6 +64,15 @@ namespace TsAnalyser
 
             Console.WriteLine("Cinegy Simple RTP monitoring tool v1.0.0 ({0})\n",
                 File.GetCreationTime(Assembly.GetExecutingAssembly().Location));
+
+            try
+            {
+                Console.SetWindowSize(100, 40);
+            }
+            catch
+            {
+                Console.WriteLine("Failed to increase console size - probably screen resolution is low");
+            }
 
             if (!Parser.Default.ParseArguments(args, options))
             {
@@ -81,6 +95,7 @@ namespace TsAnalyser
                     return;
                 }
                 options.MulticastGroup = int.Parse(port);
+
             }
 
             WorkLoop(options);
@@ -95,6 +110,8 @@ namespace TsAnalyser
                 _receiving = true;
                 _logFile = options.LogFile;
                 _suppressConsoleOutput = options.SuppressOutput;
+                _readServiceDescriptions = options.ReadServiceDescriptions;
+                _noRtpHeaders = options.NoRtpHeaders;
 
                 if (!IsNullOrWhiteSpace(_logFile))
                 {
@@ -124,6 +141,12 @@ namespace TsAnalyser
             {
                 var runningTime = DateTime.UtcNow.Subtract(_startTime);
 
+                //causes occasional total refresh to erase glitches that build up
+                if (runningTime.Milliseconds < 20)
+                {
+                    Console.Clear();
+                }
+
                 if (!_suppressConsoleOutput)
 
                 {
@@ -133,25 +156,34 @@ namespace TsAnalyser
                         options.MulticastGroup, runningTime);
                     PrintToConsole(
                         "Network Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%\t\t\nTotal Data (MB): {2}\t\tPackets per sec:{3}",
-                        _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, _networkMetric.TotalData/1048576,
+                        _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, _networkMetric.TotalData / 1048576,
                         _networkMetric.PacketsPerSecond);
                     PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
                         _networkMetric.TimeBetweenLastPacket, _networkMetric.ShortestTimeBetweenPackets,
                         _networkMetric.LongestTimeBetweenPackets);
                     PrintToConsole("Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
-                        (_networkMetric.CurrentBitrate/131072.0), _networkMetric.AverageBitrate/131072.0,
-                        (_networkMetric.HighestBitrate/131072.0), (_networkMetric.LowestBitrate/131072.0));
-                    PrintToConsole(
-                        "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
-                        _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
+                        (_networkMetric.CurrentBitrate / 131072.0), _networkMetric.AverageBitrate / 131072.0,
+                        (_networkMetric.HighestBitrate / 131072.0), (_networkMetric.LowestBitrate / 131072.0));
 
-                    if (null != _serviceDescriptionTable)
+                    if (!_noRtpHeaders)
+                    { 
+                        PrintToConsole(
+                            "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
+                            _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
+                    }
+
+                    if (null != _serviceDescriptionTable && _readServiceDescriptions)
                     {
                         lock (_serviceDescriptionTableLock)
                         {
-                            foreach (ServiceDescriptionTable.Section section in _serviceDescriptionTable.Sections)
+                            if (_serviceDescriptionTable.Sections != null)
                             {
-                                PrintToConsole("Service Information\n----------------\nService Name {0}\tService Provider {1}\n\t\t\t\t\t\t\t\t\t\t", section.ServiceName, section.ServiceProviderName);
+                                foreach (ServiceDescriptionTable.Section section in _serviceDescriptionTable.Sections)
+                                {
+                                    PrintToConsole(
+                                        "Service Information\n----------------\nService Name {0}\tService Provider {1}\n\t\t\t\t\t\t\t\t\t\t",
+                                        section.ServiceName, section.ServiceProviderName);
+                                }
                             }
                         }
                     }
@@ -160,13 +192,13 @@ namespace TsAnalyser
                     lock (_tsMetrics)
                     {
                         var patMetric = _tsMetrics.FirstOrDefault(m => m.IsProgAssociationTable);
-                        if (patMetric != null && patMetric.ProgAssociationTable.ProgramNumbers != null)
+                        if (patMetric?.ProgAssociationTable.ProgramNumbers != null)
                         {
-                            PrintToConsole("Unique PID count: {0}\t\tProgram Count: {1}\t\t\t", _tsMetrics.Count,
+                            PrintToConsole("Unique PID count: {0}\t\tProgram Count: {1}\t\t\nShowing up to 10 PID streams in table:", _tsMetrics.Count,
                                 patMetric.ProgAssociationTable.ProgramNumbers.Length);
                         }
 
-                        foreach (var tsMetric in _tsMetrics.OrderByDescending(m => m.Pid))
+                        foreach (var tsMetric in _tsMetrics.OrderByDescending(m => m.Pid).Take(10))
                         {
                             PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", tsMetric.Pid,
                                 tsMetric.PacketCount, tsMetric.CcErrorCount);
@@ -196,7 +228,7 @@ namespace TsAnalyser
             _networkMetric.UdpClient = _udpClient;
 
             var parsedMcastAddr = IPAddress.Parse(multicastAddress);
-            _udpClient.JoinMulticastGroup(parsedMcastAddr);
+            _udpClient.JoinMulticastGroup(parsedMcastAddr, listenAddress);
 
             var ts = new ThreadStart(delegate
             {
@@ -208,6 +240,8 @@ namespace TsAnalyser
             receiverThread.Start();
         }
 
+
+
         private static void ReceivingNetworkWorkerThread(UdpClient client, IPEndPoint localEp)
         {
             while (_receiving)
@@ -217,10 +251,19 @@ namespace TsAnalyser
                 try
                 {
                     _networkMetric.AddPacket(data);
-                    _rtpMetric.AddPacket(data);
+
+                    if (!_noRtpHeaders)
+                    {
+                        _rtpMetric.AddPacket(data);
+                    }
 
                     //TS packet metrics
                     var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
+
+                    if(tsPackets == null)
+                    {
+                        break;
+                    }
 
                     lock (_tsMetrics)
                     {
@@ -231,25 +274,31 @@ namespace TsAnalyser
                             {
                                 currentMetric = new TsMetrics {Pid = tsPacket.Pid};
                                 currentMetric.DiscontinuityDetected += currentMetric_DiscontinuityDetected;
+                                currentMetric.TransportErrorIndicatorDetected += currentMetric_TransportErrorIndicatorDetected;
                                 _tsMetrics.Add(currentMetric);
                             }
                             currentMetric.AddPacket(tsPacket);
+                            
                             if (currentMetric.IsProgAssociationTable)
                             {
                                 _progAssociationTable = currentMetric.ProgAssociationTable;
                             }
 
-                            if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PMTPid)
+                            if (_readServiceDescriptions)
                             {
-                                _programMapTable = ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
-                                _tsAnalyserApi.ProgramMetrics = _programMapTable;
-                            }
-                            if(tsPacket.Pid == 0x0011)
-                            {
-                                lock (_serviceDescriptionTableLock)
+                                if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PMTPid)
                                 {
-                                    _serviceDescriptionTable = ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
-                                    _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
+                                    _programMapTable = ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
+                                    if (_tsAnalyserApi != null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
+                                }
+
+                                if (tsPacket.Pid == 0x0011)
+                                {
+                                    lock (_serviceDescriptionTableLock)
+                                    {
+                                        _serviceDescriptionTable = ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
+                                        if (_tsAnalyserApi != null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
+                                    }
                                 }
                             }
                         }
@@ -257,11 +306,11 @@ namespace TsAnalyser
                 }
                 catch (Exception ex)
                 {
-                    LogMessage($@"Unhandled exception withing network receiver: {ex.Message}");
+                    LogMessage($@"Unhandled exception within network receiver: {ex.Message}");
                 }
             }
         }
-
+        
         private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
             if (_pendingExit) return; //already trying to exit - allow normal behaviour on subsequent presses
@@ -269,9 +318,14 @@ namespace TsAnalyser
             e.Cancel = true;
         }
 
-        private static void currentMetric_DiscontinuityDetected(object sender, DiscontinutityEventArgs e)
+        private static void currentMetric_DiscontinuityDetected(object sender, TransportStreamEventArgs e)
         {
             LogMessage($"Discontinuity on TS PID {e.TsPid}");
+        }
+
+        private static void currentMetric_TransportErrorIndicatorDetected(object sender, TransportStreamEventArgs e)
+        {
+            LogMessage($"Transport Error Indicator on TS PID {e.TsPid}");
         }
 
         private static void RtpMetric_SequenceDiscontinuityDetected(object sender, EventArgs e)
@@ -290,29 +344,40 @@ namespace TsAnalyser
             
             Console.WriteLine(message, arguments);
         }
-
+        
         private static void LogMessage(string message)
         {
-            try
-            {
-                if (IsNullOrWhiteSpace(_logFile)) return;
-
-                var fs = new FileStream(_logFile, FileMode.Append, FileAccess.Write);
-                var sw = new StreamWriter(fs);
-
-                sw.WriteLine("{0} - {1}", DateTime.Now, message);
-
-                sw.Close();
-                fs.Close();
-                sw.Dispose();
-                fs.Dispose();
-            }
-            catch (Exception)
-            {
-                Debug.WriteLine("Concurrency error writing to log file...");
-            }
-
+            ThreadPool.QueueUserWorkItem(WriteToFile, message);
         }
+
+        public static void WriteToFile(object msg)
+        {
+            lock (_logfileWriteLock)
+            {
+                try
+                {
+                    if (_logFileStream == null || _logFileStream.BaseStream.CanWrite != true)
+                    {
+                        if (IsNullOrWhiteSpace(_logFile)) return;
+
+                        var fs = new FileStream(_logFile, FileMode.Append, FileAccess.Write);
+
+                        _logFileStream = new StreamWriter(fs);
+                        _logFileStream.AutoFlush = true;
+                    }
+
+                    _logFileStream.WriteLine("{0} - {1}", DateTime.Now, msg);
+                }
+                catch (Exception)
+                {
+                    Debug.WriteLine("Concurrency error writing to log file...");
+                    _logFileStream.Close();
+                    _logFileStream.Dispose();
+                }
+            }
+        }
+
+  
 
         private static void StartHttpService(string serviceAddress)
         {

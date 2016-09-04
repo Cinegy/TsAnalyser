@@ -13,8 +13,8 @@ namespace TsAnalyser
         public void AddPacket(byte[] data)
         {
             var seqNum = (data[2] << 8) + data[3];
-            Ssrc = (uint) ((data[4] << 24) + (data[5] << 16) + (data[6] << 8) + data[7]);
             LastTimestamp = (uint) ((data[4] << 24) + (data[5] << 16) + (data[6] << 8) + data[7]);
+            Ssrc = (uint) ((data[8] << 24) + (data[9] << 16) + (data[10] << 8) + data[11]);
 
             if (_totalPackets == 0)
             {

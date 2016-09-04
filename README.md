@@ -55,5 +55,5 @@ Even better, just to make your life easier, we auto-build this using AppVeyor - 
 
 We're just getting started, but if you want you can check out a compiled binary from the latest code here:
 
-[AppVeyor TSAnalyser Project Builder](https://ci.appveyor.com/project/cinegy/tsanalyser)
+[AppVeyor TSAnalyser Project Builder](https://ci.appveyor.com/project/cinegy/tsanalyser/build/artifacts)
 

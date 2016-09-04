@@ -38,6 +38,13 @@ namespace TsAnalyser
         HelpText = "Optional service URL for REST web services (must change if running multiple instances with web services enabled.")]
         public string ServiceUrl { get; set; }
 
+        [Option('s', "servicedescriptions", Required = false, DefaultValue = false,
+        HelpText = "Optional instruction to decode further DVB service description metadata (experimental)")]
+        public bool ReadServiceDescriptions { get; set; }
+
+        [Option('n', "nortpheaders", Required = false, DefaultValue = false,
+        HelpText = "Optional instruction to skip the expected 12 byte RTP headers (meaning plain MPEGTS inside UDP is expected")]
+        public bool NoRtpHeaders { get; set; }
 
         [ParserState]
         public IParserState LastParserState { get; set; }
