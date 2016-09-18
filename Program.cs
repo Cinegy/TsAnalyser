@@ -52,9 +52,15 @@ namespace TsAnalyser
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<TsMetrics> _tsMetrics = new List<TsMetrics>();
         private static ProgAssociationTable _progAssociationTable;
-        private static ProgramMapTable _programMapTable;
-        private static ServiceDescriptionTable _serviceDescriptionTable;
+        private static Tables.ProgramMapTable _programMapTable;
+        private static Tables.ServiceDescriptionTable _serviceDescriptionTable;
         private static Object _serviceDescriptionTableLock = new Object();
+        private static Dictionary<short, Dictionary<UInt16, Tables.TeleText>> _teletextSubtitlePages = new Dictionary<short, Dictionary<UInt16, Tables.TeleText>>();
+        private static Dictionary<short, Tables.PES> _teletextSubtitleBuffers = new Dictionary<short, Tables.PES>();
+        private static Object _teletextSubtitleDecodedPagesLock = new Object();
+        private static Dictionary<short, Dictionary<UInt16, String[]>> _teletextDecodedSubtitlePages = new Dictionary<short, Dictionary<UInt16, String[]>>();
+        
+
 
         static void Main(string[] args)
         {
@@ -176,18 +182,44 @@ namespace TsAnalyser
                     {
                         lock (_serviceDescriptionTableLock)
                         {
-                            if (_serviceDescriptionTable.Sections != null)
+                            if (_serviceDescriptionTable.Items != null)
                             {
-                                foreach (ServiceDescriptionTable.Section section in _serviceDescriptionTable.Sections)
+                                foreach (Tables.ServiceDescriptionTable.Item item in _serviceDescriptionTable.Items)
                                 {
-                                    PrintToConsole(
-                                        "Service Information\n----------------\nService Name {0}\tService Provider {1}\n\t\t\t\t\t\t\t\t\t\t",
-                                        section.ServiceName, section.ServiceProviderName);
+                                    foreach (Descriptor descriptor in item.Descriptors.Where(D => D.DescriptorTag == 0x48))
+                                    {
+                                        ServiceDescriptor sd = descriptor as ServiceDescriptor;
+                                        if (null != sd)
+                                        {
+                                            PrintToConsole(
+                                                "Service Information\n----------------\nService Name {0}\tService Provider {1}\n\t\t\t\t\t\t\t\t\t\t",
+                                                sd.ServiceName.Value, sd.ServiceProviderName.Value);
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
+                        lock (_teletextSubtitleDecodedPagesLock)
+                        {
+                            PrintToConsole("TeleText Subtitles\n----------------");
+                            foreach (Int16 pid in _teletextDecodedSubtitlePages.Keys)
+                            {
+                                foreach (UInt16 page in _teletextDecodedSubtitlePages[pid].Keys)
+                                {
+                                    PrintToConsole("\nPage {0:X} on pid {1}", page, pid);
+                                    foreach (String line in _teletextDecodedSubtitlePages[pid][page])
+                                    {
+                                        if (!String.IsNullOrEmpty(line) && !String.IsNullOrEmpty(line.Trim()))
+                                        {
+                                            PrintToConsole("{0}", new string(line.Where(c => !char.IsControl(c)).ToArray()));
+                                        }
+                                    }
+                                }
 
+                            }
+
+                        }
+                    }
                     PrintToConsole("\nTS Details\n----------------");
                     lock (_tsMetrics)
                     {
@@ -260,7 +292,7 @@ namespace TsAnalyser
                     //TS packet metrics
                     var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
 
-                    if(tsPackets == null)
+                    if (tsPackets == null)
                     {
                         break;
                     }
@@ -272,13 +304,13 @@ namespace TsAnalyser
                             var currentMetric = _tsMetrics.FirstOrDefault(tsMetric => tsMetric.Pid == tsPacket.Pid);
                             if (currentMetric == null)
                             {
-                                currentMetric = new TsMetrics {Pid = tsPacket.Pid};
+                                currentMetric = new TsMetrics { Pid = tsPacket.Pid };
                                 currentMetric.DiscontinuityDetected += currentMetric_DiscontinuityDetected;
                                 currentMetric.TransportErrorIndicatorDetected += currentMetric_TransportErrorIndicatorDetected;
                                 _tsMetrics.Add(currentMetric);
                             }
                             currentMetric.AddPacket(tsPacket);
-                            
+
                             if (currentMetric.IsProgAssociationTable)
                             {
                                 _progAssociationTable = currentMetric.ProgAssociationTable;
@@ -288,21 +320,138 @@ namespace TsAnalyser
                             {
                                 if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PMTPid)
                                 {
-                                    _programMapTable = ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
-                                    if (_tsAnalyserApi != null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
+                                    if (tsPacket.PayloadUnitStartIndicator)
+                                    {
+                                        _programMapTable = new Tables.ProgramMapTable(tsPacket);
+                                    }
+                                    else
+                                    {
+                                        if (_programMapTable != null && !_programMapTable.HasAllBytes())
+                                        {
+                                            _serviceDescriptionTable.Add(tsPacket);
+                                        }
+                                    }
+
+                                    if (_programMapTable != null && _programMapTable.HasAllBytes())
+                                    {
+                                        if (_programMapTable.ProcessTable())
+                                        {
+                                            if (_tsAnalyserApi != null && _tsAnalyserApi.ProgramMetrics == null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
+
+                                            foreach (var esStream in _programMapTable.ESStreams)
+                                            {
+                                                foreach (Descriptor descriptor in esStream.Descriptors.Where(D => D.DescriptorTag == 0x56))
+                                                {
+                                                    TeletextDescriptor teletext = descriptor as TeletextDescriptor;
+                                                    if (null != teletext)
+                                                    {
+                                                        foreach (var lang in teletext.Languages)
+                                                        {
+                                                            if (lang.TeletextType == 0x02 || lang.TeletextType == 0x05)
+                                                            {
+                                                                if (!_teletextSubtitlePages.ContainsKey(esStream.ElementaryPID))
+                                                                {
+                                                                    _teletextSubtitlePages.Add(esStream.ElementaryPID, new Dictionary<UInt16, Tables.TeleText>());
+                                                                    _teletextSubtitleBuffers.Add(esStream.ElementaryPID, null);
+                                                                }
+                                                                byte m = lang.TeletextMagazineNumber;
+                                                                if (lang.TeletextMagazineNumber == 0)
+                                                                {
+                                                                    m = 8;
+                                                                }
+                                                                UInt16 page = (UInt16)((m << 8) + lang.TeletextPageNumber);
+                                                                String pageStr = String.Format("{0:X}", page);
+
+                                                                // if (page == 0x199)
+                                                                {
+                                                                    if (!_teletextSubtitlePages[esStream.ElementaryPID].ContainsKey(page))
+                                                                    {
+                                                                        _teletextSubtitlePages[esStream.ElementaryPID].Add(page, new Tables.TeleText(page, esStream.ElementaryPID));
+                                                                        _teletextSubtitlePages[esStream.ElementaryPID][page].TeletextPageRecieved += new EventHandler(TeletextPageRecievedMethod);
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _programMapTable = null;
+                                        }
+                                    }
+
+                                    /* _programMapTable = Tables.ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
+                                     if (_tsAnalyserApi != null) _tsAnalyserApi.ProgramMetrics = _programMapTable;*/
                                 }
 
                                 if (tsPacket.Pid == 0x0011)
                                 {
                                     lock (_serviceDescriptionTableLock)
                                     {
-                                        _serviceDescriptionTable = ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
-                                        if (_tsAnalyserApi != null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
+                                        if (tsPacket.PayloadUnitStartIndicator)
+                                        {
+                                            _serviceDescriptionTable = new Tables.ServiceDescriptionTable(tsPacket);
+                                        }
+                                        else
+                                        {
+                                            if (_serviceDescriptionTable != null && !_serviceDescriptionTable.HasAllBytes())
+                                            {
+                                                _serviceDescriptionTable.Add(tsPacket);
+                                            }
+                                        }
+
+                                        if (_serviceDescriptionTable != null && _serviceDescriptionTable.HasAllBytes())
+                                        {
+                                            if (_serviceDescriptionTable.ProcessTable())
+                                            {
+                                                if (_tsAnalyserApi != null && _tsAnalyserApi.ServiceMetrics == null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
+                                            }
+                                            else
+                                            {
+                                                _serviceDescriptionTable = null;
+                                            }
+                                        }
+
+                                        //_serviceDescriptionTable = Tables.ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
+
                                     }
+                                }
+                                if (_teletextSubtitlePages.ContainsKey(tsPacket.Pid))
+                                {
+                                   
+                                   
+
+                                    if (tsPacket.PayloadUnitStartIndicator)
+                                    {
+                                        if (null != _teletextSubtitleBuffers[tsPacket.Pid])
+                                        {
+                                            if (_teletextSubtitleBuffers[tsPacket.Pid].HasAllBytes())
+                                            {
+                                                _teletextSubtitleBuffers[tsPacket.Pid].Decode();
+                                                foreach (UInt16 key in _teletextSubtitlePages[tsPacket.Pid].Keys)
+                                                {
+                                                    _teletextSubtitlePages[tsPacket.Pid][key].DecodeTeletextData(_teletextSubtitleBuffers[tsPacket.Pid]);
+                                                }
+                                            }
+                                        }
+
+                                        _teletextSubtitleBuffers[tsPacket.Pid] = new Tables.PES(tsPacket);
+                                    }
+                                    else if (_teletextSubtitleBuffers[tsPacket.Pid] != null/* && !TeletextSubtitleBuffers[packet.PID].HasAllBytes()*/)
+                                    {
+                                        _teletextSubtitleBuffers[tsPacket.Pid].Add(tsPacket);
+                                    }
+
+
+
+
+
                                 }
                             }
                         }
-                    }                   
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -452,6 +601,32 @@ namespace TsAnalyser
                 _rtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
                 _networkMetric.BufferOverflow += NetworkMetric_BufferOverflow;
                 _networkMetric.UdpClient = _udpClient;
+            }
+        }
+
+        private static void TeletextPageRecievedMethod(object sender, EventArgs args)
+        {
+            Tables.TeleText.TeleTextSubtitleEventArgs teletextArgs = (Tables.TeleText.TeleTextSubtitleEventArgs)args;
+            lock(_teletextSubtitleDecodedPagesLock)
+            {
+                if (!_teletextDecodedSubtitlePages.ContainsKey(teletextArgs.PID))
+                {
+                    _teletextDecodedSubtitlePages.Add(teletextArgs.PID, new Dictionary<ushort, string[]>());
+                }
+                if (_teletextDecodedSubtitlePages.ContainsKey(teletextArgs.PID))
+                {
+                    if (!_teletextDecodedSubtitlePages[teletextArgs.PID].ContainsKey(teletextArgs.PageNumber))
+                    {
+                        _teletextDecodedSubtitlePages[teletextArgs.PID].Add(teletextArgs.PageNumber, new string[0]);
+                    }
+
+                    if (_teletextDecodedSubtitlePages[teletextArgs.PID].ContainsKey(teletextArgs.PageNumber))
+                    {
+
+                    }
+                    _teletextDecodedSubtitlePages[teletextArgs.PID][teletextArgs.PageNumber] = teletextArgs.Page;
+                }
+
             }
         }
 

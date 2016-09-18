@@ -14,7 +14,7 @@ namespace TsAnalyser
         public int LastCc { get; set; }
         public bool IsProgAssociationTable { get; set; }
         public ProgAssociationTable ProgAssociationTable { get; private set; }
-        public ProgramMapTable ProgramMapTable { get; private set; }
+        public Tables.ProgramMapTable ProgramMapTable { get; private set; }
 
         public void AddPacket(TsPacket newPacket)
         {
