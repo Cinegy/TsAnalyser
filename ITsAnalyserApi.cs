@@ -22,6 +22,10 @@ namespace TsAnalyser
         Stream ServeEmbeddedStaticFile();
 
         [OperationContract]
+        [WebGet(UriTemplate = "")]
+        Stream ServeIndexEmbeddedStaticFile();
+
+        [OperationContract]
         [WebGet(UriTemplate = "/V1/CurrentMetrics")]
         SerialisableMetrics GetCurrentMetrics();
 

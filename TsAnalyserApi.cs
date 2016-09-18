@@ -36,6 +36,11 @@ namespace TsAnalyser
             WebOperationContext.Current.OutgoingResponse.Headers.Add("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
         }
 
+        public Stream ServeIndexEmbeddedStaticFile()
+        {
+            return ServeEmbeddedStaticFile();
+        }
+
         public Stream ServeEmbeddedStaticFile()
         {
             if (WebOperationContext.Current == null)
@@ -81,7 +86,13 @@ namespace TsAnalyser
 
             try
             {
-                var manifestAddress = wildcardSegments.Aggregate("TsAnalyser.embeddedWebResources", (current, wildcardPathSegment) => current + ("." + wildcardPathSegment));
+                var manifestAddress = wildcardSegments.Aggregate(_assembly.GetName().Name + ".embeddedWebResources", (current, wildcardPathSegment) => current + ("." + wildcardPathSegment));
+                var stream = _assembly.GetManifestResourceStream(manifestAddress);
+
+                if (stream == null)
+                {
+                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.NotFound;
+                }
 
                 return _assembly.GetManifestResourceStream(manifestAddress);
             }

@@ -47,8 +47,8 @@ $(document).ready(function () {
         }
         
         //Wire up methods that are exposed via KnockOut
-        self.doMagic = function () {
-            onDoMagicHandler(self);
+        self.resetMetrics = function () {
+            onResetMetricsHandler(self);
         };
         
         self.UpdateValues = function (values) {
@@ -82,11 +82,24 @@ $(document).ready(function () {
     var viewModelObj = new ViewModel();
     ko.applyBindings(viewModelObj);
 
-    function onDoMagicHandler(engineViewModel, buttonIds) {
-        alert("Abracadabra");
+    function onResetMetricsHandler(analyserViewModel) {
+        issueCommand(analyserViewModel, "ResetMetrics");
     }
+
     setInterval(function () {
-        $.getJSON("/Analyser/V1/CurrentMetrics", function (data) { viewModelObj.UpdateValues(data); });
+        $.getJSON("/V1/CurrentMetrics", function (data) { viewModelObj.UpdateValues(data); });
         //viewModelObj.doMagic();
     }, 500);
+
+
+    function issueCommand(engineViewModel, command) {
+
+        var url = "v1/" + command;
+        $.ajax({
+            url: url,
+            type: "POST",
+            dataType: 'xml',
+            contentType: "text/xml; charset=utf-8"
+        });
+    }
 });
