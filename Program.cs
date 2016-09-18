@@ -415,8 +415,8 @@ namespace TsAnalyser
             serviceEndpoint.Behaviors.Add(webBehavior);
             
             //Metadata Exchange
-            var serviceBehavior = new ServiceMetadataBehavior {HttpGetEnabled = true};
-            _serviceHost.Description.Behaviors.Add(serviceBehavior);
+            //var serviceBehavior = new ServiceMetadataBehavior {HttpGetEnabled = true};
+            //_serviceHost.Description.Behaviors.Add(serviceBehavior);
 
             try
             {

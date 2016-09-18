@@ -50,7 +50,6 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
@@ -85,7 +84,6 @@
     <EmbeddedResource Include="embeddedWebResources\stylesheets\bootstrap-theme.min.css" />
     <EmbeddedResource Include="embeddedWebResources\stylesheets\bootstrap.min.css" />
     <EmbeddedResource Include="embeddedWebResources\stylesheets\index.css" />
-    <EmbeddedResource Include="embeddedWebResources\default.html" />
     <Content Include="FodyWeavers.xml" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
