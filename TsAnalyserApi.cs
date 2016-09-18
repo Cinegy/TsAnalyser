@@ -155,15 +155,12 @@ namespace TsAnalyser
             foreach (var ts in TsMetrics)
             {
                 String StreamType = "";
-                if (ProgramMetrics.ESStreams != null)
+                Tables.ProgramMapTable.ESInfo esInfo = ProgramMetrics?.ESStreams?.Where(P => P.ElementaryPID == ts.Pid).FirstOrDefault();
+                if (esInfo != null)
                 {
-                    Tables.ProgramMapTable.ESInfo esInfo = ProgramMetrics.ESStreams.Where(P => P.ElementaryPID == ts.Pid).FirstOrDefault();
-                    if (esInfo != null)
+                    if (Tables.ProgramMapTable.ElementarystreamTypes.ContainsKey(esInfo.StreamType))
                     {
-                        if (Tables.ProgramMapTable.ElementarystreamTypes.ContainsKey(esInfo.StreamType))
-                        {
-                            StreamType = Tables.ProgramMapTable.ElementarystreamTypes[esInfo.StreamType];
-                        }
+                        StreamType = Tables.ProgramMapTable.ElementarystreamTypes[esInfo.StreamType];
                     }
                 }
                 _serialisableMetric.Ts.Pids.Add(new SerialisableMetrics.SerialisableTsMetric.PidDetails()
@@ -176,20 +173,15 @@ namespace TsAnalyser
                 });
             }
 
-            if (ServiceMetrics.Items != null && ServiceMetrics.Items.Count > 0) {
-                foreach (Descriptor descriptor in ServiceMetrics.Items[0].Descriptors.Where(D => D.DescriptorTag == 0x48))
-                {
-                    ServiceDescriptor sd = descriptor as ServiceDescriptor;
-                    if (null != sd)
-                    {
+            if (ServiceMetrics?.Items == null || ServiceMetrics?.Items?.Count <= 0) return;
 
-                        _serialisableMetric.Service.ServiceName = sd.ServiceName.Value;
-                        _serialisableMetric.Service.ServiceProvider = sd.ServiceProviderName.Value;
-                    }
-                }               
+            foreach (var descriptor in ServiceMetrics?.Items[0].Descriptors.Where(D => D.DescriptorTag == 0x48))
+            {
+                var sd = descriptor as ServiceDescriptor;
+                if (null == sd) continue;
+                _serialisableMetric.Service.ServiceName = sd.ServiceName.Value;
+                _serialisableMetric.Service.ServiceProvider = sd.ServiceProviderName.Value;
             }
-
-
         }
 
         public delegate void StreamCommandEventHandler(object sender, StreamCommandEventArgs e);
