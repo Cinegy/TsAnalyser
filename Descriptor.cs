@@ -204,7 +204,10 @@ namespace TsAnalyser
     {
         public RegistrationDescriptor(byte[] stream, int start) : base(stream, start)
         {
-            this.Organization = System.Text.Encoding.UTF8.GetString(stream, start + 2, DescriptorLength);
+            if ((stream.Length - start - 2) > DescriptorLength)
+            {
+                this.Organization = System.Text.Encoding.UTF8.GetString(stream, start + 2, DescriptorLength);
+            }
         }
         public String Organization { get; set; }
     }
