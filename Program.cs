@@ -182,7 +182,7 @@ namespace TsAnalyser
                     {
                         lock (_serviceDescriptionTableLock)
                         {
-                            if (_serviceDescriptionTable.Items != null)
+                            if (_serviceDescriptionTable?.Items != null)
                             {
                                 foreach (Tables.ServiceDescriptionTable.Item item in _serviceDescriptionTable.Items)
                                 {
@@ -328,7 +328,7 @@ namespace TsAnalyser
                                     {
                                         if (_programMapTable != null && !_programMapTable.HasAllBytes())
                                         {
-                                            _serviceDescriptionTable.Add(tsPacket);
+                                            _serviceDescriptionTable?.Add(tsPacket);
                                         }
                                     }
 
