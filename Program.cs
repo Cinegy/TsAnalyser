@@ -54,7 +54,7 @@ namespace TsAnalyser
         private static ProgAssociationTable _progAssociationTable;
         private static Tables.ProgramMapTable _programMapTable;
         private static Tables.ServiceDescriptionTable _serviceDescriptionTable;
-        private static Object _serviceDescriptionTableLock = new Object();
+        private static readonly object ServiceDescriptionTableLock = new object();
         private static Dictionary<short, Dictionary<UInt16, Tables.TeleText>> _teletextSubtitlePages = new Dictionary<short, Dictionary<UInt16, Tables.TeleText>>();
         private static Dictionary<short, Tables.PES> _teletextSubtitleBuffers = new Dictionary<short, Tables.PES>();
         private static Object _teletextSubtitleDecodedPagesLock = new Object();
@@ -180,7 +180,7 @@ namespace TsAnalyser
 
                     if (null != _serviceDescriptionTable && _readServiceDescriptions)
                     {
-                        lock (_serviceDescriptionTableLock)
+                        lock (ServiceDescriptionTableLock)
                         {
                             if (_serviceDescriptionTable.Items != null)
                             {
@@ -388,7 +388,7 @@ namespace TsAnalyser
 
                                 if (tsPacket.Pid == 0x0011)
                                 {
-                                    lock (_serviceDescriptionTableLock)
+                                    lock (ServiceDescriptionTableLock)
                                     {
                                         if (tsPacket.PayloadUnitStartIndicator)
                                         {
