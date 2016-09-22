@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace TsAnalyser
@@ -8,24 +7,24 @@ namespace TsAnalyser
     public class Text
     {
         public byte[] Chararacters { get; set; }
-        public String Value { get { return this.ToString(); } }
+        public string Value { get { return ToString(); } }
 
         public Text(Text text)
         {
-            this.Chararacters = new byte[text.Chararacters.Length];
+            Chararacters = new byte[text.Chararacters.Length];
             if (text != null)
             {
-                Buffer.BlockCopy(text.Chararacters, 0, this.Chararacters, 0, text.Chararacters.Length);
+                Buffer.BlockCopy(text.Chararacters, 0, Chararacters, 0, text.Chararacters.Length);
             }
         }
 
         public Text(byte[] chararacters, int start, int length)
         {
 
-            this.Chararacters = new byte[length];
+            Chararacters = new byte[length];
             if (null != chararacters)
             {
-                Buffer.BlockCopy(chararacters, start, this.Chararacters, 0, length);
+                Buffer.BlockCopy(chararacters, start, Chararacters, 0, length);
             }
         }
 
@@ -35,10 +34,10 @@ namespace TsAnalyser
             {
                 return "";
             }
-            byte[] ret = new byte[Chararacters.Length];
-            byte char0 = (byte)Chararacters[0];
-            UInt16 start = 0;
-            String characterTable = "ISO-8859-1";
+            var ret = new byte[Chararacters.Length];
+            var char0 = Chararacters[0];
+            ushort start = 0;
+            var characterTable = "ISO-8859-1";
             var ii = 0;
             if (Chararacters[0] >= 0x20 && Chararacters[0] <= 0xFF)
             {
@@ -71,7 +70,7 @@ namespace TsAnalyser
 
             for (int i = start; i < Chararacters.Length; i++)
             {
-                byte character = (byte)Chararacters[i];
+                var character = Chararacters[i];
                 if (character >= 0x80 && character <= 0x9F)
                 {
                     switch (character)
@@ -115,8 +114,8 @@ namespace TsAnalyser
     {
         public Descriptor(byte[] stream, int start)
         {
-            this.DescriptorTag = stream[start];
-            this.DescriptorLength = stream[start + 1];
+            DescriptorTag = stream[start];
+            DescriptorLength = stream[start + 1];
         }
         public byte DescriptorTag { get; set; }
         public byte DescriptorLength { get; set; }
@@ -124,7 +123,7 @@ namespace TsAnalyser
 
     public class TeletextDescriptor : Descriptor
     {
-        public static Dictionary<byte, String> TeletextTypes = new Dictionary<byte, string>(){
+        public static Dictionary<byte, string> TeletextTypes = new Dictionary<byte, string>(){
             {0x00 , "reserved for future use"},
             {0x01 ,  "initial Teletext page"},
             {0x02 ,  "Teletext subtitle page"},
@@ -162,23 +161,23 @@ namespace TsAnalyser
         public TeletextDescriptor(byte[] stream, int start)
             : base(stream, start)
         {
-            List<Language> languages = new List<Language>();
-            int current_pos = start + 2;
+            var languages = new List<Language>();
+            var currentPos = start + 2;
             do
             {
-                Language lang = new Language();
-                lang.ISO639LanguageCode = System.Text.Encoding.UTF8.GetString(stream, current_pos, 3);
+                var lang = new Language();
+                lang.Iso639LanguageCode = Encoding.UTF8.GetString(stream, currentPos, 3);
                 // lang.TeletextType = (byte)(stream[current_pos + 3] & 0x1f);
-                lang.TeletextType = (byte)((stream[current_pos + 3] >> 3) & 0x01f);
-                lang.TeletextMagazineNumber = (byte)((stream[current_pos + 3]) & 0x7);
+                lang.TeletextType = (byte)((stream[currentPos + 3] >> 3) & 0x01f);
+                lang.TeletextMagazineNumber = (byte)((stream[currentPos + 3]) & 0x7);
                 //lang.TeletextMagazineNumber = (byte)((stream[current_pos + 3] >> 5) & 0x7);
-                lang.TeletextPageNumber = stream[current_pos + 4];
+                lang.TeletextPageNumber = stream[currentPos + 4];
 
                 languages.Add(lang);
 
-                current_pos += 5;
+                currentPos += 5;
 
-            } while (current_pos < start + 2 + DescriptorLength);
+            } while (currentPos < start + 2 + DescriptorLength);
             Languages = languages;
         }
         public class Language
@@ -186,13 +185,13 @@ namespace TsAnalyser
             public Language() { }
             public Language(Language lang)
             {
-                this.ISO639LanguageCode = lang.ISO639LanguageCode;
-                this.TeletextType = lang.TeletextType;
-                this.TeletextMagazineNumber = lang.TeletextMagazineNumber;
-                this.TeletextPageNumber = lang.TeletextPageNumber;
+                Iso639LanguageCode = lang.Iso639LanguageCode;
+                TeletextType = lang.TeletextType;
+                TeletextMagazineNumber = lang.TeletextMagazineNumber;
+                TeletextPageNumber = lang.TeletextPageNumber;
             }
 
-            public String ISO639LanguageCode { get; set; }
+            public string Iso639LanguageCode { get; set; }
             public byte TeletextType { get; set; }
             public byte TeletextMagazineNumber { get; set; }
             public byte TeletextPageNumber { get; set; }
@@ -206,31 +205,31 @@ namespace TsAnalyser
         {
             if ((stream.Length - start - 2) > DescriptorLength)
             {
-                this.Organization = System.Text.Encoding.UTF8.GetString(stream, start + 2, DescriptorLength);
+                Organization = Encoding.UTF8.GetString(stream, start + 2, DescriptorLength);
             }
         }
-        public String Organization { get; set; }
+        public string Organization { get; set; }
     }
 
     public class StreamIdentifierSescriptor : Descriptor
     {
         public StreamIdentifierSescriptor(byte[] stream, int start) : base(stream, start)
         {
-            this.ComponentTag = stream[start + 2];
+            ComponentTag = stream[start + 2];
         }
 
         public byte ComponentTag { get; set; }
     }
 
-    public class ISO639LanguageDescriptor : Descriptor
+    public class Iso639LanguageDescriptor : Descriptor
     {
-        public ISO639LanguageDescriptor(byte[] stream, int start) : base(stream, start)
+        public Iso639LanguageDescriptor(byte[] stream, int start) : base(stream, start)
         {
-            this.Language = System.Text.Encoding.UTF8.GetString(stream, start + 2, 3);
-            this.AudioType = stream[start + 5];
+            Language = Encoding.UTF8.GetString(stream, start + 2, 3);
+            AudioType = stream[start + 5];
         }
 
-        public String Language { get; set; }
+        public string Language { get; set; }
         public byte AudioType { get; set; }
     }
 
@@ -239,26 +238,26 @@ namespace TsAnalyser
 
         public SubtitlingDescriptor(byte[] stream, int start) : base(stream, start)
         {
-            List<Language> languages = new List<Language>();
-            int current_pos = start + 2;
+            var languages = new List<Language>();
+            var currentPos = start + 2;
             do
             {
-                Language lang = new Language();
-                lang.SO639LanguageCode = System.Text.Encoding.UTF8.GetString(stream, current_pos, 3);
-                lang.SubtitlingType = stream[current_pos + 3];
-                lang.CompositionPageId = (ushort)((stream[current_pos + 4] << 8) + stream[current_pos + 5]);
-                lang.AncillaryPageId = (ushort)((stream[current_pos + 6] << 8) + stream[current_pos + 7]);
+                var lang = new Language();
+                lang.So639LanguageCode = Encoding.UTF8.GetString(stream, currentPos, 3);
+                lang.SubtitlingType = stream[currentPos + 3];
+                lang.CompositionPageId = (ushort)((stream[currentPos + 4] << 8) + stream[currentPos + 5]);
+                lang.AncillaryPageId = (ushort)((stream[currentPos + 6] << 8) + stream[currentPos + 7]);
 
                 languages.Add(lang);
 
-                current_pos += 8;
+                currentPos += 8;
 
-            } while (current_pos < start + 2 + DescriptorLength);
+            } while (currentPos < start + 2 + DescriptorLength);
             Languages = languages;
         }
         public class Language
         {
-            public String SO639LanguageCode { get; set; }
+            public string So639LanguageCode { get; set; }
             public byte SubtitlingType { get; set; }
             public ushort CompositionPageId { get; set; }
             public ushort AncillaryPageId { get; set; }
@@ -278,7 +277,7 @@ namespace TsAnalyser
 
     public class ServiceListDescriptor : Descriptor
     {
-        public static String ServiceTypeDescription(byte serviceType)
+        public static string ServiceTypeDescription(byte serviceType)
         {
             if (serviceType <= 0x0C)
             {
@@ -316,31 +315,31 @@ namespace TsAnalyser
             public Service() { }
             public Service(Service service)
             {
-                this.ServiceId = service.ServiceId;
-                this.ServiceType = service.ServiceType;
+                ServiceId = service.ServiceId;
+                ServiceType = service.ServiceType;
             }
 
-            public UInt16 ServiceId { get; set; }
+            public ushort ServiceId { get; set; }
             public byte ServiceType { get; set; }
-            public String ServiceTypeString { get { return ServiceTypeDescription(ServiceType); } }
+            public string ServiceTypeString { get { return ServiceTypeDescription(ServiceType); } }
         }
         
         public ServiceListDescriptor(byte[] stream, int start) : base(stream, start)
         {
-            List<Service> services = new List<Service>();
-            UInt16 startOfNextBlock = (UInt16)(start + 2);
+            var services = new List<Service>();
+            var startOfNextBlock = (ushort)(start + 2);
             while (startOfNextBlock < (start + DescriptorLength + 2))
             {
-                Service service = new Service();
+                var service = new Service();
 
-                service.ServiceId = (UInt16)((stream[startOfNextBlock] << 8) + stream[startOfNextBlock + 1]);
+                service.ServiceId = (ushort)((stream[startOfNextBlock] << 8) + stream[startOfNextBlock + 1]);
                 service.ServiceType = stream[startOfNextBlock + 2];
 
                 startOfNextBlock += 3;
 
                 services.Add(service);
             }
-            this.Services = services;
+            Services = services;
         }
         public IEnumerable<Service> Services { get; set; }
 
@@ -348,7 +347,7 @@ namespace TsAnalyser
 
     public class ServiceDescriptor : Descriptor
     {        
-        public static String GetServiceTypeDescription(byte serviceType)
+        public static string GetServiceTypeDescription(byte serviceType)
         {
             switch (serviceType)
             {
@@ -405,7 +404,7 @@ namespace TsAnalyser
             ServiceName = new Text(stream, start + 4 + ServiceProviderNameLength + 1, ServiceNameLength);//new Text(System.Text.Encoding.UTF8.GetString(stream, start + 4 + ServiceProviderNameLength + 1, ServiceNameLength));
         }
         public byte ServiceType { get; set; }//8 uimsbf
-        public String ServiceTypeDescription { get { return GetServiceTypeDescription(ServiceType); } }
+        public string ServiceTypeDescription { get { return GetServiceTypeDescription(ServiceType); } }
         public byte ServiceProviderNameLength { get; set; }// 8 uimsbf
         public Text ServiceProviderName { get; set; }// 
         public byte ServiceNameLength { get; set; }// 8 uimsbf 
@@ -420,7 +419,7 @@ namespace TsAnalyser
             {
 
                 case 0x05: return new RegistrationDescriptor(stream, start);
-                case 0x0a: return new ISO639LanguageDescriptor(stream, start);               
+                case 0x0a: return new Iso639LanguageDescriptor(stream, start);               
                 case 0x41: return new ServiceListDescriptor(stream, start);
                 case 0x48: return new ServiceDescriptor(stream, start);
                 case 0x52: return new StreamIdentifierSescriptor(stream, start);

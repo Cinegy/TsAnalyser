@@ -74,7 +74,7 @@ namespace TsAnalyser
                             if (payloadOffs > (data.Length - 2) || data[payloadOffs] != 0 || data[payloadOffs + 1] != 0 || data[payloadOffs + 2] != 1)
                             {
 #if DEBUG
-                                Debug.WriteLine("PES syntax error: no PES startcode found, or payload offset exceeds boundary of data");
+                            //    Debug.WriteLine("PES syntax error: no PES startcode found, or payload offset exceeds boundary of data");
 #endif
                             }
                             else

@@ -157,7 +157,7 @@ namespace TsAnalyser
                 {
                     MinLostPackets = RtpMetric.MinLostPackets,
                     SequenceNumber = RtpMetric.LastSequenceNumber,
-                    SSRC = RtpMetric.Ssrc,
+                    Ssrc = RtpMetric.Ssrc,
                     Timestamp = RtpMetric.LastTimestamp
                 },
                 
@@ -165,13 +165,13 @@ namespace TsAnalyser
 
             foreach (var ts in TsMetrics)
             {
-                String StreamType = "";
-                Tables.ProgramMapTable.ESInfo esInfo = ProgramMetrics?.ESStreams?.Where(P => P.ElementaryPID == ts.Pid).FirstOrDefault();
+                var streamType = "";
+                var esInfo = ProgramMetrics?.EsStreams?.Where(p => p.ElementaryPid == ts.Pid).FirstOrDefault();
                 if (esInfo != null)
                 {
                     if (Tables.ProgramMapTable.ElementarystreamTypes.ContainsKey(esInfo.StreamType))
                     {
-                        StreamType = Tables.ProgramMapTable.ElementarystreamTypes[esInfo.StreamType];
+                        streamType = Tables.ProgramMapTable.ElementarystreamTypes[esInfo.StreamType];
                     }
                 }
                 _serialisableMetric.Ts.Pids.Add(new SerialisableMetrics.SerialisableTsMetric.PidDetails()
@@ -180,13 +180,13 @@ namespace TsAnalyser
                     Pid = ts.Pid,
                     IsProgAssociationTable = ts.IsProgAssociationTable,
                     PacketCount = ts.PacketCount,
-                    StreamType = StreamType
+                    StreamType = streamType
                 });
             }
 
             if (ServiceMetrics?.Items == null || ServiceMetrics?.Items?.Count <= 0) return;
 
-            foreach (var descriptor in ServiceMetrics?.Items[0].Descriptors.Where(D => D.DescriptorTag == 0x48))
+            foreach (var descriptor in ServiceMetrics?.Items[0].Descriptors.Where(d => d.DescriptorTag == 0x48))
             {
                 var sd = descriptor as ServiceDescriptor;
                 if (null == sd) continue;

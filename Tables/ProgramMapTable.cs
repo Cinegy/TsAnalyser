@@ -1,22 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Collections.Generic;
 
 namespace TsAnalyser.Tables
 {
     public class ProgramMapTable : Table
     {
-        public class ESInfo
+        public class EsInfo
         {
-            public ESInfo() { }
-            
             public byte StreamType { get; set; }//	96 + varA	8	uimsbf
             public byte Reserved { get; set; }//	104 + varA	3	bslbf
-            public Int16 ElementaryPID { get; set; }//	107 + varA	13	uimsbf
+            public short ElementaryPid { get; set; }//	107 + varA	13	uimsbf
             public byte Reserved2 { get; set; }//	120 + varA	4	bslbf
-            public UInt16 ESInfoLength { get; set; }//	124 + varA	12	uimsbf
+            public ushort EsInfoLength { get; set; }//	124 + varA	12	uimsbf
             public IEnumerable<Descriptor> Descriptors { get; set; }
-            public String StreamTypeString
+            public string StreamTypeString
             {
                 get
                 {
@@ -55,7 +51,7 @@ namespace TsAnalyser.Tables
             }
         }
 
-        public static Dictionary<int, String> ElementarystreamTypes = new Dictionary<int, String>()
+        public static Dictionary<int, string> ElementarystreamTypes = new Dictionary<int, string>()
         {
             { 0, "Reserved" },
             {1,"ISO/IEC 11172-2 (MPEG-1 video) in a packetized stream" },
@@ -106,78 +102,78 @@ namespace TsAnalyser.Tables
             {234,"Microsoft Windows Media Video 9 (lower bit-rate video) in a packetized stream"}
         };       
 
-        public UInt16 ProgramNumber;
+        public ushort ProgramNumber;
         public byte VersionNumber;
         public bool CurrentNextIndicator;
         public byte SectionNumber;
         public byte LastSectionNumber;
-        public UInt16 PCR_PID { get; set; }
-        public UInt16 ProgramInfoLength;
+        public ushort PcrPid { get; set; }
+        public ushort ProgramInfoLength;
         public IEnumerable<Descriptor> Descriptors;
-        public List<ESInfo> ESStreams { get; set; }
+        public List<EsInfo> EsStreams { get; set; }
 
 
-        public ProgramMapTable(TsAnalyser.TsPacket packet) : base(packet)
+        public ProgramMapTable(TsPacket packet) : base(packet)
         {
 
         }
 
         public override bool ProcessTable()
         {
-            ProgramMapTable pmt = this;
+            var pmt = this;
             pmt.PointerField = 0;
 
             //if (packet.PayloadUnitStartIndicator && packet.AdaptationFieldFlag && packet.AdaptationField.TransportPrivateDataFlag)
             {
-                pmt.PointerField = (byte)(data[0]);
+                pmt.PointerField = Data[0];
             }
             pmt.PointerField++;
 
-            pmt.TableId = data[pmt.PointerField + 0];
-            pmt.SectionSyntaxIndicator = (bool)((data[pmt.PointerField + 1] & 0x80) == 0x80);
-            pmt.Reserved = (byte)((data[pmt.PointerField + 1] >> 6) & 0x03);
-            pmt.SectionLength = (UInt16)(((data[pmt.PointerField + 1] & 0x3) << 8) + data[pmt.PointerField + 2]);
-            pmt.ProgramNumber = (UInt16)((data[pmt.PointerField + 3] << 8) + data[pmt.PointerField + 4]);
+            pmt.TableId = Data[pmt.PointerField + 0];
+            pmt.SectionSyntaxIndicator = (Data[pmt.PointerField + 1] & 0x80) == 0x80;
+            pmt.Reserved = (byte)((Data[pmt.PointerField + 1] >> 6) & 0x03);
+            pmt.SectionLength = (ushort)(((Data[pmt.PointerField + 1] & 0x3) << 8) + Data[pmt.PointerField + 2]);
+            pmt.ProgramNumber = (ushort)((Data[pmt.PointerField + 3] << 8) + Data[pmt.PointerField + 4]);
            // pmt.Reserved2 = (byte)((data[pmt.PointerField + 5] >> 6) & 0x03);
-            pmt.VersionNumber = (byte)((data[pmt.PointerField + 5] & 0x3E) >> 1);
-            pmt.CurrentNextIndicator = (bool)((data[pmt.PointerField + 5] & 0x01) == 0x01);
-            pmt.SectionNumber = data[pmt.PointerField + 6];
-            pmt.LastSectionNumber = data[pmt.PointerField + 7];
+            pmt.VersionNumber = (byte)((Data[pmt.PointerField + 5] & 0x3E) >> 1);
+            pmt.CurrentNextIndicator = (Data[pmt.PointerField + 5] & 0x01) == 0x01;
+            pmt.SectionNumber = Data[pmt.PointerField + 6];
+            pmt.LastSectionNumber = Data[pmt.PointerField + 7];
 
           //  pmt.Reserved3 = (byte)((data[pmt.PointerField + 8] >> 5) & 0x07);
-            pmt.PCR_PID = (UInt16)(((data[pmt.PointerField + 8] & 0x1f) << 8) + data[pmt.PointerField + 9]);
+            pmt.PcrPid = (ushort)(((Data[pmt.PointerField + 8] & 0x1f) << 8) + Data[pmt.PointerField + 9]);
            // pmt.Reserved4 = (byte)((data[pmt.PointerField + 10] >> 4) & 0x0F);
-            pmt.ProgramInfoLength = (UInt16)(((data[pmt.PointerField + 10] & 0x3) << 8) + data[pmt.PointerField + 11]);
+            pmt.ProgramInfoLength = (ushort)(((Data[pmt.PointerField + 10] & 0x3) << 8) + Data[pmt.PointerField + 11]);
 
-            byte startOfNextField = (byte)(pmt.PointerField + 12);
-            List<Descriptor> descriptors = new List<Descriptor>();
+            var startOfNextField = (byte)(pmt.PointerField + 12);
+            var descriptors = new List<Descriptor>();
             while (startOfNextField < pmt.PointerField + 12 + pmt.ProgramInfoLength)
             {
-                Descriptor des = DescriptorFactory.DescriptorFromTsPacketPayload(data, startOfNextField);
+                var des = DescriptorFactory.DescriptorFromTsPacketPayload(Data, startOfNextField);
                 descriptors.Add(des);
                 startOfNextField += (byte)(des.DescriptorLength + 2);
             }
             pmt.Descriptors = descriptors;
 
 
-            byte TransportStreamLoopEnd = (byte)(pmt.SectionLength);
-            List<ESInfo> streams = new List<ESInfo>();
-            while (startOfNextField < TransportStreamLoopEnd)
+            var transportStreamLoopEnd = (byte)(pmt.SectionLength);
+            var streams = new List<EsInfo>();
+            while (startOfNextField < transportStreamLoopEnd)
             {
-                ESInfo es = new ESInfo();
-                es.StreamType = data[startOfNextField];
-                es.Reserved = (byte)((data[startOfNextField + 1] >> 5) & 0x07);
-                es.ElementaryPID = (Int16)(((data[startOfNextField + 1] & 0x1f) << 8) + data[startOfNextField + 2]);
-                es.Reserved2 = (byte)((data[startOfNextField + 3] >> 4) & 0x0F);
-                es.ESInfoLength = (UInt16)(((data[startOfNextField + 3] & 0x3) << 8) + data[startOfNextField + 4]);
+                var es = new EsInfo();
+                es.StreamType = Data[startOfNextField];
+                es.Reserved = (byte)((Data[startOfNextField + 1] >> 5) & 0x07);
+                es.ElementaryPid = (short)(((Data[startOfNextField + 1] & 0x1f) << 8) + Data[startOfNextField + 2]);
+                es.Reserved2 = (byte)((Data[startOfNextField + 3] >> 4) & 0x0F);
+                es.EsInfoLength = (ushort)(((Data[startOfNextField + 3] & 0x3) << 8) + Data[startOfNextField + 4]);
 
                 descriptors = new List<Descriptor>();
 
                 startOfNextField = (byte)(startOfNextField + 5);
-                byte endOfDescriptors = (byte)(startOfNextField + es.ESInfoLength);
+                var endOfDescriptors = (byte)(startOfNextField + es.EsInfoLength);
                 while (startOfNextField < endOfDescriptors)
                 {
-                    Descriptor des = DescriptorFactory.DescriptorFromTsPacketPayload(data, startOfNextField);
+                    var des = DescriptorFactory.DescriptorFromTsPacketPayload(Data, startOfNextField);
                     descriptors.Add(des);
                     startOfNextField += (byte)(des.DescriptorLength + 2);
                 }
@@ -185,7 +181,7 @@ namespace TsAnalyser.Tables
                 streams.Add(es);
 
             }
-            pmt.ESStreams = streams;
+            pmt.EsStreams = streams;
 
             return true;
         }

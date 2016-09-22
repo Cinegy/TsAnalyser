@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Diagnostics;
 
 namespace TsAnalyser.Tables
 {
@@ -11,36 +8,36 @@ namespace TsAnalyser.Tables
         public class Item
         {
             public ushort ServiceId;
-            public bool EITScheduleFlag;
-            public bool EITPresentFollowingFlag;
+            public bool EitScheduleFlag;
+            public bool EitPresentFollowingFlag;
             public byte RunningStatus;
-            public bool FreeCAMode;
+            public bool FreeCaMode;
             public ushort DescriptorsLoopLength;
             public IEnumerable<Descriptor> Descriptors { get; set; }
 
-            public byte DVBDescriptorTag;
+            public byte DvbDescriptorTag;
             public byte DescriptorLength;            
         }
 
        
 
-        public UInt16 TransportStreamId;
+        public ushort TransportStreamId;
         public byte VersionNumber;
         public bool CurrentNextIndicator;
         public byte SectionNumber;
         public byte LastSectionNumber;
-        public UInt16 OriginalNetworkId;
+        public ushort OriginalNetworkId;
         
         public List<Item> Items;
 
-        public ServiceDescriptionTable(TsAnalyser.TsPacket packet) : base(packet)
+        public ServiceDescriptionTable(TsPacket packet) : base(packet)
         {
 
         }
 
         public override bool ProcessTable()
         {
-            ServiceDescriptionTable sdt = this;//new ServiceDescriptionTable();
+            var sdt = this;//new ServiceDescriptionTable();
             sdt.PointerField = 0;
 
             // if (packet.PayloadUnitStartIndicator && packet.AdaptationFieldFlag && packet.AdaptationField.TransportPrivateDataFlag)
@@ -48,7 +45,7 @@ namespace TsAnalyser.Tables
                 //  eit.PointerField = (byte)(data[0]);
             }
             sdt.PointerField++;
-            if (sdt.PointerField > data.Length)
+            if (sdt.PointerField > Data.Length)
             {
 #if DEBUG
                 Console.WriteLine("PointerField outside packet");
@@ -56,53 +53,53 @@ namespace TsAnalyser.Tables
                 return false;
             }
 
-            sdt.TableId = data[sdt.PointerField + 0];
-            sdt.SectionSyntaxIndicator = (bool)((data[sdt.PointerField + 1] & 0x80) == 0x80);
-            sdt.Reserved = (byte)((data[sdt.PointerField + 1] >> 6) & 0x03);
-            sdt.SectionLength = (UInt16)(((data[sdt.PointerField + 1] & 0xf) << 8) + data[sdt.PointerField + 2]);
-            sdt.TransportStreamId = (UInt16)((data[sdt.PointerField + 3] << 8) + data[sdt.PointerField + 4]);
+            sdt.TableId = Data[sdt.PointerField + 0];
+            sdt.SectionSyntaxIndicator = (Data[sdt.PointerField + 1] & 0x80) == 0x80;
+            sdt.Reserved = (byte)((Data[sdt.PointerField + 1] >> 6) & 0x03);
+            sdt.SectionLength = (ushort)(((Data[sdt.PointerField + 1] & 0xf) << 8) + Data[sdt.PointerField + 2]);
+            sdt.TransportStreamId = (ushort)((Data[sdt.PointerField + 3] << 8) + Data[sdt.PointerField + 4]);
             //sdt.Reserved2 = (byte)((data[sdt.PointerField + 5] >> 6) & 0x03);
-            sdt.VersionNumber = (byte)((data[sdt.PointerField + 5] & 0x3E) >> 1);
-            sdt.CurrentNextIndicator = (bool)((data[sdt.PointerField + 5] & 0x01) == 0x01);
-            sdt.SectionNumber = data[sdt.PointerField + 6];
-            sdt.LastSectionNumber = data[sdt.PointerField + 7];
+            sdt.VersionNumber = (byte)((Data[sdt.PointerField + 5] & 0x3E) >> 1);
+            sdt.CurrentNextIndicator = (Data[sdt.PointerField + 5] & 0x01) == 0x01;
+            sdt.SectionNumber = Data[sdt.PointerField + 6];
+            sdt.LastSectionNumber = Data[sdt.PointerField + 7];
 
-            sdt.OriginalNetworkId = (UInt16)((data[sdt.PointerField + 8] << 8) + data[sdt.PointerField + 9]);
+            sdt.OriginalNetworkId = (ushort)((Data[sdt.PointerField + 8] << 8) + Data[sdt.PointerField + 9]);
             //sdt.ReservedFutureUse = data[sdt.PointerField + 10];
 
-            UInt16 startOfNextField = (UInt16)(sdt.PointerField + 11);
+            var startOfNextField = (ushort)(sdt.PointerField + 11);
 
-            UInt16 TransportStreamLoopEnd = (UInt16)(sdt.SectionLength - 4);
-            List<ServiceDescriptionTable.Item> items = new List<ServiceDescriptionTable.Item>();
-            while (startOfNextField < TransportStreamLoopEnd)
+            var transportStreamLoopEnd = (ushort)(sdt.SectionLength - 4);
+            var items = new List<Item>();
+            while (startOfNextField < transportStreamLoopEnd)
             {
-                ServiceDescriptionTable.Item item = new ServiceDescriptionTable.Item();
+                var item = new Item();
 
-                item.ServiceId = (UInt16)((data[startOfNextField] << 8) + data[startOfNextField + 1]);
+                item.ServiceId = (ushort)((Data[startOfNextField] << 8) + Data[startOfNextField + 1]);
 
                // item.ReservedFutureUse = (byte)((data[startOfNextField + 2] >> 2) & 0x3F);
-                item.EITScheduleFlag = (bool)(((data[startOfNextField + 2]) & 0x02) == 0x02);
-                item.EITPresentFollowingFlag = (bool)(((data[startOfNextField + 2]) & 0x01) == 0x01);
-                item.RunningStatus = (byte)((data[startOfNextField + 3] >> 5) & 0x07);
-                item.FreeCAMode = (bool)((data[startOfNextField + 3] & 0x10) == 0x10);
-                item.DescriptorsLoopLength = (UInt16)(((data[startOfNextField + 3] & 0xf) << 8) + data[startOfNextField + 4]);
+                item.EitScheduleFlag = ((Data[startOfNextField + 2]) & 0x02) == 0x02;
+                item.EitPresentFollowingFlag = ((Data[startOfNextField + 2]) & 0x01) == 0x01;
+                item.RunningStatus = (byte)((Data[startOfNextField + 3] >> 5) & 0x07);
+                item.FreeCaMode = (Data[startOfNextField + 3] & 0x10) == 0x10;
+                item.DescriptorsLoopLength = (ushort)(((Data[startOfNextField + 3] & 0xf) << 8) + Data[startOfNextField + 4]);
 
-                List<Descriptor> descriptors = new List<Descriptor>();
+                var descriptors = new List<Descriptor>();
 
-                startOfNextField = (UInt16)(startOfNextField + 5);
-                UInt16 endOfDescriptors = (UInt16)(startOfNextField + item.DescriptorsLoopLength);
-                if (endOfDescriptors > data.Length)
+                startOfNextField = (ushort)(startOfNextField + 5);
+                var endOfDescriptors = (ushort)(startOfNextField + item.DescriptorsLoopLength);
+                if (endOfDescriptors > Data.Length)
                 {
 #if DEBUG
-                    Console.WriteLine("descriptors are bigger then packet, ignoring rest of packet");
+                   // Console.WriteLine("descriptors are bigger then packet, ignoring rest of packet");
 #endif
                     return false;
                 }
                 while (startOfNextField < endOfDescriptors)
                 {
-                    Descriptor des = DescriptorFactory.DescriptorFromTsPacketPayload(data, startOfNextField);
+                    var des = DescriptorFactory.DescriptorFromTsPacketPayload(Data, startOfNextField);
                     descriptors.Add(des);
-                    startOfNextField += (UInt16)(des.DescriptorLength + 2);
+                    startOfNextField += (ushort)(des.DescriptorLength + 2);
                 }
                 item.Descriptors = descriptors;
                 items.Add(item);
