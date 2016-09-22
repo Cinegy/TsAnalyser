@@ -43,32 +43,30 @@ namespace TsAnalyser.Tables
             }
         }
 
-        virtual public bool HasAllBytes()
+        public virtual bool HasAllBytes()
         {
             return _tableBytes >= SectionLength + 3 && SectionLength > 0;
         }
 
-        virtual public bool Add(TsPacket packet)
+        public virtual bool Add(TsPacket packet)
         {
-            if (!packet.PayloadUnitStartIndicator)
-            {
-                if ((SectionLength + 3 - _tableBytes) > packet.Payload.Length)
-                {
-                    Buffer.BlockCopy(packet.Payload, 0, Data, _tableBytes, packet.Payload.Length);
-                    _tableBytes += (ushort)(packet.Payload.Length);
-                }
-                else
-                {
-                    Buffer.BlockCopy(packet.Payload, 0, Data, _tableBytes, (SectionLength + 3 - _tableBytes));
-                    _tableBytes += (ushort)(SectionLength + 3 - _tableBytes);
-                }
+            if (packet.PayloadUnitStartIndicator) return false;
 
-                return true;
+            if ((SectionLength + 3 - _tableBytes) > packet.Payload.Length)
+            {
+                Buffer.BlockCopy(packet.Payload, 0, Data, _tableBytes, packet.Payload.Length);
+                _tableBytes += (ushort)(packet.Payload.Length);
             }
-            return false;
+            else
+            {
+                Buffer.BlockCopy(packet.Payload, 0, Data, _tableBytes, (SectionLength + 3 - _tableBytes));
+                _tableBytes += (ushort)(SectionLength + 3 - _tableBytes);
+            }
+
+            return true;
         }
 
-        virtual public bool ProcessTable()
+        public virtual bool ProcessTable()
         {
             return true;
         }
