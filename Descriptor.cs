@@ -6,40 +6,46 @@ namespace TsAnalyser
 {
     public class Text
     {
-        public byte[] Chararacters { get; set; }
+        public byte[] Characters { get; set; }
         public string Value { get { return ToString(); } }
 
         public Text(Text text)
         {
-            Chararacters = new byte[text.Chararacters.Length];
+            Characters = new byte[text.Characters.Length];
             if (text != null)
             {
-                Buffer.BlockCopy(text.Chararacters, 0, Chararacters, 0, text.Chararacters.Length);
+                Buffer.BlockCopy(text.Characters, 0, Characters, 0, text.Characters.Length);
             }
         }
 
-        public Text(byte[] chararacters, int start, int length)
+        public Text(byte[] inputChars, int start, int length)
         {
-
-            Chararacters = new byte[length];
-            if (null != chararacters)
+            Characters = new byte[length];
+            if (null != inputChars && inputChars.Length > start && inputChars.Length > length + start)
             {
-                Buffer.BlockCopy(chararacters, start, Chararacters, 0, length);
+                try
+                {
+                    Buffer.BlockCopy(inputChars, start, Characters, 0, length);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Overflow copying text chars from input - improve bounds checking! Exception: ", ex.Message);
+                }
             }
         }
 
         public override string ToString()
         {
-            if (Chararacters.Length == 0)
+            if (Characters.Length == 0)
             {
                 return "";
             }
-            var ret = new byte[Chararacters.Length];
-            var char0 = Chararacters[0];
+            var ret = new byte[Characters.Length];
+            var char0 = Characters[0];
             ushort start = 0;
             var characterTable = "ISO-8859-1";
             var ii = 0;
-            if (Chararacters[0] >= 0x20 && Chararacters[0] <= 0xFF)
+            if (Characters[0] >= 0x20 && Characters[0] <= 0xFF)
             {
                 start = 0;
             }
@@ -68,9 +74,9 @@ namespace TsAnalyser
                 }
             }
 
-            for (int i = start; i < Chararacters.Length; i++)
+            for (int i = start; i < Characters.Length; i++)
             {
-                var character = Chararacters[i];
+                var character = Characters[i];
                 if (character >= 0x80 && character <= 0x9F)
                 {
                     switch (character)
@@ -95,7 +101,7 @@ namespace TsAnalyser
                 }
                 else if (character != 0)
                 {
-                    ret[ii++] = Chararacters[i];
+                    ret[ii++] = Characters[i];
                 }
                 else
                 {

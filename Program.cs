@@ -211,9 +211,9 @@ namespace TsAnalyser
                                     foreach (var descriptor in item.Descriptors.Where(d => d.DescriptorTag == 0x48))
                                     {
                                         var sd = descriptor as ServiceDescriptor;
-                                        if (null != sd)
+                                        if (null != sd && sd.ServiceName.Value.Contains("Vintage"))
                                         {
-                                            PrintToConsole(
+                                           Debug.WriteLine(
                                                 "\nService Information\n----------------\nService Name: {0}\tService Provider: {1}\t",
                                                 sd.ServiceName.Value, sd.ServiceProviderName.Value);
                                         }

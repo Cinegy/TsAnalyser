@@ -61,13 +61,6 @@ namespace TsAnalyser
                 if (newPacket.Pid == 0x1fff)
                     return;
 
-
-                if (!newPacket.ContainsPayload)
-                {
-                    Debug.WriteLine("No payload");
-                }
-
-
                 if (LastCc == newPacket.ContinuityCounter)
                 {
                     if (newPacket.ContainsPayload)
