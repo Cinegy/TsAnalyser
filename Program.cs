@@ -56,7 +56,7 @@ namespace TsAnalyser
         private static Tables.ProgramMapTable _programMapTable;
         private static Tables.ServiceDescriptionTable _serviceDescriptionTable;
         private static readonly object ServiceDescriptionTableLock = new object();
-        private static List<ServiceDescriptor> _serviceDescriptors = new List<ServiceDescriptor>(16);
+        private static readonly List<ServiceDescriptor> ServiceDescriptors = new List<ServiceDescriptor>(16);
 
         private static readonly Dictionary<short, Dictionary<ushort, TeleText>> TeletextSubtitlePages = new Dictionary<short, Dictionary<ushort, TeleText>>();
         private static readonly Dictionary<short, Pes> TeletextSubtitleBuffers = new Dictionary<short, Pes>();
@@ -207,7 +207,7 @@ namespace TsAnalyser
                             PrintToConsole(
                                 "\t\t\t\nService Information\n----------------\t\t\t\t");
 
-                            foreach (var descriptor in _serviceDescriptors)
+                            foreach (var descriptor in ServiceDescriptors)
                             {
                                 PrintToConsole(
                                     "Service: {0} ({1}) - {2}\t\t\t",
@@ -222,14 +222,27 @@ namespace TsAnalyser
                             {
                                 foreach (var page in TeletextDecodedSubtitlePages[pid].Keys)
                                 {
-                                    PrintToConsole("Page {0:X} on pid {1}", page, pid);
+                                    PrintToConsole("Live Decoding Page {0:X} from Pid {1}\n", page, pid);
+
+                                    //some strangeness here to get around the fact we just append to console, to clear out
+                                    //a fixed 4 lines of space for TTX render
+                                    const string clearLine = "\t\t\t\t\t\t\t\t\t";
+                                    var ttxRender = new[] { clearLine, clearLine, clearLine, clearLine };
+
+                                    var i = 0;
 
                                     foreach (var line in TeletextDecodedSubtitlePages[pid][page])
                                     {
-                                        if (!IsNullOrEmpty(line) && !IsNullOrEmpty(line.Trim()))
-                                        {
-                                            PrintToConsole("{0}\t\t\t", new string(line.Where(c => !char.IsControl(c)).ToArray()));
-                                        }
+                                        if (IsNullOrEmpty(line) || IsNullOrEmpty(line.Trim()) || i >= ttxRender.Length)
+                                            continue;
+
+                                        ttxRender[i] = $"{new string(line.Where(c => !char.IsControl(c)).ToArray())}\t\t\t";
+                                        i++;
+                                    }
+
+                                    foreach (var val in ttxRender)
+                                    {
+                                        PrintToConsole(val);
                                     }
                                 }
 
@@ -333,7 +346,7 @@ namespace TsAnalyser
                                 {
                                     if (_programMapTable != null && !_programMapTable.HasAllBytes())
                                     {
-                                        _serviceDescriptionTable?.Add(tsPacket);
+                                        _programMapTable?.Add(tsPacket);
                                     }
                                 }
 
@@ -432,7 +445,7 @@ namespace TsAnalyser
                                                                 if (sd == null) continue;
 
                                                                 var match = false;
-                                                                foreach (var serviceDescriptor in _serviceDescriptors)
+                                                                foreach (var serviceDescriptor in ServiceDescriptors)
                                                                 {
                                                                     if (serviceDescriptor.ServiceName.Value == sd.ServiceName.Value)
                                                                     {
@@ -440,7 +453,7 @@ namespace TsAnalyser
                                                                     }
                                                                 }
 
-                                                                if (!match) _serviceDescriptors.Add(sd);
+                                                                if (!match) ServiceDescriptors.Add(sd);
                                                             }
                                                         }
                                                     }
@@ -457,7 +470,7 @@ namespace TsAnalyser
 
                                 }
                             }
-                            if (!TeletextSubtitlePages.ContainsKey(tsPacket.Pid)) continue;
+                            if (TeletextSubtitlePages?.ContainsKey(tsPacket.Pid) == false) continue;
 
                             if (tsPacket.PayloadUnitStartIndicator)
                             {

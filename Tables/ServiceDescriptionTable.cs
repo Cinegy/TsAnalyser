@@ -54,6 +54,8 @@ namespace TsAnalyser.Tables
             }
 
             sdt.TableId = Data[sdt.PointerField + 0];
+            if (TableId != 0x42) return false;
+
             sdt.SectionSyntaxIndicator = (Data[sdt.PointerField + 1] & 0x80) == 0x80;
             sdt.Reserved = (byte)((Data[sdt.PointerField + 1] >> 6) & 0x03);
             sdt.SectionLength = (ushort)(((Data[sdt.PointerField + 1] & 0xf) << 8) + Data[sdt.PointerField + 2]);
@@ -73,16 +75,18 @@ namespace TsAnalyser.Tables
             var items = new List<Item>();
             while (startOfNextField < transportStreamLoopEnd)
             {
-                var item = new Item();
-
-                item.ServiceId = (ushort)((Data[startOfNextField] << 8) + Data[startOfNextField + 1]);
-
-               // item.ReservedFutureUse = (byte)((data[startOfNextField + 2] >> 2) & 0x3F);
-                item.EitScheduleFlag = ((Data[startOfNextField + 2]) & 0x02) == 0x02;
-                item.EitPresentFollowingFlag = ((Data[startOfNextField + 2]) & 0x01) == 0x01;
-                item.RunningStatus = (byte)((Data[startOfNextField + 3] >> 5) & 0x07);
-                item.FreeCaMode = (Data[startOfNextField + 3] & 0x10) == 0x10;
-                item.DescriptorsLoopLength = (ushort)(((Data[startOfNextField + 3] & 0xf) << 8) + Data[startOfNextField + 4]);
+                var item = new Item
+                {
+                    ServiceId = (ushort) ((Data[startOfNextField] << 8) + Data[startOfNextField + 1]),
+                    EitScheduleFlag = ((Data[startOfNextField + 2]) & 0x02) == 0x02,
+                    EitPresentFollowingFlag = ((Data[startOfNextField + 2]) & 0x01) == 0x01,
+                    RunningStatus = (byte) ((Data[startOfNextField + 3] >> 5) & 0x07),
+                    FreeCaMode = (Data[startOfNextField + 3] & 0x10) == 0x10,
+                    DescriptorsLoopLength =
+                        (ushort) (((Data[startOfNextField + 3] & 0xf) << 8) + Data[startOfNextField + 4])
+                };
+                
+                // item.ReservedFutureUse = (byte)((data[startOfNextField + 2] >> 2) & 0x3F);
 
                 var descriptors = new List<Descriptor>();
 
@@ -91,7 +95,7 @@ namespace TsAnalyser.Tables
                 if (endOfDescriptors > Data.Length)
                 {
 #if DEBUG
-                   // Console.WriteLine("descriptors are bigger then packet, ignoring rest of packet");
+                    System.Diagnostics.Debug.WriteLine("TODO: Figure out why sometimes descriptors are bigger than packet - now ignoring rest of packet");
 #endif
                     return false;
                 }
