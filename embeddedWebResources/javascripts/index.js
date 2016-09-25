@@ -40,11 +40,11 @@ $(document).ready(function () {
         self.Service = {
             ServiceName: ko.observable(''),
             ServiceProvider: ko.observable('')
-        }
+        };
 
         self.Ts = {
-            Pids : ko.observableArray()
-        }
+            Pids: ko.observableArray()
+        };
         
         //Wire up methods that are exposed via KnockOut
         self.resetMetrics = function () {
@@ -88,8 +88,7 @@ $(document).ready(function () {
 
     setInterval(function () {
         $.getJSON("/V1/CurrentMetrics", function (data) { viewModelObj.UpdateValues(data); });
-        //viewModelObj.doMagic();
-    }, 500);
+    }, 800);
 
 
     function issueCommand(engineViewModel, command) {

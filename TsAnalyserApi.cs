@@ -163,22 +163,24 @@ namespace TsAnalyser
                 
             };
 
-            foreach (var ts in TsMetrics)
+            foreach (var ts in TsMetrics.OrderBy(p => p.Pid))
             {
                 var streamType = "";
-                var esInfo = ProgramMetrics?.EsStreams?.Where(p => p.ElementaryPid == ts.Pid).FirstOrDefault();
-                if (esInfo != null)
+                if (ProgramMetrics?.EsStreams != null)
                 {
-                    if (Tables.ProgramMapTable.ElementarystreamTypes.ContainsKey(esInfo.StreamType))
+                    var esInfo = (ProgramMetrics?.EsStreams).FirstOrDefault(p => p.ElementaryPid == ts.Pid);
+                    if (esInfo != null)
                     {
-                        streamType = Tables.ProgramMapTable.ElementarystreamTypes[esInfo.StreamType];
+                        if (Tables.ProgramMapTable.ElementarystreamTypes.ContainsKey(esInfo.StreamType))
+                        {
+                            streamType = Tables.ProgramMapTable.ElementarystreamTypes[esInfo.StreamType];
+                        }
                     }
                 }
                 _serialisableMetric.Ts.Pids.Add(new SerialisableMetrics.SerialisableTsMetric.PidDetails()
                 {
                     CcErrorCount = ts.CcErrorCount,
                     Pid = ts.Pid,
-                    IsProgAssociationTable = ts.IsProgAssociationTable,
                     PacketCount = ts.PacketCount,
                     StreamType = streamType
                 });

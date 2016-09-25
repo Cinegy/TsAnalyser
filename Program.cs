@@ -56,6 +56,8 @@ namespace TsAnalyser
         private static Tables.ProgramMapTable _programMapTable;
         private static Tables.ServiceDescriptionTable _serviceDescriptionTable;
         private static readonly object ServiceDescriptionTableLock = new object();
+        private static List<ServiceDescriptor> _serviceDescriptors = new List<ServiceDescriptor>(16);
+
         private static readonly Dictionary<short, Dictionary<ushort, TeleText>> TeletextSubtitlePages = new Dictionary<short, Dictionary<ushort, TeleText>>();
         private static readonly Dictionary<short, Pes> TeletextSubtitleBuffers = new Dictionary<short, Pes>();
         private static readonly object TeletextSubtitleDecodedPagesLock = new object();
@@ -74,10 +76,8 @@ namespace TsAnalyser
 
             try
             {
-
                 Console.CursorVisible = false;
-                Console.SetWindowSize(100, 40);
-
+                Console.SetWindowSize(120, 60);
             }
             catch
             {
@@ -186,16 +186,16 @@ namespace TsAnalyser
                     PrintToConsole("\nTS Details\n----------------");
                     lock (_tsMetrics)
                     {
-                        var patMetric = _tsMetrics.FirstOrDefault(m => m.IsProgAssociationTable);
+                        var patMetric = _tsMetrics.FirstOrDefault(m => m.Pid == 0x0);
                         if (patMetric?.ProgAssociationTable.ProgramNumbers != null)
                         {
-                            PrintToConsole("Unique PID count: {0}\t\tProgram Count: {1}\t\t\t\n(Showing up to 10 PID streams in table)\t\t\t\t\t", _tsMetrics.Count,
+                            PrintToConsole("Unique PID count: {0}\t\tProgram Count: {1}\t\t\t\n(Showing up to 10 PID streams in table by packet count)\t\t\t", _tsMetrics.Count,
                                 patMetric.ProgAssociationTable.ProgramNumbers.Length);
                         }
 
-                        foreach (var tsMetric in _tsMetrics.OrderByDescending(m => m.Pid).Take(10))
+                        foreach (var tsMetric in _tsMetrics.OrderByDescending(m => m.PacketCount).Take(10))
                         {
-                            PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", tsMetric.Pid,
+                            PrintToConsole("TS PID: 0x{0:X0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", tsMetric.Pid,
                                 tsMetric.PacketCount, tsMetric.CcErrorCount);
                         }
                     }
@@ -204,21 +204,15 @@ namespace TsAnalyser
                     {
                         lock (ServiceDescriptionTableLock)
                         {
-                            if (_serviceDescriptionTable?.Items != null)
+                            PrintToConsole(
+                                "\t\t\t\nService Information\n----------------\t\t\t\t");
+
+                            foreach (var descriptor in _serviceDescriptors)
                             {
-                                foreach (var item in _serviceDescriptionTable.Items)
-                                {
-                                    foreach (var descriptor in item.Descriptors.Where(d => d.DescriptorTag == 0x48))
-                                    {
-                                        var sd = descriptor as ServiceDescriptor;
-                                        if (null != sd && sd.ServiceName.Value.Contains("Vintage"))
-                                        {
-                                           Debug.WriteLine(
-                                                "\nService Information\n----------------\nService Name: {0}\tService Provider: {1}\t",
-                                                sd.ServiceName.Value, sd.ServiceProviderName.Value);
-                                        }
-                                    }
-                                }
+                                PrintToConsole(
+                                    "Service: {0} ({1}) - {2}\t\t\t",
+                                    descriptor.ServiceName.Value, descriptor.ServiceProviderName.Value, descriptor.ServiceTypeDescription);
+
                             }
                         }
                         lock (TeletextSubtitleDecodedPagesLock)
@@ -322,7 +316,7 @@ namespace TsAnalyser
                             }
                             currentMetric.AddPacket(tsPacket);
 
-                            if (currentMetric.IsProgAssociationTable)
+                            if (currentMetric.Pid == 0x0)
                             {
                                 _progAssociationTable = currentMetric.ProgAssociationTable;
                             }
@@ -418,6 +412,40 @@ namespace TsAnalyser
                                         if (_serviceDescriptionTable.ProcessTable())
                                         {
                                             if (_tsAnalyserApi != null && _tsAnalyserApi.ServiceMetrics == null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
+
+                                            if (null != _serviceDescriptionTable && _readServiceDescriptions)
+                                            {
+                                                lock (ServiceDescriptionTableLock)
+                                                {
+                                                    if (_serviceDescriptionTable?.Items != null &&
+                                                        _serviceDescriptionTable.TableId == 0x42)
+                                                    {
+                                                        foreach (var item in _serviceDescriptionTable.Items)
+                                                        {
+                                                            foreach (
+                                                                var descriptor in
+                                                                    item.Descriptors.Where(d => d.DescriptorTag == 0x48)
+                                                                )
+                                                            {
+                                                                var sd = descriptor as ServiceDescriptor;
+
+                                                                if (sd == null) continue;
+
+                                                                var match = false;
+                                                                foreach (var serviceDescriptor in _serviceDescriptors)
+                                                                {
+                                                                    if (serviceDescriptor.ServiceName.Value == sd.ServiceName.Value)
+                                                                    {
+                                                                        match = true;
+                                                                    }
+                                                                }
+
+                                                                if (!match) _serviceDescriptors.Add(sd);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                         else
                                         {

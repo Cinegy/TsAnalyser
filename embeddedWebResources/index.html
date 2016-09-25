@@ -18,7 +18,7 @@
 <body>
 
     <div id="mainHeader">
-        TsAnalyser
+        Cinegy Transport Stream Analyser 
     </div>
     <div id="mainHeaderProductName"></div>
 
@@ -125,30 +125,14 @@
         <table id="currentMetrics2">
             <thead class="ts">
                 <tr>
-                    <th colspan="2">TS</th>
+                    <th colspan="2">Transport Stream Elements (PIDs)</th>
                 </tr>
             </thead>
             <tbody class="ts" data-bind="foreach: Ts.Pids">
                 <tr class="blockStart">
-                    <td>Pid</td>
-                    <td data-bind="text: Pid"></td>
-                </tr>
-
-                <tr>
-                    <td>Cc Error Count</td>
-                    <td data-bind="text: CcErrorCount"></td>
-                </tr>
-                <tr>
-                    <td>Is ProgAssociationTable</td>
-                    <td data-bind="text: IsProgAssociationTable"></td>
-                </tr>
-                <tr>
-                    <td>Packet Count</td>
-                    <td data-bind="text: PacketCount"></td>
-                </tr>
-                <tr>
-                    <td>StreamType</td>
-                    <td data-bind="text: StreamType"></td>
+                    <td>TS PID: 0x<!--ko text: Pid.toString(16); --><!--/ko--></td>
+                    <td>Packet Count: <!--ko text: PacketCount--><!--/ko--></td>
+                    <td>CC Error Count: <!--ko text: CcErrorCount--><!--/ko--></td>
                 </tr>
             </tbody>
         </table>

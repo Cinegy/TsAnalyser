@@ -24,12 +24,12 @@ body {
 }
 
 #currentMetrics1 > tbody > tr > td, #currentMetrics2 > tbody > tr > td{
-    padding-left : 32px;
+    padding-left : 48px;
 }
 
-#currentMetrics2 > tbody > tr.blockStart:nth-child(1n+1) > td{
-    padding-top : 16px;
-}
+/*#currentMetrics2 > tbody > tr.blockStart:nth-child(1n+1) > td{
+    padding-left : 32px;
+}*/
 
 #mainHeaderProductName { font-size: 24px; }
 
@@ -44,7 +44,7 @@ body {
     .groupBox {
         border: solid 1px rgb(170, 170, 170);
         margin: 0 0 0 0;
-        padding: 0px;
+        padding: 0;
         z-index: 3;
         width: 410px;
     }

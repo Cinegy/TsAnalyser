@@ -13,7 +13,7 @@ namespace TsAnalyser
         public long PacketCount { get; set; }
         public long CcErrorCount { get; set; }
         public int LastCc { get; set; }
-        public bool IsProgAssociationTable { get; set; }
+      //  public bool IsProgAssociationTable { get; set; }
         public ProgAssociationTable ProgAssociationTable { get; private set; }
         public Tables.ProgramMapTable ProgramMapTable { get; private set; }
 
@@ -35,7 +35,7 @@ namespace TsAnalyser
 
                     if (newPacket.Pid == 0x00)
                     {
-                        IsProgAssociationTable = true;
+                      //  IsProgAssociationTable = true;
                         ProgAssociationTable = ProgAssociationTableFactory.ProgAssociationTableFromTsPackets(new[] { newPacket });
                     }
                 }
