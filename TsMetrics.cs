@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using TsAnalyser.Tables;
 
 namespace TsAnalyser
 {
@@ -12,9 +13,9 @@ namespace TsAnalyser
         public long PacketCount { get; set; }
         public long CcErrorCount { get; set; }
         public int LastCc { get; set; }
-        public bool IsProgAssociationTable { get; set; }
+      //  public bool IsProgAssociationTable { get; set; }
         public ProgAssociationTable ProgAssociationTable { get; private set; }
-        public ProgramMapTable ProgramMapTable { get; private set; }
+        public Tables.ProgramMapTable ProgramMapTable { get; private set; }
 
         public void AddPacket(TsPacket newPacket)
         {
@@ -34,7 +35,7 @@ namespace TsAnalyser
 
                     if (newPacket.Pid == 0x00)
                     {
-                        IsProgAssociationTable = true;
+                      //  IsProgAssociationTable = true;
                         ProgAssociationTable = ProgAssociationTableFactory.ProgAssociationTableFromTsPackets(new[] { newPacket });
                     }
                 }
@@ -59,13 +60,6 @@ namespace TsAnalyser
 
                 if (newPacket.Pid == 0x1fff)
                     return;
-
-
-                if (!newPacket.ContainsPayload)
-                {
-                    Debug.WriteLine("No payload");
-                }
-
 
                 if (LastCc == newPacket.ContinuityCounter)
                 {

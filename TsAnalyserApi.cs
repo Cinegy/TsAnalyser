@@ -24,8 +24,8 @@ namespace TsAnalyser
 
         public List<TsMetrics> TsMetrics = new List<TsMetrics>();
 
-        public ServiceDescriptionTable ServiceMetrics = new ServiceDescriptionTable();
-        public ProgramMapTable ProgramMetrics = new ProgramMapTable();
+        public Tables.ServiceDescriptionTable ServiceMetrics = null;//new Tables.ServiceDescriptionTable();
+        public Tables.ProgramMapTable ProgramMetrics = null;// new Tables.ProgramMapTable();
 
         public void GetGlobalOptions()
         {
@@ -157,23 +157,23 @@ namespace TsAnalyser
                 {
                     MinLostPackets = RtpMetric.MinLostPackets,
                     SequenceNumber = RtpMetric.LastSequenceNumber,
-                    SSRC = RtpMetric.Ssrc,
+                    Ssrc = RtpMetric.Ssrc,
                     Timestamp = RtpMetric.LastTimestamp
                 },
                 
             };
 
-            foreach (var ts in TsMetrics)
+            foreach (var ts in TsMetrics.OrderBy(p => p.Pid))
             {
-                String StreamType = "";
-                if (ProgramMetrics.Sections != null)
+                var streamType = "";
+                if (ProgramMetrics?.EsStreams != null)
                 {
-                    ProgramMapTable.Section section = ProgramMetrics.Sections.Where(P => P.ElementaryPID == ts.Pid).FirstOrDefault();
-                    if (section != null)
+                    var esInfo = (ProgramMetrics?.EsStreams).FirstOrDefault(p => p.ElementaryPid == ts.Pid);
+                    if (esInfo != null)
                     {
-                        if (ProgramMapTable.ElementarystreamTypes.ContainsKey(section.StreamType))
+                        if (Tables.ProgramMapTable.ElementarystreamTypes.ContainsKey(esInfo.StreamType))
                         {
-                            StreamType = ProgramMapTable.ElementarystreamTypes[section.StreamType];
+                            streamType = Tables.ProgramMapTable.ElementarystreamTypes[esInfo.StreamType];
                         }
                     }
                 }
@@ -181,18 +181,20 @@ namespace TsAnalyser
                 {
                     CcErrorCount = ts.CcErrorCount,
                     Pid = ts.Pid,
-                    IsProgAssociationTable = ts.IsProgAssociationTable,
                     PacketCount = ts.PacketCount,
-                    StreamType = StreamType
+                    StreamType = streamType
                 });
             }
 
-            if (ServiceMetrics.Sections != null && ServiceMetrics.Sections.Count > 0) {
-                _serialisableMetric.Service.ServiceName = ServiceMetrics.Sections[0].ServiceName;
-                _serialisableMetric.Service.ServiceProvider = ServiceMetrics.Sections[0].ServiceProviderName;
+            if (ServiceMetrics?.Items == null || ServiceMetrics?.Items?.Count <= 0) return;
+
+            foreach (var descriptor in ServiceMetrics?.Items[0].Descriptors.Where(d => d.DescriptorTag == 0x48))
+            {
+                var sd = descriptor as ServiceDescriptor;
+                if (null == sd) continue;
+                _serialisableMetric.Service.ServiceName = sd.ServiceName.Value;
+                _serialisableMetric.Service.ServiceProvider = sd.ServiceProviderName.Value;
             }
-
-
         }
 
         public delegate void StreamCommandEventHandler(object sender, StreamCommandEventArgs e);

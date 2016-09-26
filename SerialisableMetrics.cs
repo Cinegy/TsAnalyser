@@ -44,10 +44,7 @@ namespace TsAnalyser
             public class PidDetails
             {
                 public int Pid { get; set; }
-
                 public long CcErrorCount { get; set; }
-                public bool IsProgAssociationTable { get; set; }
-
                 public long PacketCount { get; set; }
                 public string StreamType { get; set; }
             }
@@ -58,7 +55,7 @@ namespace TsAnalyser
             public long MinLostPackets { get; set; }
             public long SequenceNumber { get; set; }
             public long Timestamp { get; set; }
-            public long SSRC { get; set; }
+            public long Ssrc { get; set; }
         }
 
         public class ServiceDescriptionMetric

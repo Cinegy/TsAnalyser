@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace TsAnalyser
+namespace TsAnalyser.Tables
 {
     public class ProgAssociationTable
     {
@@ -13,15 +13,12 @@ namespace TsAnalyser
         public byte SectionNumber;
         public byte LastSectionNumber;
         public short[] ProgramNumbers;
-        public short[] PIDS;
-        public short PMTPid = -1;
+        public short[] Pids;
+        public short PmtPid = -1;
     }
 
     public class ProgAssociationTableFactory
     {
-        private const int TsPacketSize = 188;
-        private const int TsPacketHeaderSize = 4;
-
         public static ProgAssociationTable ProgAssociationTableFromTsPackets(TsPacket[] packets)
         {
             var pat = new ProgAssociationTable();
@@ -29,9 +26,7 @@ namespace TsAnalyser
             for (var i = 0; i < packets.Length; i++)
             {
                 if (!packets[i].PayloadUnitStartIndicator) continue;
-
-               // if (packets[i].Payload.Length != TsPacketSize - TsPacketHeaderSize) continue;
-
+                
                 pat.PointerField = packets[i].Payload[0];
 
                 if (pat.PointerField > packets[i].Payload.Length)
@@ -50,16 +45,16 @@ namespace TsAnalyser
                 pat.LastSectionNumber = packets[i].Payload[pos + 7];
 
                 pat.ProgramNumbers = new short[(pat.SectionLength - 9)/4];
-                pat.PIDS = new short[(pat.SectionLength - 9) / 4];
-                int programStart = pos + 8;
+                pat.Pids = new short[(pat.SectionLength - 9) / 4];
+                var programStart = pos + 8;
                
-                for (int ii = 0; ii < (pat.SectionLength - 9) / 4; ii++)
+                for (var ii = 0; ii < (pat.SectionLength - 9) / 4; ii++)
                 {
                     pat.ProgramNumbers[ii] = (short)((packets[i].Payload[programStart + (ii * 4)] << 8) + packets[i].Payload[programStart + 1 + (ii * 4)]);
-                    pat.PIDS[ii] = (short)(((packets[i].Payload[programStart + 2 + (ii * 4)] & 0x1F) << 8) + packets[i].Payload[programStart + 3 + (ii * 4)]);
+                    pat.Pids[ii] = (short)(((packets[i].Payload[programStart + 2 + (ii * 4)] & 0x1F) << 8) + packets[i].Payload[programStart + 3 + (ii * 4)]);
                     if(pat.ProgramNumbers[ii] != 0)
                     {
-                        pat.PMTPid = pat.PIDS[ii];
+                        pat.PmtPid = pat.Pids[ii];
                     }
                 }
             }
