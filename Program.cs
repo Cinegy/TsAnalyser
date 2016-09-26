@@ -39,6 +39,7 @@ namespace TsAnalyser
         private static bool _receiving;
         private static bool _suppressConsoleOutput;
         private static bool _readServiceDescriptions;
+        private static bool _decodeTeletext;
         private static bool _noRtpHeaders;
         private static DateTime _startTime = DateTime.UtcNow;
         private static string _logFile;
@@ -53,8 +54,8 @@ namespace TsAnalyser
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<TsMetrics> _tsMetrics = new List<TsMetrics>();
         private static ProgAssociationTable _progAssociationTable;
-        private static Tables.ProgramMapTable _programMapTable;
-        private static Tables.ServiceDescriptionTable _serviceDescriptionTable;
+        private static ProgramMapTable _programMapTable;
+        private static ServiceDescriptionTable _serviceDescriptionTable;
         private static readonly object ServiceDescriptionTableLock = new object();
         private static readonly List<ServiceDescriptor> ServiceDescriptors = new List<ServiceDescriptor>(16);
 
@@ -62,7 +63,7 @@ namespace TsAnalyser
         private static readonly Dictionary<short, Pes> TeletextSubtitleBuffers = new Dictionary<short, Pes>();
         private static readonly object TeletextSubtitleDecodedPagesLock = new object();
         private static readonly Dictionary<short, Dictionary<ushort, string[]>> TeletextDecodedSubtitlePages = new Dictionary<short, Dictionary<ushort, string[]>>();
-        
+
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
 
         static void Main(string[] args)
@@ -122,7 +123,8 @@ namespace TsAnalyser
                 _suppressConsoleOutput = options.SuppressOutput;
                 _readServiceDescriptions = options.ReadServiceDescriptions;
                 _noRtpHeaders = options.NoRtpHeaders;
-                
+                _decodeTeletext = options.DecodeTeletext;
+
 
                 if (!IsNullOrWhiteSpace(_logFile))
                 {
@@ -155,7 +157,7 @@ namespace TsAnalyser
                 //causes occasional total refresh to erase glitches that build up
                 if (runningTime.Milliseconds < 20)
                 {
-                   // Console.Clear();
+                    // Console.Clear();
                 }
 
                 if (!_suppressConsoleOutput)
@@ -177,12 +179,12 @@ namespace TsAnalyser
                         (_networkMetric.HighestBitrate / 131072.0), (_networkMetric.LowestBitrate / 131072.0));
 
                     if (!_noRtpHeaders)
-                    { 
+                    {
                         PrintToConsole(
                             "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
                             _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
                     }
-                    
+
                     PrintToConsole("\nTS Details\n----------------");
                     lock (_tsMetrics)
                     {
@@ -200,63 +202,38 @@ namespace TsAnalyser
                         }
                     }
 
-                    if (null != _serviceDescriptionTable && _readServiceDescriptions)
+                    if ( _readServiceDescriptions)
                     {
-                        lock (ServiceDescriptionTableLock)
+                        if (null != _serviceDescriptionTable )
                         {
-                            PrintToConsole(
-                                "\t\t\t\nService Information\n----------------\t\t\t\t");
-
-                            foreach (var descriptor in ServiceDescriptors)
+                            lock (ServiceDescriptionTableLock)
                             {
                                 PrintToConsole(
-                                    "Service: {0} ({1}) - {2}\t\t\t",
-                                    descriptor.ServiceName.Value, descriptor.ServiceProviderName.Value, descriptor.ServiceTypeDescription);
+                                    "\t\t\t\nService Information\n----------------\t\t\t\t");
 
+                                foreach (var descriptor in ServiceDescriptors)
+                                {
+                                    PrintToConsole(
+                                        "Service: {0} ({1}) - {2}\t\t\t",
+                                        descriptor.ServiceName.Value, descriptor.ServiceProviderName.Value,
+                                        descriptor.ServiceTypeDescription);
+
+                                }
+                            }
+                            if (_decodeTeletext)
+                            {
+                                PrintTeletext();
                             }
                         }
-
                     }
-
-                        lock (TeletextSubtitleDecodedPagesLock)
-                        {
-                            PrintToConsole("\nTeleText Subtitles\n----------------");
-                            foreach (var pid in TeletextDecodedSubtitlePages.Keys)
-                            {
-                                foreach (var page in TeletextDecodedSubtitlePages[pid].Keys)
-                                {
-                                    PrintToConsole("Live Decoding Page {0:X} from Pid {1}\n", page, pid);
-
-                                    //some strangeness here to get around the fact we just append to console, to clear out
-                                    //a fixed 4 lines of space for TTX render
-                                    const string clearLine = "\t\t\t\t\t\t\t\t\t";
-                                    var ttxRender = new[] { clearLine, clearLine, clearLine, clearLine };
-
-                                    var i = 0;
-
-                                    foreach (var line in TeletextDecodedSubtitlePages[pid][page])
-                                    {
-                                        if (IsNullOrEmpty(line) || IsNullOrEmpty(line.Trim()) || i >= ttxRender.Length)
-                                            continue;
-
-                                        ttxRender[i] = $"{new string(line.Where(c => !char.IsControl(c)).ToArray())}\t\t\t";
-                                        i++;
-                                    }
-
-                                    foreach (var val in ttxRender)
-                                    {
-                                        PrintToConsole(val);
-                                    }
-                                }
-
-                            }
-
-                        
+                    else if (_decodeTeletext)
+                    {
+                        PrintTeletext();
                     }
-
+                    
                 }
 
-                
+
                 Console.WriteLine(ConsoleDisplay.ToString());
                 ConsoleDisplay.Clear();
 
@@ -264,6 +241,45 @@ namespace TsAnalyser
             }
 
             LogMessage("Logging stopped.");
+        }
+
+        private static void PrintTeletext()
+        {
+            lock (TeletextSubtitleDecodedPagesLock)
+            {
+                PrintToConsole("\nTeleText Subtitles\n----------------");
+                foreach (var pid in TeletextDecodedSubtitlePages.Keys)
+                {
+                    foreach (var page in TeletextDecodedSubtitlePages[pid].Keys)
+                    {
+                        PrintToConsole("Live Decoding Page {0:X} from Pid {1}\n", page, pid);
+
+                        //some strangeness here to get around the fact we just append to console, to clear out
+                        //a fixed 4 lines of space for TTX render
+                        const string clearLine = "\t\t\t\t\t\t\t\t\t";
+                        var ttxRender = new[] { clearLine, clearLine, clearLine, clearLine };
+
+                        var i = 0;
+
+                        foreach (var line in TeletextDecodedSubtitlePages[pid][page])
+                        {
+                            if (IsNullOrEmpty(line) || IsNullOrEmpty(line.Trim()) || i >= ttxRender.Length)
+                                continue;
+
+                            ttxRender[i] = $"{new string(line.Where(c => !char.IsControl(c)).ToArray())}\t\t\t";
+                            i++;
+                        }
+
+                        foreach (var val in ttxRender)
+                        {
+                            PrintToConsole(val);
+                        }
+                    }
+
+                }
+
+
+            }
         }
 
         private static void StartListeningToNetwork(string multicastAddress, int multicastGroup,
@@ -275,7 +291,7 @@ namespace TsAnalyser
             var localEp = new IPEndPoint(listenAddress, multicastGroup);
 
             UdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            UdpClient.Client.ReceiveBufferSize = 1024*256;
+            UdpClient.Client.ReceiveBufferSize = 1024 * 256;
             UdpClient.ExclusiveAddressUse = false;
             UdpClient.Client.Bind(localEp);
             _networkMetric.UdpClient = UdpClient;
@@ -288,7 +304,7 @@ namespace TsAnalyser
                 ReceivingNetworkWorkerThread(UdpClient, localEp);
             });
 
-            var receiverThread = new Thread(ts) {Priority = ThreadPriority.Highest};
+            var receiverThread = new Thread(ts) { Priority = ThreadPriority.Highest };
 
             receiverThread.Start();
         }
@@ -336,9 +352,7 @@ namespace TsAnalyser
                             {
                                 _progAssociationTable = currentMetric.ProgAssociationTable;
                             }
-
-                            if (!_readServiceDescriptions) continue;
-
+                            
                             if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PmtPid)
                             {
                                 if (tsPacket.PayloadUnitStartIndicator)
@@ -359,39 +373,47 @@ namespace TsAnalyser
                                     {
                                         if (_tsAnalyserApi != null && _tsAnalyserApi.ProgramMetrics == null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
 
-                                        foreach (var esStream in _programMapTable.EsStreams)
+                                        if (_decodeTeletext)
                                         {
-                                            foreach (var descriptor in esStream.Descriptors.Where(d => d.DescriptorTag == 0x56))
+                                            foreach (var esStream in _programMapTable.EsStreams)
                                             {
-                                                var teletext = descriptor as TeletextDescriptor;
-                                                if (null == teletext) continue;
-
-                                                foreach (var lang in teletext.Languages)
+                                                foreach (
+                                                    var descriptor in
+                                                        esStream.Descriptors.Where(d => d.DescriptorTag == 0x56))
                                                 {
-                                                    if (lang.TeletextType != 0x02 && lang.TeletextType != 0x05)
-                                                        continue;
+                                                    var teletext = descriptor as TeletextDescriptor;
+                                                    if (null == teletext) continue;
 
-                                                    if (!TeletextSubtitlePages.ContainsKey(esStream.ElementaryPid))
+                                                    foreach (var lang in teletext.Languages)
                                                     {
-                                                        TeletextSubtitlePages.Add(esStream.ElementaryPid, new Dictionary<ushort, TeleText>());
-                                                        TeletextSubtitleBuffers.Add(esStream.ElementaryPid, null);
-                                                    }
-                                                    var m = lang.TeletextMagazineNumber;
-                                                    if (lang.TeletextMagazineNumber == 0)
-                                                    {
-                                                        m = 8;
-                                                    }
-                                                    var page = (ushort)((m << 8) + lang.TeletextPageNumber);
-                                                    //var pageStr = $"{page:X}";
+                                                        if (lang.TeletextType != 0x02 && lang.TeletextType != 0x05)
+                                                            continue;
 
-                                                    // if (page == 0x199)
-                                                    {
-                                                        if (
-                                                            TeletextSubtitlePages[esStream.ElementaryPid]
-                                                                .ContainsKey(page)) continue;
+                                                        if (!TeletextSubtitlePages.ContainsKey(esStream.ElementaryPid))
+                                                        {
+                                                            TeletextSubtitlePages.Add(esStream.ElementaryPid,
+                                                                new Dictionary<ushort, TeleText>());
+                                                            TeletextSubtitleBuffers.Add(esStream.ElementaryPid, null);
+                                                        }
+                                                        var m = lang.TeletextMagazineNumber;
+                                                        if (lang.TeletextMagazineNumber == 0)
+                                                        {
+                                                            m = 8;
+                                                        }
+                                                        var page = (ushort) ((m << 8) + lang.TeletextPageNumber);
+                                                        //var pageStr = $"{page:X}";
 
-                                                        TeletextSubtitlePages[esStream.ElementaryPid].Add(page, new TeleText(page, esStream.ElementaryPid));
-                                                        TeletextSubtitlePages[esStream.ElementaryPid][page].TeletextPageRecieved += TeletextPageRecievedMethod;
+                                                        // if (page == 0x199)
+                                                        {
+                                                            if (
+                                                                TeletextSubtitlePages[esStream.ElementaryPid]
+                                                                    .ContainsKey(page)) continue;
+
+                                                            TeletextSubtitlePages[esStream.ElementaryPid].Add(page,
+                                                                new TeleText(page, esStream.ElementaryPid));
+                                                            TeletextSubtitlePages[esStream.ElementaryPid][page]
+                                                                .TeletextPageRecieved += TeletextPageRecievedMethod;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -402,11 +424,12 @@ namespace TsAnalyser
                                         _programMapTable = null;
                                     }
                                 }
-
-                                /* _programMapTable = Tables.ProgramMapTableFactory.ProgramMapTableFromTsPackets(new[] { tsPacket });
-                                     if (_tsAnalyserApi != null) _tsAnalyserApi.ProgramMetrics = _programMapTable;*/
+                                
                             }
 
+                            if (!_readServiceDescriptions) continue;
+                            
+                            
                             if (tsPacket.Pid == 0x0011)
                             {
                                 lock (ServiceDescriptionTableLock)
@@ -468,11 +491,9 @@ namespace TsAnalyser
                                             _serviceDescriptionTable = null;
                                         }
                                     }
-
-                                    //_serviceDescriptionTable = Tables.ServiceDescriptionTableFactory.ServiceDescriptionTableFromTsPackets(new[] { tsPacket });
-
                                 }
                             }
+
                             if (TeletextSubtitlePages?.ContainsKey(tsPacket.Pid) == false) continue;
 
                             if (tsPacket.PayloadUnitStartIndicator)
@@ -491,7 +512,7 @@ namespace TsAnalyser
 
                                 TeletextSubtitleBuffers[tsPacket.Pid] = new Pes(tsPacket);
                             }
-                            else if (TeletextSubtitleBuffers[tsPacket.Pid] != null/* && !TeletextSubtitleBuffers[packet.PID].HasAllBytes()*/)
+                            else if (TeletextSubtitleBuffers[tsPacket.Pid] != null)
                             {
                                 TeletextSubtitleBuffers[tsPacket.Pid].Add(tsPacket);
                             }
@@ -504,7 +525,7 @@ namespace TsAnalyser
                 }
             }
         }
-        
+
         private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
             if (_pendingExit) return; //already trying to exit - allow normal behaviour on subsequent presses
@@ -531,16 +552,16 @@ namespace TsAnalyser
         {
             LogMessage("Network buffer > 99% - probably loss of data from overflow.");
         }
-        
+
         private static void PrintToConsole(string message, params object[] arguments)
         {
             if (_suppressConsoleOutput) return;
 
             ConsoleDisplay.AppendLine(string.Format(message, arguments));
 
-        //   Console.WriteLine(message, arguments);
+            //   Console.WriteLine(message, arguments);
         }
-        
+
         private static void LogMessage(string message)
         {
             ThreadPool.QueueUserWorkItem(WriteToFile, message);
@@ -558,7 +579,7 @@ namespace TsAnalyser
 
                         var fs = new FileStream(_logFile, FileMode.Append, FileAccess.Write);
 
-                        _logFileStream = new StreamWriter(fs) {AutoFlush = true};
+                        _logFileStream = new StreamWriter(fs) { AutoFlush = true };
                     }
 
                     _logFileStream.WriteLine($"{DateTime.Now} - {msg}");
@@ -572,7 +593,7 @@ namespace TsAnalyser
             }
         }
 
-  
+
 
         private static void StartHttpService(string serviceAddress)
         {
@@ -588,13 +609,13 @@ namespace TsAnalyser
             };
 
             _tsAnalyserApi.StreamCommand += _tsAnalyserApi_StreamCommand;
-            
+
             _serviceHost = new ServiceHost(_tsAnalyserApi, baseAddress);
             var webBinding = new WebHttpBinding();
 
-            var serviceEndpoint = new ServiceEndpoint(ContractDescription.GetContract(typeof (ITsAnalyserApi)))
+            var serviceEndpoint = new ServiceEndpoint(ContractDescription.GetContract(typeof(ITsAnalyserApi)))
             {
-                Binding = webBinding, 
+                Binding = webBinding,
                 Address = new EndpointAddress(baseAddress)
             };
 
@@ -606,9 +627,9 @@ namespace TsAnalyser
                 DefaultOutgoingRequestFormat = WebMessageFormat.Json,
                 HelpEnabled = true
             };
-            
+
             serviceEndpoint.Behaviors.Add(webBehavior);
-            
+
             //Metadata Exchange
             //var serviceBehavior = new ServiceMetadataBehavior {HttpGetEnabled = true};
             //_serviceHost.Description.Behaviors.Add(serviceBehavior);
@@ -653,7 +674,7 @@ namespace TsAnalyser
         private static void TeletextPageRecievedMethod(object sender, EventArgs args)
         {
             var teletextArgs = (TeleTextSubtitleEventArgs)args;
-            lock(TeletextSubtitleDecodedPagesLock)
+            lock (TeletextSubtitleDecodedPagesLock)
             {
                 if (!TeletextDecodedSubtitlePages.ContainsKey(teletextArgs.Pid))
                 {

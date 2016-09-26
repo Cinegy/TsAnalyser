@@ -38,6 +38,10 @@ namespace TsAnalyser
         HelpText = "Optional instruction to decode further DVB service description metadata (experimental)")]
         public bool ReadServiceDescriptions { get; set; }
 
+        [Option('t', "teletextdecode", Required = false, DefaultValue = false,
+        HelpText = "Optional instruction to decode DVB teletext subtitles from default program (experimental)")]
+        public bool DecodeTeletext { get; set; }
+
         [Option('n', "nortpheaders", Required = false, DefaultValue = false,
         HelpText = "Optional instruction to skip the expected 12 byte RTP headers (meaning plain MPEGTS inside UDP is expected")]
         public bool NoRtpHeaders { get; set; }
