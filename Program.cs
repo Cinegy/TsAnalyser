@@ -72,7 +72,7 @@ namespace TsAnalyser
             Console.CancelKeyPress += Console_CancelKeyPress;
 
             Console.WriteLine(
-                $"Cinegy Simple RTP monitoring tool v1.0.0 ({File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
+                $"Cinegy Transport Stream Monitoring and Analysis tool v1.1.0 ({File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
 
             try
             {
