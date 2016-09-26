@@ -215,6 +215,9 @@ namespace TsAnalyser
 
                             }
                         }
+
+                    }
+
                         lock (TeletextSubtitleDecodedPagesLock)
                         {
                             PrintToConsole("\nTeleText Subtitles\n----------------");
@@ -248,7 +251,7 @@ namespace TsAnalyser
 
                             }
 
-                        }
+                        
                     }
 
                 }
