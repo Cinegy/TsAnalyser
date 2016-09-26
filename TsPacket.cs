@@ -57,7 +57,7 @@ namespace TsAnalyser
                         ContinuityCounter = (short)(data[start + 3] & 0xF)
                     };
 
-                    if (tsPacket.ContainsPayload & !tsPacket.TransportErrorIndicator)
+                    if (tsPacket.ContainsPayload && !tsPacket.TransportErrorIndicator)
                     {
                         var payloadOffs = start + 4;
                         var payloadSize = TsPacketSize - 4;
