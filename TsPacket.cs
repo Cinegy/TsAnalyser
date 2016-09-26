@@ -65,6 +65,10 @@ namespace TsAnalyser
                         if (tsPacket.AdaptationFieldExists)
                         {
                             var adaptationFieldSize = 1 + data[payloadOffs];
+
+                            if (adaptationFieldSize >= payloadSize)
+                                throw new Exception("adaptationFieldSize >= payloadSize");
+
                             payloadSize -= adaptationFieldSize;
                             payloadOffs += adaptationFieldSize;
                         }
