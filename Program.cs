@@ -357,7 +357,7 @@ namespace TsAnalyser
                             {
                                 if (tsPacket.PayloadUnitStartIndicator)
                                 {
-                                    _programMapTable = new Tables.ProgramMapTable(tsPacket);
+                                    _programMapTable = new ProgramMapTable(tsPacket);
                                 }
                                 else
                                 {
@@ -427,6 +427,29 @@ namespace TsAnalyser
                                 
                             }
 
+                            if (TeletextSubtitlePages?.ContainsKey(tsPacket.Pid) == false) continue;
+
+                            if (tsPacket.PayloadUnitStartIndicator)
+                            {
+                                if (null != TeletextSubtitleBuffers[tsPacket.Pid])
+                                {
+                                    if (TeletextSubtitleBuffers[tsPacket.Pid].HasAllBytes())
+                                    {
+                                        TeletextSubtitleBuffers[tsPacket.Pid].Decode();
+                                        foreach (var key in TeletextSubtitlePages[tsPacket.Pid].Keys)
+                                        {
+                                            TeletextSubtitlePages[tsPacket.Pid][key].DecodeTeletextData(TeletextSubtitleBuffers[tsPacket.Pid]);
+                                        }
+                                    }
+                                }
+
+                                TeletextSubtitleBuffers[tsPacket.Pid] = new Pes(tsPacket);
+                            }
+                            else if (TeletextSubtitleBuffers[tsPacket.Pid] != null)
+                            {
+                                TeletextSubtitleBuffers[tsPacket.Pid].Add(tsPacket);
+                            }
+
                             if (!_readServiceDescriptions) continue;
                             
                             
@@ -492,29 +515,6 @@ namespace TsAnalyser
                                         }
                                     }
                                 }
-                            }
-
-                            if (TeletextSubtitlePages?.ContainsKey(tsPacket.Pid) == false) continue;
-
-                            if (tsPacket.PayloadUnitStartIndicator)
-                            {
-                                if (null != TeletextSubtitleBuffers[tsPacket.Pid])
-                                {
-                                    if (TeletextSubtitleBuffers[tsPacket.Pid].HasAllBytes())
-                                    {
-                                        TeletextSubtitleBuffers[tsPacket.Pid].Decode();
-                                        foreach (var key in TeletextSubtitlePages[tsPacket.Pid].Keys)
-                                        {
-                                            TeletextSubtitlePages[tsPacket.Pid][key].DecodeTeletextData(TeletextSubtitleBuffers[tsPacket.Pid]);
-                                        }
-                                    }
-                                }
-
-                                TeletextSubtitleBuffers[tsPacket.Pid] = new Pes(tsPacket);
-                            }
-                            else if (TeletextSubtitleBuffers[tsPacket.Pid] != null)
-                            {
-                                TeletextSubtitleBuffers[tsPacket.Pid].Add(tsPacket);
                             }
                         }
                     }
