@@ -53,12 +53,12 @@ $(document).ready(function () {
         
         self.UpdateValues = function (values) {
             //self.Network = values.Network;
-            self.Network.AverageBitrate(values.Network.AverageBitrate);
-            self.Network.CurrentBitrate(values.Network.CurrentBitrate);
-            self.Network.HighestBitrate(values.Network.HighestBitrate);
+            self.Network.AverageBitrate((Math.round(values.Network.AverageBitrate / 1310.72))/100);
+            self.Network.CurrentBitrate((Math.round(values.Network.CurrentBitrate / 1310.72))/100);
+            self.Network.HighestBitrate((Math.round(values.Network.HighestBitrate / 1310.72))/100);
             self.Network.LongestTimeBetweenPackets(values.Network.LongestTimeBetweenPackets);
             self.Network.LowestBitrate(values.Network.LowestBitrate);
-            self.Network.NetworkBufferUsage(values.Network.NetworkBufferUsage);
+            self.Network.NetworkBufferUsage(Math.round(values.Network.NetworkBufferUsage * 100)/100);
             self.Network.PacketsPerSecond(values.Network.PacketsPerSecond);
             self.Network.ShortestTimeBetweenPackets(values.Network.ShortestTimeBetweenPackets);
             self.Network.TimeBetweenLastPacket(values.Network.TimeBetweenLastPacket);

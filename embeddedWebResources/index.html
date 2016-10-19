@@ -130,7 +130,7 @@
             </thead>
             <tbody class="ts" data-bind="foreach: Ts.Pids">
                 <tr class="blockStart">
-                    <td>TS PID: 0x<!--ko text: Pid.toString(16); --><!--/ko--></td>
+                    <td>TS PID: <!--ko text: Pid.toString(); --><!--/ko--> (0x<!--ko text: Pid.toString(16); --><!--/ko-->)</td>
                     <td>Packet Count: <!--ko text: PacketCount--><!--/ko--></td>
                     <td>CC Error Count: <!--ko text: CcErrorCount--><!--/ko--></td>
                 </tr>

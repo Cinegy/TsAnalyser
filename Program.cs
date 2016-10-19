@@ -65,6 +65,7 @@ namespace TsAnalyser
         private static readonly Dictionary<short, Dictionary<ushort, string[]>> TeletextDecodedSubtitlePages = new Dictionary<short, Dictionary<ushort, string[]>>();
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
+        private static int LastPrintedTsCount = 0;
 
         static void Main(string[] args)
         {
@@ -197,7 +198,7 @@ namespace TsAnalyser
 
                         foreach (var tsMetric in _tsMetrics.OrderByDescending(m => m.PacketCount).Take(10))
                         {
-                            PrintToConsole("TS PID: 0x{0:X0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", tsMetric.Pid,
+                            PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", tsMetric.Pid,
                                 tsMetric.PacketCount, tsMetric.CcErrorCount);
                         }
                     }
@@ -231,9 +232,13 @@ namespace TsAnalyser
                         PrintTeletext();
                     }
                     
+                    if(LastPrintedTsCount != _tsMetrics.Count)
+                    {
+                        LastPrintedTsCount = _tsMetrics.Count;
+                        Console.Clear();
+                    }
                 }
-
-
+                
                 Console.WriteLine(ConsoleDisplay.ToString());
                 ConsoleDisplay.Clear();
 
@@ -707,6 +712,7 @@ namespace TsAnalyser
                     _tsAnalyserApi.NetworkMetric = _networkMetric;
                     _tsAnalyserApi.TsMetrics = _tsMetrics;
                     _tsAnalyserApi.RtpMetric = _rtpMetric;
+                    Console.Clear();
 
                     break;
                 case (StreamCommandType.StopStream):
