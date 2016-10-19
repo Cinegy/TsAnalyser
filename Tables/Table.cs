@@ -1,4 +1,5 @@
 ﻿using System;
+using TsAnalyser.TsElements;
 
 namespace TsAnalyser.Tables
 {

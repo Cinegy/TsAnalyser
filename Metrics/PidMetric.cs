@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using TsAnalyser.Tables;
+using TsAnalyser.TsElements;
 
-namespace TsAnalyser
+namespace TsAnalyser.Metrics
 {
-    public class TsMetrics
+    public class PidMetric
     {
         public delegate void DiscontinuityDetectedEventHandler(object sender, TransportStreamEventArgs args);
         public delegate void TransportErrorIndicatorDetectedEventHandler(object sender, TransportStreamEventArgs args);
@@ -13,10 +14,7 @@ namespace TsAnalyser
         public long PacketCount { get; set; }
         public long CcErrorCount { get; set; }
         public int LastCc { get; set; }
-      //  public bool IsProgAssociationTable { get; set; }
-        public ProgAssociationTable ProgAssociationTable { get; private set; }
-        public Tables.ProgramMapTable ProgramMapTable { get; private set; }
-
+        
         public void AddPacket(TsPacket newPacket)
         {
             try
@@ -33,11 +31,10 @@ namespace TsAnalyser
                     CheckCcContinuity(newPacket);
                     LastCc = newPacket.ContinuityCounter;
 
-                    if (newPacket.Pid == 0x00)
-                    {
-                      //  IsProgAssociationTable = true;
-                        ProgAssociationTable = ProgAssociationTableFactory.ProgAssociationTableFromTsPackets(new[] { newPacket });
-                    }
+                    //if (newPacket.Pid == 0x00)
+                    //{
+                    //    ProgAssociationTable = ProgAssociationTableFactory.ProgAssociationTableFromTsPackets(new[] { newPacket });
+                    //}
                 }
 
                 PacketCount++;
@@ -97,6 +94,7 @@ namespace TsAnalyser
 
         // Continuity Counter Error has been detected.
         public event DiscontinuityDetectedEventHandler DiscontinuityDetected;
+
         // Transport Error Indicator has been detected inside packet.
         public event TransportErrorIndicatorDetectedEventHandler TransportErrorIndicatorDetected;
 

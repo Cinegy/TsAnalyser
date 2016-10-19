@@ -1,8 +1,9 @@
 ﻿using System.IO;
 using System.ServiceModel;
 using System.ServiceModel.Web;
+using TsAnalyser.Metrics;
 
-namespace TsAnalyser
+namespace TsAnalyser.Service
 {
 
     [ServiceContract]

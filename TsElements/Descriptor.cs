@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TsAnalyser
+namespace TsAnalyser.TsElements
 {
     public class Text
     {

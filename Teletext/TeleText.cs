@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using TsAnalyser.Tables;
+using TsAnalyser.TsElements;
 
 namespace TsAnalyser.Teletext
 {

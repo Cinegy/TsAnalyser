@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using TsAnalyser.TsElements;
 
 namespace TsAnalyser.Tables
 {

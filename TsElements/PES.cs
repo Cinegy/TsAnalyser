@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace TsAnalyser
+namespace TsAnalyser.TsElements
 {
     public class OptionalPes
     {

@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.ServiceModel;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.ServiceModel;
 using System.ServiceModel.Web;
+using TsAnalyser.Metrics;
+using TsAnalyser.TsElements;
 
-
-namespace TsAnalyser
+namespace TsAnalyser.Service
 {
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single)]
     public class TsAnalyserApi : ITsAnalyserApi
@@ -22,7 +23,7 @@ namespace TsAnalyser
         
         public RtpMetric RtpMetric { get; set; }
 
-        public List<TsMetrics> TsMetrics = new List<TsMetrics>();
+        public List<PidMetric> TsMetrics = new List<PidMetric>();
 
         public Tables.ServiceDescriptionTable ServiceMetrics = null;//new Tables.ServiceDescriptionTable();
         public Tables.ProgramMapTable ProgramMetrics = null;// new Tables.ProgramMapTable();
