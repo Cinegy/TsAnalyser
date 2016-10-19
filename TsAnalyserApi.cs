@@ -106,7 +106,8 @@ namespace TsAnalyser
         public SerialisableMetrics GetCurrentMetrics()
         {
             WebOperationContext.Current?.OutgoingResponse.Headers.Add("Access-Control-Allow-Origin", "*");
-         
+            WebOperationContext.Current?.OutgoingResponse.Headers.Add("Cache-Control", "no-cache");
+
             RefreshMetrics();
 
             return _serialisableMetric;
