@@ -57,7 +57,7 @@ namespace TsAnalyser
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
         private static TsMetric _tsMetric = new TsMetric();
-        private static ProgramMapTable _programMapTable;
+
         private static ServiceDescriptionTable _serviceDescriptionTable;
         private static readonly object ServiceDescriptionTableLock = new object();
         private static readonly List<ServiceDescriptor> ServiceDescriptors = new List<ServiceDescriptor>(16);
@@ -157,15 +157,8 @@ namespace TsAnalyser
             while (!_pendingExit)
             {
                 var runningTime = DateTime.UtcNow.Subtract(_startTime);
-
-                //causes occasional total refresh to erase glitches that build up
-                if (runningTime.Milliseconds < 20)
-                {
-                    // Console.Clear();
-                }
-
+                
                 if (!_suppressConsoleOutput)
-
                 {
                     Console.SetCursorPosition(0, 0);
 
@@ -205,9 +198,30 @@ namespace TsAnalyser
                         }
                     }
 
-                    if ( _readServiceDescriptions)
+                    if (_tsMetric?.ProgramMapTables != null)
                     {
-                        if (null != _serviceDescriptionTable )
+                        lock (_tsMetric.ProgramMapTables)
+                        {
+                            var pmt = _tsMetric.ProgramMapTables.OrderBy(t => t.ProgramNumber).FirstOrDefault();
+
+                            PrintToConsole($"\t\t\t\nDefault Program {pmt?.ProgramNumber} Elements:\n----------------\t\t\t\t");
+
+                            if (pmt?.EsStreams != null)
+                            {
+                                foreach (var stream in pmt?.EsStreams)
+                                {
+                                    PrintToConsole(
+                                        "PID: {0} ({1})", stream?.ElementaryPid, ProgramMapTable.ShortElementaryStreamTypeDescriptions[stream.StreamType]);
+                                }
+                            }
+
+                        }
+                    }
+
+
+                    if (_readServiceDescriptions)
+                    {
+                        if (null != _serviceDescriptionTable)
                         {
                             lock (ServiceDescriptionTableLock)
                             {
@@ -233,14 +247,14 @@ namespace TsAnalyser
                     {
                         PrintTeletext();
                     }
-                    
-                    if(_lastPrintedTsCount != _pidMetrics.Count)
+
+                    if (_lastPrintedTsCount != _pidMetrics.Count)
                     {
                         _lastPrintedTsCount = _pidMetrics.Count;
                         Console.Clear();
                     }
                 }
-                
+
                 Console.WriteLine(ConsoleDisplay.ToString());
                 ConsoleDisplay.Clear();
 
@@ -361,34 +375,13 @@ namespace TsAnalyser
                             }
 
                             //todo: From here, start shifting into inner class
-                     
+
                             //TODO: More teletextness here
-                            if (TeletextSubtitlePages?.ContainsKey(tsPacket.Pid) == false) continue;
-
-                            if (tsPacket.PayloadUnitStartIndicator)
-                            {
-                                if (null != TeletextSubtitleBuffers[tsPacket.Pid])
-                                {
-                                    if (TeletextSubtitleBuffers[tsPacket.Pid].HasAllBytes())
-                                    {
-                                        TeletextSubtitleBuffers[tsPacket.Pid].Decode();
-                                        foreach (var key in TeletextSubtitlePages[tsPacket.Pid].Keys)
-                                        {
-                                            TeletextSubtitlePages[tsPacket.Pid][key].DecodeTeletextData(TeletextSubtitleBuffers[tsPacket.Pid]);
-                                        }
-                                    }
-                                }
-
-                                TeletextSubtitleBuffers[tsPacket.Pid] = new Pes(tsPacket);
-                            }
-                            else if (TeletextSubtitleBuffers[tsPacket.Pid] != null)
-                            {
-                                TeletextSubtitleBuffers[tsPacket.Pid].Add(tsPacket);
-                            }
+                           
 
                             if (!_readServiceDescriptions) continue;
-                            
-                            
+
+
                             if (tsPacket.Pid == 0x0011)
                             {
                                 lock (ServiceDescriptionTableLock)
@@ -452,6 +445,31 @@ namespace TsAnalyser
                                     }
                                 }
                             }
+
+                            if (TeletextSubtitlePages?.ContainsKey(tsPacket.Pid) == false) continue;
+
+                            if (tsPacket.PayloadUnitStartIndicator)
+                            {
+                                if (null != TeletextSubtitleBuffers[tsPacket.Pid])
+                                {
+                                    if (TeletextSubtitleBuffers[tsPacket.Pid].HasAllBytes())
+                                    {
+                                        TeletextSubtitleBuffers[tsPacket.Pid].Decode();
+                                        foreach (var key in TeletextSubtitlePages[tsPacket.Pid].Keys)
+                                        {
+                                            TeletextSubtitlePages[tsPacket.Pid][key].DecodeTeletextData(TeletextSubtitleBuffers[tsPacket.Pid]);
+                                        }
+                                    }
+                                }
+
+                                TeletextSubtitleBuffers[tsPacket.Pid] = new Pes(tsPacket);
+                            }
+                            else if (TeletextSubtitleBuffers[tsPacket.Pid] != null)
+                            {
+                                TeletextSubtitleBuffers[tsPacket.Pid].Add(tsPacket);
+                            }
+
+
                         }
                     }
                 }

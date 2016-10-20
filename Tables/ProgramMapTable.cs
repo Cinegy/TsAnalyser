@@ -13,50 +13,51 @@ namespace TsAnalyser.Tables
             public byte Reserved2 { get; set; }//	120 + varA	4	bslbf
             public ushort EsInfoLength { get; set; }//	124 + varA	12	uimsbf
             public IEnumerable<Descriptor> Descriptors { get; set; }
-            public string StreamTypeString
-            {
-                get
-                {
-                    if (StreamType <= 0x0E)
-                    {
-                        switch (StreamType)
-                        {
-                            case 0x00: return "ITU-T | ISO/IEC reserved";
-                            case 0x01: return "ISO/IEC 11172-2 Video";
-                            case 0x02: return "ITU-T Rec. H262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream";
-                            case 0x03: return "ISO/IEC 11172-3 Audio";
-                            case 0x04: return "ISO/IEC 13818-3 Audio";
-                            case 0x05: return "ITU-R Rec. H.222.0 | ISO/IEC 13818-1 private_sections";
-                            case 0x06: return "ITU-R Rec. H.222.0 | ISO/IEC 13818-1 PES packets containing private data";
-                            case 0x07: return "ISO/IEC 13522 MHEG";
-                            case 0x08: return "Annex A - DSM CC";
-                            case 0x09: return "ITU-T Rec. H222.1";
-                            case 0x0A: return "ISO/IEC 13818-6 type A";
-                            case 0x0B: return "ISO/IEC 13818-6 type B";
-                            case 0x0C: return "ISO/IEC 13818-6 type C";
-                            case 0x0D: return "ISO/IEC 13818-6 type D";
-                            case 0x0E: return "ISO/IEC 13818-1 auxiliary";
-                            default: return "Strange, > 0x0E && < 0x0F";
-                        }
-                    }
-                    else if (StreamType >= 0x0F && StreamType <= 0x7F)
-                    {
-                        return "ITU-T Rec H.222.0 | ISO/IEC 13818-1 reserved";
-                    }
-                    else
-                    {
-                        return "User private";
-                    }
 
-                }
-            }
+            //public string StreamTypeString
+            //{
+            //    get
+            //    {
+            //        if (StreamType <= 0x0E)
+            //        {
+            //            switch (StreamType)
+            //            {
+            //                case 0x00: return "ITU-T | ISO/IEC reserved";
+            //                case 0x01: return "ISO/IEC 11172-2 Video";
+            //                case 0x02: return "ITU-T Rec. H262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream";
+            //                case 0x03: return "ISO/IEC 11172-3 Audio";
+            //                case 0x04: return "ISO/IEC 13818-3 Audio";
+            //                case 0x05: return "ITU-R Rec. H.222.0 | ISO/IEC 13818-1 private_sections";
+            //                case 0x06: return "ITU-R Rec. H.222.0 | ISO/IEC 13818-1 PES packets containing private data";
+            //                case 0x07: return "ISO/IEC 13522 MHEG";
+            //                case 0x08: return "Annex A - DSM CC";
+            //                case 0x09: return "ITU-T Rec. H222.1";
+            //                case 0x0A: return "ISO/IEC 13818-6 type A";
+            //                case 0x0B: return "ISO/IEC 13818-6 type B";
+            //                case 0x0C: return "ISO/IEC 13818-6 type C";
+            //                case 0x0D: return "ISO/IEC 13818-6 type D";
+            //                case 0x0E: return "ISO/IEC 13818-1 auxiliary";
+            //                default: return "Strange, > 0x0E && < 0x0F";
+            //            }
+            //        }
+            //        else if (StreamType >= 0x0F && StreamType <= 0x7F)
+            //        {
+            //            return "ITU-T Rec H.222.0 | ISO/IEC 13818-1 reserved";
+            //        }
+            //        else
+            //        {
+            //            return "User private";
+            //        }
+
+            //    }
+            //}
         }
 
-        public static Dictionary<int, string> ElementarystreamTypes = new Dictionary<int, string>()
+        public static Dictionary<int, string> ElementaryStreamTypeDescriptions = new Dictionary<int, string>()
         {
             { 0, "Reserved" },
             {1,"ISO/IEC 11172-2 (MPEG-1 video) in a packetized stream" },
-            {2,"ITU-T Rec. H.262 and ISO/IEC 13818-2 (MPEG-2 higher rate interlaced video) in a packetized stream"},
+            {2,"ITU-T Rec. H.262 (MPEG-2 higher rate interlaced video) in a packetized stream"},
             {3,"ISO/IEC 11172-3 (MPEG-1 audio) in a packetized stream"},
             {4,"ISO/IEC 13818-3 (MPEG-2 halved sample rate audio) in a packetized stream"},
             {5,"ITU-T Rec. H.222 and ISO/IEC 13818-1 (MPEG-2 tabled data) privately defined"},
@@ -101,7 +102,58 @@ namespace TsAnalyser.Tables
             {209,"BBC Dirac (Ultra HD video) in a packetized stream"},
             {219,"ITU-T Rec. H.264 and ISO/IEC 14496-10 with AES-128-CBC slice encryption in a packetized stream"},
             {234,"Microsoft Windows Media Video 9 (lower bit-rate video) in a packetized stream"}
-        };       
+        };
+
+        public static Dictionary<int, string> ShortElementaryStreamTypeDescriptions = new Dictionary<int, string>()
+        {
+            { 0, "Reserved" },
+            {1,"MPEG-1 video" },
+            {2,"MPEG-2 higher rate interlaced video"},
+            {3,"MPEG-1 audio"},
+            {4,"MPEG-2 halved sample rate audio"},
+            {5,"MPEG-2 tabled data"},
+            {6,"MPEG-2 packetized data privately defined"},
+            {7,"MHEG"},
+            {8,"DSM CC"},
+            {9,"Auxiliary data"},
+            {10,"DSM CC multiprotocol encapsulation"},
+            {11, "DSM CC U-N messages"},
+            {12, "DSM CC stream descriptors"},
+            {13, "DSM CC tabled data"},
+            {14,"ISO/IEC 13818-1 auxiliary data"},
+            {15,"ADTS AAC (MPEG-2 lower bit-rate audio)"},
+            {16,"MPEG-4 H.263 based video"},
+            {17,"MPEG-4 LOAS multi-format framed audio"},
+            {18,"MPEG-4 FlexMux"},
+            {19,"MPEG-4 FlexMux"},
+            {20,"DSM CC synchronized download protocol"},
+            {21,"Packetized metadata"},
+            {22,"Sectioned metadata"},
+            {23,"DSM CC Data Carousel metadata"},
+            {24,"DSM CC Object Carousel metadata"},
+            {25,"Synchronized Download Protocol metadata"},
+            {26,"ISO/IEC 13818-11 IPMP"},
+            {27,"H.264 video"},
+            {36,"H.265/HEVC video"},
+            {66,"Chinese Video Standard"},
+            {128,"DigiCipher II or PCM audio for Blu-ray"},
+            {129,"Dolby Digital for ATSC and Blu-ray"},
+            {130,"SCTE subtitle or DTS 6 channel audio"},
+            {131,"Dolby TrueHD lossless audio"},
+            {132,"Dolby Digital Plus for BluRay"},
+            {133,"DTS 8 channel audio"},
+            {134,"DTS 8 channel lossless audio"},
+            {135,"Dolby Digital Plus for ATSC"},
+            {144,"Blu-ray Presentation Graphic Stream (subtitling)"},
+            {145,"ATSC DSM CC Network Resources table"},
+            {192,"DigiCipher II text in a packetized stream"},
+            {193,"Dolby Digital with data encryption"},
+            {194,"ATSC DSM CC data or Dolby D Plus with data encryption"},
+            {207,"ADTS AAC with frame encryption"},
+            {209,"BBC Dirac (Ultra HD video)"},
+            {219,"H.264 with encryption"},
+            {234,"Microsoft WMV 9 (lower bit-rate video)"}
+        };
 
         public ushort ProgramNumber;
         public byte VersionNumber;
@@ -112,8 +164,7 @@ namespace TsAnalyser.Tables
         public ushort ProgramInfoLength;
         public IEnumerable<Descriptor> Descriptors;
         public List<EsInfo> EsStreams { get; set; }
-
-
+        
         public ProgramMapTable(TsPacket packet) : base(packet)
         {
 
@@ -187,74 +238,4 @@ namespace TsAnalyser.Tables
             return true;
         }
     }
-    /* public class ProgramMapTableFactory
-     {
-         private const int TsPacketSize = 188;
-         private const int TsPacketHeaderSize = 4;
-
-         public static ProgramMapTable ProgramMapTableFromTsPackets(TsPacket[] packets)
-         {
-             var pmt = new ProgramMapTable();
-
-             for (var i = 0; i < packets.Length; i++)
-             {
-                 if (!packets[i].PayloadUnitStartIndicator) continue;
-
-                 // if (packets[i].Payload.Length != TsPacketSize - TsPacketHeaderSize) continue;
-
-                 pmt.PointerField = packets[i].Payload[0];
-
-                 if (pmt.PointerField > packets[i].Payload.Length)
-                 {
-                     Debug.Assert(true, "Program Association Table has packet pointer outside the packet.");
-                 }
-
-                 var pos = 1 + pmt.PointerField;
-
-                 pmt.TableId = packets[i].Payload[pos];
-                 pmt.SectionLength = (short)(((packets[i].Payload[pos + 1]) & 0x3 << 8) + packets[i].Payload[pos + 2]);
-                 pmt.ProgramNumber = (short)((packets[i].Payload[pos + 3] << 8) + packets[i].Payload[pos + 4]);
-                 pmt.VersionNumber = (byte)(packets[i].Payload[pos + 5] & 0x3E);
-                 pmt.CurrentNextIndicator = (packets[i].Payload[pos + 5] & 0x1) != 0;
-                 pmt.SectionNumber = packets[i].Payload[pos + 6];
-                 pmt.LastSectionNumber = packets[i].Payload[pos + 7];
-                 pmt.ProgramInfoLength = (short)(((packets[i].Payload[pos + 10] & 0x3) << 8) + packets[i].Payload[pos + 11]);
-
-                 int descLength = 0;
-                 List<Descriptor> descriptors = new List<Descriptor>();
-                 while (descLength < pmt.ProgramInfoLength)
-                 {
-                     Descriptor desc = DescriptorFactory.DescriptorFromTsPacketPayload(packets[i].Payload, pos + 12 + 5 + descLength);
-                     descriptors.Add(desc);
-                     descLength += desc.DescriptorLength + 2;
-                 }
-                 pmt.Descriptors = descriptors;                 
-                 int sectionstartStart = pos + 12 + pmt.ProgramInfoLength;
-                 int currentSectionStart = sectionstartStart;
-                 pmt.Sections = new List<ProgramMapTable.Section>();
-                 do
-                 {
-                     ProgramMapTable.Section section = new ProgramMapTable.Section();
-                     section.StreamType = packets[i].Payload[currentSectionStart];
-                     section.ElementaryPID = (short)(((packets[i].Payload[currentSectionStart + 1] & 0x1F) << 8) + packets[i].Payload[currentSectionStart + 2]);
-                     section.ESInfoLength = (short)(((packets[i].Payload[currentSectionStart + 3] & 0x3) << 8) + packets[i].Payload[currentSectionStart + 4]);
-                     //section.Descriptor = BitConverter.ToString(packets[i].Payload, currentSectionStart + 5, section.ESInfoLength);
-                     descLength = 0;
-                     descriptors = new List<Descriptor>();
-                     while (descLength < section.ESInfoLength)
-                     {
-                         Descriptor desc = DescriptorFactory.DescriptorFromTsPacketPayload(packets[i].Payload, currentSectionStart + 5 + descLength);
-                         descriptors.Add(desc);
-                         descLength += desc.DescriptorLength + 2;
-                     }
-                     section.Descriptors = descriptors;
-                     currentSectionStart = currentSectionStart + 5 + section.ESInfoLength;
-                     pmt.Sections.Add(section);
-                 } while ((currentSectionStart + 5) <= pmt.SectionLength);
-             }
-
-             return pmt;
-         }
-     }*/
-
 }

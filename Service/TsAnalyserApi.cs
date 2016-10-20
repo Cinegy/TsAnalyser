@@ -173,9 +173,9 @@ namespace TsAnalyser.Service
                     var esInfo = (ProgramMetrics?.EsStreams).FirstOrDefault(p => p.ElementaryPid == ts.Pid);
                     if (esInfo != null)
                     {
-                        if (Tables.ProgramMapTable.ElementarystreamTypes.ContainsKey(esInfo.StreamType))
+                        if (Tables.ProgramMapTable.ShortElementaryStreamTypeDescriptions.ContainsKey(esInfo.StreamType))
                         {
-                            streamType = Tables.ProgramMapTable.ElementarystreamTypes[esInfo.StreamType];
+                            streamType = Tables.ProgramMapTable.ShortElementaryStreamTypeDescriptions[esInfo.StreamType];
                         }
                     }
                 }

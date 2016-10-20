@@ -5,6 +5,7 @@ namespace TsAnalyser.Tables
 {
     public class Table
     {
+        public short Pid { get; private set; }
         public byte PointerField { get; set; }
         public byte TableId { get; set; }//0	8	uimsbf
         public bool SectionSyntaxIndicator { get; set; }//	8	1	bslbf
@@ -18,6 +19,8 @@ namespace TsAnalyser.Tables
 
         public Table(TsPacket packet)
         {
+            Pid = packet.Pid;
+
             PointerField = 0;
 
             // if (packet.PayloadUnitStartIndicator && packet.AdaptationFieldFlag && packet.AdaptationField.TransportPrivateDataFlag)

@@ -11,9 +11,15 @@ namespace TsAnalyser.Metrics
 {
     public class TsMetric
     {
-
         public ProgAssociationTable ProgAssociationTable { get; private set; }
-        public ProgramMapTable ProgramMapTable { get; private set; }
+        public List<ProgramMapTable> ProgramMapTables { get; private set; }
+
+        public Object NetworkInformationTable { get; private set; }
+
+        public TsMetric()
+        {
+            ProgramMapTables = new List<ProgramMapTable>();
+        }
 
         public void AddPacket(TsPacket newPacket)
         {
@@ -26,7 +32,7 @@ namespace TsAnalyser.Metrics
                     ProgAssociationTable = ProgAssociationTableFactory.ProgAssociationTableFromTsPackets(new[] { newPacket });
                 }
 
-                CheckPmt(ref newPacket);
+                CheckPmt(newPacket);
                 
             }
             catch (Exception ex)
@@ -34,82 +40,110 @@ namespace TsAnalyser.Metrics
                 Debug.WriteLine("Exception generated within AddPacket method: " + ex.Message);
             }
         }
-
-
-        private void CheckPmt(ref TsPacket tsPacket)
+        
+        private void CheckPmt(TsPacket tsPacket)
         {
-            if (ProgAssociationTable == null || tsPacket.Pid != ProgAssociationTable.PmtPid) return;
+            if (ProgAssociationTable == null) return;
 
-            if (tsPacket.PayloadUnitStartIndicator)
+            if (tsPacket.Pid == 0x0010)
             {
-                ProgramMapTable = new ProgramMapTable(tsPacket);
+                //Pid 0x0010 is a NIT packet
+                //TODO: Decode NIT, and store
+                NetworkInformationTable = new object();
+                return;
             }
-            else
+
+            lock (ProgramMapTables)
             {
-                if (ProgramMapTable != null && !ProgramMapTable.HasAllBytes())
+                if (!ProgAssociationTable.Pids.Contains(tsPacket.Pid)) return;
+                
+                var pmt = ProgramMapTables.SingleOrDefault(item => item.Pid == tsPacket.Pid);
+
+                if (pmt == null && tsPacket.PayloadUnitStartIndicator)
                 {
-                    ProgramMapTable?.Add(tsPacket);
+                    pmt = new ProgramMapTable(tsPacket);
+                    ProgramMapTables.Add(pmt);
                 }
-            }
+                else if (pmt != null && !tsPacket.PayloadUnitStartIndicator)
+                {
+                    if (!pmt.HasAllBytes())
+                    {
+                        pmt?.Add(tsPacket);
+                    }
+                }
+                
+                if (pmt == null || !pmt.HasAllBytes()) return;
 
-            if (ProgramMapTable == null || !ProgramMapTable.HasAllBytes()) return;
+                if (pmt.ProcessTable())
+                {
 
-            if (ProgramMapTable.ProcessTable())
-            {
-                //TODO: Wiring up to API needed here
+                    Debug.WriteLine($"\t\t\t\nProgram Map Table (PMT Pid: {pmt.Pid}, Program Number: {pmt.ProgramNumber} :\n----------------\t\t\t\t");
 
-                //if (_tsAnalyserApi != null && _tsAnalyserApi.ProgramMetrics == null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
+                    //if (ProgramMapTable?.EsStreams != null)
+                    //{
+                    //    foreach (var stream in ProgramMapTable?.EsStreams)
+                    //    {
+                    //        PrintToConsole(
+                    //            "Program Descriptor: {0} ({1})\t\t\t", stream?.ElementaryPid, stream?.StreamTypeString);
 
-                //TODO: Sort out teletext here
-                //if (_decodeTeletext)
-                //{
-                //    foreach (var esStream in ProgramMapTable.EsStreams)
-                //    {
-                //        foreach (
-                //            var descriptor in
-                //                esStream.Descriptors.Where(d => d.DescriptorTag == 0x56))
-                //        {
-                //            var teletext = descriptor as TeletextDescriptor;
-                //            if (null == teletext) continue;
+                    //    }
+                    //}
 
-                //            foreach (var lang in teletext.Languages)
-                //            {
-                //                if (lang.TeletextType != 0x02 && lang.TeletextType != 0x05)
-                //                    continue;
+                    //TODO: Wiring up to API needed here
 
-                //                if (!TeletextSubtitlePages.ContainsKey(esStream.ElementaryPid))
-                //                {
-                //                    TeletextSubtitlePages.Add(esStream.ElementaryPid,
-                //                        new Dictionary<ushort, TeleText>());
-                //                    TeletextSubtitleBuffers.Add(esStream.ElementaryPid, null);
-                //                }
-                //                var m = lang.TeletextMagazineNumber;
-                //                if (lang.TeletextMagazineNumber == 0)
-                //                {
-                //                    m = 8;
-                //                }
-                //                var page = (ushort)((m << 8) + lang.TeletextPageNumber);
-                //                //var pageStr = $"{page:X}";
+                    //if (_tsAnalyserApi != null && _tsAnalyserApi.ProgramMetrics == null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
 
-                //                // if (page == 0x199)
-                //                {
-                //                    if (
-                //                        TeletextSubtitlePages[esStream.ElementaryPid]
-                //                            .ContainsKey(page)) continue;
+                    //TODO: Sort out teletext here
+                    //if (_decodeTeletext)
+                    //{
+                    //    foreach (var esStream in ProgramMapTable.EsStreams)
+                    //    {
+                    //        foreach (
+                    //            var descriptor in
+                    //                esStream.Descriptors.Where(d => d.DescriptorTag == 0x56))
+                    //        {
+                    //            var teletext = descriptor as TeletextDescriptor;
+                    //            if (null == teletext) continue;
 
-                //                    TeletextSubtitlePages[esStream.ElementaryPid].Add(page,
-                //                        new TeleText(page, esStream.ElementaryPid));
-                //                    TeletextSubtitlePages[esStream.ElementaryPid][page]
-                //                        .TeletextPageRecieved += TeletextPageRecievedMethod;
-                //                }
-                //            }
-                //        }
-                //    }
-                //}
-            }
-            else
-            {
-                ProgramMapTable = null;
+                    //            foreach (var lang in teletext.Languages)
+                    //            {
+                    //                if (lang.TeletextType != 0x02 && lang.TeletextType != 0x05)
+                    //                    continue;
+
+                    //                if (!TeletextSubtitlePages.ContainsKey(esStream.ElementaryPid))
+                    //                {
+                    //                    TeletextSubtitlePages.Add(esStream.ElementaryPid,
+                    //                        new Dictionary<ushort, TeleText>());
+                    //                    TeletextSubtitleBuffers.Add(esStream.ElementaryPid, null);
+                    //                }
+                    //                var m = lang.TeletextMagazineNumber;
+                    //                if (lang.TeletextMagazineNumber == 0)
+                    //                {
+                    //                    m = 8;
+                    //                }
+                    //                var page = (ushort)((m << 8) + lang.TeletextPageNumber);
+                    //                //var pageStr = $"{page:X}";
+
+                    //                // if (page == 0x199)
+                    //                {
+                    //                    if (
+                    //                        TeletextSubtitlePages[esStream.ElementaryPid]
+                    //                            .ContainsKey(page)) continue;
+
+                    //                    TeletextSubtitlePages[esStream.ElementaryPid].Add(page,
+                    //                        new TeleText(page, esStream.ElementaryPid));
+                    //                    TeletextSubtitlePages[esStream.ElementaryPid][page]
+                    //                        .TeletextPageRecieved += TeletextPageRecievedMethod;
+                    //                }
+                    //            }
+                    //        }
+                    //    }
+                    //}
+                }
+                else
+                {
+                    pmt = null;
+                }
             }
         }
     }

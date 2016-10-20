@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
 using TsAnalyser.TsElements;
 
 namespace TsAnalyser.Tables
@@ -15,7 +16,7 @@ namespace TsAnalyser.Tables
         public byte LastSectionNumber;
         public short[] ProgramNumbers;
         public short[] Pids;
-        public short PmtPid = -1;
+        public Dictionary<short, short> ProgramMapPids = new Dictionary<short, short>();
     }
 
     public class ProgAssociationTableFactory
@@ -53,10 +54,7 @@ namespace TsAnalyser.Tables
                 {
                     pat.ProgramNumbers[ii] = (short)((packets[i].Payload[programStart + (ii * 4)] << 8) + packets[i].Payload[programStart + 1 + (ii * 4)]);
                     pat.Pids[ii] = (short)(((packets[i].Payload[programStart + 2 + (ii * 4)] & 0x1F) << 8) + packets[i].Payload[programStart + 3 + (ii * 4)]);
-                    if(pat.ProgramNumbers[ii] != 0)
-                    {
-                        pat.PmtPid = pat.Pids[ii];
-                    }
+                    pat.ProgramMapPids.Add(pat.ProgramNumbers[ii], pat.Pids[ii]);         
                 }
             }
 
