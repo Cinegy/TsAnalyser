@@ -64,6 +64,8 @@ ERROR(S):
 
 ```
 
+Todo: update with changes for teletext
+
 Because most of the time you might want a quick-and-dirty scan of a stream, if you just double-click the EXE (or run without arguments) it will ask you interactively what multicast address and group you want to listen to - perfect for people that hate typing!
 
 Even better, just to make your life easier, we auto-build this using AppVeyor - here is how we are doing right now: 
