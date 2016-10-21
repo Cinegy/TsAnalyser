@@ -162,7 +162,7 @@ namespace TsAnalyser.Tables
         public byte LastSectionNumber;
         public ushort PcrPid { get; set; }
         public ushort ProgramInfoLength;
-        public IEnumerable<Descriptor> Descriptors;
+        public List<Descriptor> Descriptors;
         public List<EsInfo> EsStreams { get; set; }
         
         public ProgramMapTable(TsPacket packet) : base(packet)
@@ -172,43 +172,46 @@ namespace TsAnalyser.Tables
 
         public override bool ProcessTable()
         {
-            var pmt = this;
-            pmt.PointerField = 0;
+            PointerField = 0;
 
             //if (packet.PayloadUnitStartIndicator && packet.AdaptationFieldFlag && packet.AdaptationField.TransportPrivateDataFlag)
             {
-                pmt.PointerField = Data[0];
+                PointerField = Data[0];
             }
-            pmt.PointerField++;
+            PointerField++;
 
-            pmt.TableId = Data[pmt.PointerField + 0];
-            pmt.SectionSyntaxIndicator = (Data[pmt.PointerField + 1] & 0x80) == 0x80;
-            pmt.Reserved = (byte)((Data[pmt.PointerField + 1] >> 6) & 0x03);
-            pmt.SectionLength = (ushort)(((Data[pmt.PointerField + 1] & 0x3) << 8) + Data[pmt.PointerField + 2]);
-            pmt.ProgramNumber = (ushort)((Data[pmt.PointerField + 3] << 8) + Data[pmt.PointerField + 4]);
-           // pmt.Reserved2 = (byte)((data[pmt.PointerField + 5] >> 6) & 0x03);
-            pmt.VersionNumber = (byte)((Data[pmt.PointerField + 5] & 0x3E) >> 1);
-            pmt.CurrentNextIndicator = (Data[pmt.PointerField + 5] & 0x01) == 0x01;
-            pmt.SectionNumber = Data[pmt.PointerField + 6];
-            pmt.LastSectionNumber = Data[pmt.PointerField + 7];
+            TableId = Data[PointerField + 0];
+            SectionSyntaxIndicator = (Data[PointerField + 1] & 0x80) == 0x80;
+            Reserved = (byte)((Data[PointerField + 1] >> 6) & 0x03);
+            SectionLength = (ushort)(((Data[PointerField + 1] & 0x3) << 8) + Data[PointerField + 2]);
+            ProgramNumber = (ushort)((Data[PointerField + 3] << 8) + Data[PointerField + 4]);
+           // Reserved2 = (byte)((data[PointerField + 5] >> 6) & 0x03);
+            VersionNumber = (byte)((Data[PointerField + 5] & 0x3E) >> 1);
+            CurrentNextIndicator = (Data[PointerField + 5] & 0x01) == 0x01;
+            SectionNumber = Data[PointerField + 6];
+            LastSectionNumber = Data[PointerField + 7];
 
-          //  pmt.Reserved3 = (byte)((data[pmt.PointerField + 8] >> 5) & 0x07);
-            pmt.PcrPid = (ushort)(((Data[pmt.PointerField + 8] & 0x1f) << 8) + Data[pmt.PointerField + 9]);
-           // pmt.Reserved4 = (byte)((data[pmt.PointerField + 10] >> 4) & 0x0F);
-            pmt.ProgramInfoLength = (ushort)(((Data[pmt.PointerField + 10] & 0x3) << 8) + Data[pmt.PointerField + 11]);
+          //  Reserved3 = (byte)((data[PointerField + 8] >> 5) & 0x07);
+            PcrPid = (ushort)(((Data[PointerField + 8] & 0x1f) << 8) + Data[PointerField + 9]);
+           // Reserved4 = (byte)((data[PointerField + 10] >> 4) & 0x0F);
+            ProgramInfoLength = (ushort)(((Data[PointerField + 10] & 0x3) << 8) + Data[PointerField + 11]);
 
-            var startOfNextField = (byte)(pmt.PointerField + 12);
+            var startOfNextField = (byte)(PointerField + 12);
+
+            var ver = (byte)((Data[PointerField + 5] & 0x3E) >> 1);
+            if (VersionNumber == ver && Descriptors != null) return false;
+
             var descriptors = new List<Descriptor>();
-            while (startOfNextField < pmt.PointerField + 12 + pmt.ProgramInfoLength)
+            while (startOfNextField < PointerField + 12 + ProgramInfoLength)
             {
                 var des = DescriptorFactory.DescriptorFromTsPacketPayload(Data, startOfNextField);
                 descriptors.Add(des);
                 startOfNextField += (byte)(des.DescriptorLength + 2);
             }
-            pmt.Descriptors = descriptors;
+            Descriptors = descriptors;
 
 
-            var transportStreamLoopEnd = (byte)(pmt.SectionLength);
+            var transportStreamLoopEnd = (byte)(SectionLength);
             var streams = new List<EsInfo>();
             while (startOfNextField < transportStreamLoopEnd)
             {
@@ -233,7 +236,7 @@ namespace TsAnalyser.Tables
                 streams.Add(es);
 
             }
-            pmt.EsStreams = streams;
+            EsStreams = streams;
 
             return true;
         }

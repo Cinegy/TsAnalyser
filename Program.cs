@@ -58,9 +58,6 @@ namespace TsAnalyser
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
         private static TsMetric _tsMetric = new TsMetric();
 
-        private static ServiceDescriptionTable _serviceDescriptionTable;
-        private static readonly object ServiceDescriptionTableLock = new object();
-        private static readonly List<ServiceDescriptor> ServiceDescriptors = new List<ServiceDescriptor>(16);
 
         private static readonly Dictionary<short, Dictionary<ushort, TeleText>> TeletextSubtitlePages = new Dictionary<short, Dictionary<ushort, TeleText>>();
         private static readonly Dictionary<short, Pes> TeletextSubtitleBuffers = new Dictionary<short, Pes>();
@@ -157,7 +154,7 @@ namespace TsAnalyser
             while (!_pendingExit)
             {
                 var runningTime = DateTime.UtcNow.Subtract(_startTime);
-                
+
                 if (!_suppressConsoleOutput)
                 {
                     Console.SetCursorPosition(0, 0);
@@ -200,12 +197,16 @@ namespace TsAnalyser
 
                     if (_tsMetric?.ProgramMapTables != null)
                     {
-                        lock (_tsMetric.ProgramMapTables)
+                        lock (_tsMetric.ProgramMapTableLock)
                         {
                             var pmt = _tsMetric.ProgramMapTables.OrderBy(t => t.ProgramNumber).FirstOrDefault();
 
-                            PrintToConsole($"\t\t\t\nDefault Program {pmt?.ProgramNumber} Elements:\n----------------\t\t\t\t");
+                            var serviceDesc = pmt?.Descriptors?.SingleOrDefault(sd => (sd as ServiceDescriptor) != null) as ServiceDescriptor;
 
+                            PrintToConsole(serviceDesc != null
+                                ? $"\t\t\t\nDefault Program - {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) Elements:\n----------------\t\t\t\t"
+                                : $"\t\t\t\nDefault Program Service ID {pmt?.ProgramNumber} Elements:\n----------------\t\t\t\t");
+                            
                             if (pmt?.EsStreams != null)
                             {
                                 foreach (var stream in pmt?.EsStreams)
@@ -221,14 +222,14 @@ namespace TsAnalyser
 
                     if (_readServiceDescriptions)
                     {
-                        if (null != _serviceDescriptionTable)
+                        lock (_tsMetric.ServiceDescriptionTableLock)
                         {
-                            lock (ServiceDescriptionTableLock)
+                            if (_tsMetric.ServiceDescriptionTable != null && _tsMetric.ServiceDescriptors != null)
                             {
                                 PrintToConsole(
-                                    "\t\t\t\nService Information\n----------------\t\t\t\t");
+                                    "\t\t\t\nService Information (Showing up to 5 Services)\n----------------\t\t\t\t");
 
-                                foreach (var descriptor in ServiceDescriptors)
+                                foreach (var descriptor in _tsMetric.ServiceDescriptors.Take(5))
                                 {
                                     PrintToConsole(
                                         "Service: {0} ({1}) - {2}\t\t\t",
@@ -312,7 +313,7 @@ namespace TsAnalyser
             var localEp = new IPEndPoint(listenAddress, multicastGroup);
 
             UdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            UdpClient.Client.ReceiveBufferSize = 1024 * 256;
+            UdpClient.Client.ReceiveBufferSize = 1500 * 3000;
             UdpClient.ExclusiveAddressUse = false;
             UdpClient.Client.Bind(localEp);
             _networkMetric.UdpClient = UdpClient;
@@ -377,75 +378,7 @@ namespace TsAnalyser
                             //todo: From here, start shifting into inner class
 
                             //TODO: More teletextness here
-                           
-
-                            if (!_readServiceDescriptions) continue;
-
-
-                            if (tsPacket.Pid == 0x0011)
-                            {
-                                lock (ServiceDescriptionTableLock)
-                                {
-                                    if (tsPacket.PayloadUnitStartIndicator)
-                                    {
-                                        _serviceDescriptionTable = new Tables.ServiceDescriptionTable(tsPacket);
-                                    }
-                                    else
-                                    {
-                                        if (_serviceDescriptionTable != null && !_serviceDescriptionTable.HasAllBytes())
-                                        {
-                                            _serviceDescriptionTable.Add(tsPacket);
-                                        }
-                                    }
-
-                                    if (_serviceDescriptionTable != null && _serviceDescriptionTable.HasAllBytes())
-                                    {
-                                        if (_serviceDescriptionTable.ProcessTable())
-                                        {
-                                            if (_tsAnalyserApi != null && _tsAnalyserApi.ServiceMetrics == null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
-
-                                            if (null != _serviceDescriptionTable && _readServiceDescriptions)
-                                            {
-                                                lock (ServiceDescriptionTableLock)
-                                                {
-                                                    if (_serviceDescriptionTable?.Items != null &&
-                                                        _serviceDescriptionTable.TableId == 0x42)
-                                                    {
-                                                        foreach (var item in _serviceDescriptionTable.Items)
-                                                        {
-                                                            foreach (
-                                                                var descriptor in
-                                                                    item.Descriptors.Where(d => d.DescriptorTag == 0x48)
-                                                                )
-                                                            {
-                                                                var sd = descriptor as ServiceDescriptor;
-
-                                                                if (sd == null) continue;
-
-                                                                var match = false;
-                                                                foreach (var serviceDescriptor in ServiceDescriptors)
-                                                                {
-                                                                    if (serviceDescriptor.ServiceName.Value == sd.ServiceName.Value)
-                                                                    {
-                                                                        match = true;
-                                                                    }
-                                                                }
-
-                                                                if (!match) ServiceDescriptors.Add(sd);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            _serviceDescriptionTable = null;
-                                        }
-                                    }
-                                }
-                            }
-
+                            
                             if (TeletextSubtitlePages?.ContainsKey(tsPacket.Pid) == false) continue;
 
                             if (tsPacket.PayloadUnitStartIndicator)
@@ -468,8 +401,7 @@ namespace TsAnalyser
                             {
                                 TeletextSubtitleBuffers[tsPacket.Pid].Add(tsPacket);
                             }
-
-
+                            
                         }
                     }
                 }
@@ -511,9 +443,7 @@ namespace TsAnalyser
         {
             if (_suppressConsoleOutput) return;
 
-            ConsoleDisplay.AppendLine(string.Format(message, arguments));
-
-            //   Console.WriteLine(message, arguments);
+            ConsoleDisplay.AppendLine(Format(message, arguments));
         }
 
         private static void LogMessage(string message)
@@ -582,6 +512,8 @@ namespace TsAnalyser
 
             serviceEndpoint.Behaviors.Add(webBehavior);
 
+            //TODO: Trying to disable MEX, to allow serving of index when visiting root...
+
             //Metadata Exchange
             //var serviceBehavior = new ServiceMetadataBehavior {HttpGetEnabled = true};
             //_serviceHost.Description.Behaviors.Add(serviceBehavior);
@@ -617,7 +549,10 @@ namespace TsAnalyser
                 _networkMetric = new NetworkMetric();
                 _rtpMetric = new RtpMetric();
                 _pidMetrics = new List<PidMetric>();
-                _tsMetric = new TsMetric();
+                _tsMetric = new TsMetric {
+                    DecodeServiceDescriptions = _readServiceDescriptions
+                };
+
                 _rtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
                 _networkMetric.BufferOverflow += NetworkMetric_BufferOverflow;
                 _networkMetric.UdpClient = UdpClient;

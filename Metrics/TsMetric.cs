@@ -13,14 +13,15 @@ namespace TsAnalyser.Metrics
     {
         public ProgAssociationTable ProgAssociationTable { get; private set; }
         public List<ProgramMapTable> ProgramMapTables { get; private set; }
-
-        public Object NetworkInformationTable { get; private set; }
-
-        public TsMetric()
-        {
-            ProgramMapTables = new List<ProgramMapTable>();
-        }
-
+        public object ProgramMapTableLock { get; } = new object();
+        public ServiceDescriptionTable ServiceDescriptionTable { get; private set; }
+        public List<ServiceDescriptor> ServiceDescriptors { get; private set; }
+        public object ServiceDescriptionTableLock { get; } = new object();
+        public bool DecodeServiceDescriptions { get; set; } = false;
+        
+        //TODO:placeholder object to sort out later
+        public object NetworkInformationTable { get; private set; }
+        
         public void AddPacket(TsPacket newPacket)
         {
             try
@@ -33,18 +34,22 @@ namespace TsAnalyser.Metrics
                 }
 
                 CheckPmt(newPacket);
-                
+
+                if (newPacket.Pid == 0x0011)
+                {
+                    CheckSdt(newPacket);
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine("Exception generated within AddPacket method: " + ex.Message);
             }
         }
-        
+
         private void CheckPmt(TsPacket tsPacket)
         {
             if (ProgAssociationTable == null) return;
-
+            
             if (tsPacket.Pid == 0x0010)
             {
                 //Pid 0x0010 is a NIT packet
@@ -53,10 +58,15 @@ namespace TsAnalyser.Metrics
                 return;
             }
 
-            lock (ProgramMapTables)
+            lock (ProgramMapTableLock)
             {
                 if (!ProgAssociationTable.Pids.Contains(tsPacket.Pid)) return;
-                
+
+                if (ProgramMapTables == null)
+                {
+                    ProgramMapTables = new List<ProgramMapTable>(); 
+                }
+
                 var pmt = ProgramMapTables.SingleOrDefault(item => item.Pid == tsPacket.Pid);
 
                 if (pmt == null && tsPacket.PayloadUnitStartIndicator)
@@ -71,28 +81,13 @@ namespace TsAnalyser.Metrics
                         pmt?.Add(tsPacket);
                     }
                 }
-                
+
                 if (pmt == null || !pmt.HasAllBytes()) return;
 
                 if (pmt.ProcessTable())
                 {
-
-                    Debug.WriteLine($"\t\t\t\nProgram Map Table (PMT Pid: {pmt.Pid}, Program Number: {pmt.ProgramNumber} :\n----------------\t\t\t\t");
-
-                    //if (ProgramMapTable?.EsStreams != null)
-                    //{
-                    //    foreach (var stream in ProgramMapTable?.EsStreams)
-                    //    {
-                    //        PrintToConsole(
-                    //            "Program Descriptor: {0} ({1})\t\t\t", stream?.ElementaryPid, stream?.StreamTypeString);
-
-                    //    }
-                    //}
-
                     //TODO: Wiring up to API needed here
-
-                    //if (_tsAnalyserApi != null && _tsAnalyserApi.ProgramMetrics == null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
-
+                    
                     //TODO: Sort out teletext here
                     //if (_decodeTeletext)
                     //{
@@ -140,11 +135,90 @@ namespace TsAnalyser.Metrics
                     //    }
                     //}
                 }
-                else
-                {
-                    pmt = null;
-                }
             }
         }
+
+        private void CheckSdt(TsPacket tsPacket)
+        {
+            if (tsPacket.Pid != 0x0011) return;
+
+            if (!DecodeServiceDescriptions) return;
+
+            lock (ServiceDescriptionTableLock)
+            {
+                if (tsPacket.PayloadUnitStartIndicator)
+                {
+                    if (ServiceDescriptionTable?.CheckVersionCurrent(tsPacket) != true)
+                    {
+                        ServiceDescriptionTable = new ServiceDescriptionTable(tsPacket);
+                    }
+                }
+                else
+                {
+                    if (ServiceDescriptionTable?.HasAllBytes() == false)
+                    {
+                        ServiceDescriptionTable.Add(tsPacket);
+                    }
+                }
+
+                if (ServiceDescriptionTable?.HasAllBytes() != true)
+                {
+                    return;
+                }
+
+                if (!ServiceDescriptionTable.ProcessTable())
+                {
+                    ServiceDescriptionTable = null;
+                    return;
+                }
+
+                //TODO: Fix up API again
+
+                //   if (_tsAnalyserApi != null && _tsAnalyserApi.ServiceMetrics == null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
+
+                if (ServiceDescriptionTable?.Items == null || ServiceDescriptionTable.TableId != 0x42)
+                {
+                    return;
+                }
+
+                if(ServiceDescriptors==null)
+                {
+                    ServiceDescriptors = new List<ServiceDescriptor>(16);
+                }
+
+                foreach (var item in ServiceDescriptionTable.Items)
+                {
+                    foreach (var descriptor in item.Descriptors.Where(d => d.DescriptorTag == 0x48))
+                    {
+                        var sd = descriptor as ServiceDescriptor;
+
+                        if (sd == null) continue;
+                        
+                        var service = ProgramMapTables?.SingleOrDefault(i => i?.ProgramNumber == item?.ServiceId);
+
+
+                        var match = false;
+                        
+                        foreach (var serviceDescriptor in ServiceDescriptors)
+                        {
+                            if (serviceDescriptor.ServiceName.Value == sd.ServiceName.Value)
+                            {
+                                match = true;
+                            }
+                        }
+
+                        if (match) continue;
+
+                        ServiceDescriptors.Add(sd);
+                        service?.Descriptors.Add(sd);
+                    }
+                }
+            }
+
+        }
+
     }
+
+
 }
+

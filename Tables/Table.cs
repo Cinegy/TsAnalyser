@@ -78,5 +78,6 @@ namespace TsAnalyser.Tables
         {
             return Data;
         }
+
     }
 }

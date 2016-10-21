@@ -410,7 +410,7 @@ namespace TsAnalyser.TsElements
             ServiceName = new Text(stream, start + 4 + ServiceProviderNameLength + 1, ServiceNameLength);//new Text(System.Text.Encoding.UTF8.GetString(stream, start + 4 + ServiceProviderNameLength + 1, ServiceNameLength));
         }
         public byte ServiceType { get; set; }//8 uimsbf
-        public string ServiceTypeDescription { get { return GetServiceTypeDescription(ServiceType); } }
+        public string ServiceTypeDescription => GetServiceTypeDescription(ServiceType);
         public byte ServiceProviderNameLength { get; set; }// 8 uimsbf
         public Text ServiceProviderName { get; set; }// 
         public byte ServiceNameLength { get; set; }// 8 uimsbf 

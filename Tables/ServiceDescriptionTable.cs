@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.ServiceModel.Configuration;
 using TsAnalyser.TsElements;
 
 namespace TsAnalyser.Tables
@@ -19,17 +21,16 @@ namespace TsAnalyser.Tables
             public byte DvbDescriptorTag;
             public byte DescriptorLength;            
         }
-
-       
-
+        
         public ushort TransportStreamId;
         public byte VersionNumber;
         public bool CurrentNextIndicator;
         public byte SectionNumber;
         public byte LastSectionNumber;
         public ushort OriginalNetworkId;
-        
         public List<Item> Items;
+        public bool Started;
+        public bool Completed;
 
         public ServiceDescriptionTable(TsPacket packet) : base(packet)
         {
@@ -73,6 +74,7 @@ namespace TsAnalyser.Tables
             var startOfNextField = (ushort)(sdt.PointerField + 11);
 
             var transportStreamLoopEnd = (ushort)(sdt.SectionLength - 4);
+            
             var items = new List<Item>();
             while (startOfNextField < transportStreamLoopEnd)
             {
@@ -113,6 +115,29 @@ namespace TsAnalyser.Tables
             sdt.Items = items;
 
             return true;
+        }
+        
+        public bool CheckVersionCurrent(TsPacket newPacket)
+        {
+            //TODO: Was trying to cache SDT, and only change on version number change
+            //however, all that happened is it would only read half the SDT when the 
+            //SDT spans multiple packets... so effectively the below logic never
+            //actually runs to conclusion at the moment (since returning false triggers
+            //new instance to be created...) - should refactor to not destroy object
+            //and instead flush data and try again...
+
+            if (SectionNumber == 0)
+                Started = true;
+
+            if (!Started)
+                return false;
+
+            if (SectionNumber < LastSectionNumber)
+                return false;
+            
+          //  return false;
+            var ver = (byte)((Data[PointerField + 5] & 0x3E) >> 1);
+            return VersionNumber == ver && Items != null;
         }
 
     }
