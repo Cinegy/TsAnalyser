@@ -34,9 +34,9 @@ namespace TsAnalyser
         HelpText = "Optional service URL for REST web services (must change if running multiple instances with web services enabled).")]
         public string ServiceUrl { get; set; }
 
-        [Option('s', "servicedescriptions", Required = false, DefaultValue = false,
-        HelpText = "Optional instruction to decode further DVB service description metadata (experimental)")]
-        public bool ReadServiceDescriptions { get; set; }
+        [Option('s', "decodetransportstream", Required = false, DefaultValue = false,
+        HelpText = "Optional instruction to decode further TS and DVB data and metadata")]
+        public bool DecodeTransportStream { get; set; }
 
         [Option('t', "teletextdecode", Required = false, DefaultValue = false,
         HelpText = "Optional instruction to decode DVB teletext subtitles from default program (experimental)")]

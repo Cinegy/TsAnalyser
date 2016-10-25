@@ -16,10 +16,7 @@ namespace TsAnalyser.Metrics
         public List<ProgramMapTable> ProgramMapTables { get; private set; }
 
         public object ProgramMapTableLock { get; } = new object();
-        public List<ServiceDescriptor> ServiceDescriptors { get; private set; }
-        public object ServiceDescriptionTableLock { get; } = new object();
-        public bool DecodeServiceDescriptions { get; set; }
-
+        
         private ProgramAssociationTableFactory _patFactory;
         private ServiceDescriptionTableFactory _sdtFactory;
         private List<ProgramMapTableFactory> _pmtFactories;
@@ -41,7 +38,7 @@ namespace TsAnalyser.Metrics
                         _patFactory.AddPacket(newPacket);
                         break;
                     case (short)PidType.SdtPid:
-                        if(DecodeServiceDescriptions) _sdtFactory.AddPacket(newPacket);
+                        _sdtFactory.AddPacket(newPacket);
                         break;
                     default:
                         CheckPmt(newPacket);
@@ -53,6 +50,30 @@ namespace TsAnalyser.Metrics
                 Debug.WriteLine("Exception generated within AddPacket method: " + ex.Message);
             }
         }
+
+        public ServiceDescriptor GetServiceDescriptorForProgramNumber(int? programNumber)
+        {
+            if (programNumber == null) return null;
+
+            var serviceDescItem = _sdtFactory?.ServiceDescriptionItems?.SingleOrDefault(
+                                  i => i.ServiceId == programNumber);
+
+            var serviceDesc =
+                serviceDescItem?.Descriptors?.SingleOrDefault(sd => (sd as ServiceDescriptor) != null) as ServiceDescriptor;
+
+            return serviceDesc;
+        }
+
+        public List<ServiceDescriptor> GetServiceDescriptors()
+        {
+            if (_sdtFactory?.ServiceDescriptionItems == null) return null;
+
+            return (from serviceDescriptionItem in _sdtFactory?.ServiceDescriptionItems
+                select
+                    serviceDescriptionItem.Descriptors?.SingleOrDefault(sd => (sd as ServiceDescriptor) != null) as
+                        ServiceDescriptor).ToList();
+        }
+
 
         private void CheckPmt(TsPacket tsPacket)
         {
@@ -90,67 +111,31 @@ namespace TsAnalyser.Metrics
 
         private void _sdtFactory_TableChangeDetected(object sender, TransportStreamEventArgs args)
         {
-            Debug.WriteLine($"SDT {args.TsPid} refreshed");
-
-            if (ServiceDescriptionTable?.Items == null || ServiceDescriptionTable.TableId != 0x42)
-            {
-                return;
-            }
-
-            if (ServiceDescriptors == null)
-            {
-                ServiceDescriptors = new List<ServiceDescriptor>(16);
-            }
-
-            foreach (var item in ServiceDescriptionTable.Items)
-            {
-                foreach (var descriptor in item.Descriptors.Where(d => d.DescriptorTag == 0x48))
-                {
-                    var sd = descriptor as ServiceDescriptor;
-
-                    if (sd == null) continue;
-
-                    var service = ProgramMapTables?.SingleOrDefault(i => i?.ProgramNumber == item.ServiceId);
-
-
-                    var match = false;
-
-                    foreach (var serviceDescriptor in ServiceDescriptors)
-                    {
-                        if (serviceDescriptor.ServiceName.Value == sd.ServiceName.Value)
-                        {
-                            match = true;
-                        }
-                    }
-
-                    if (match) continue;
-
-                    ServiceDescriptors.Add(sd);
-                    service?.Descriptors.Add(sd);
-                }
-            }
+            Debug.WriteLine($"SDT {args.TsPid}, Version: {ServiceDescriptionTable.VersionNumber} - Section Num: {ServiceDescriptionTable.SectionNumber} refreshed");
         }
 
         private void _pmtFactory_TableChangeDetected(object sender, TransportStreamEventArgs e)
         {
-            var fact = sender as ProgramMapTableFactory;
-
-            if (fact == null) return;
-
-            var selectedPmt = ProgramMapTables?.FirstOrDefault(t => t.Pid == e.TsPid);
-
-            if (selectedPmt != null)
+            lock (ProgramMapTableLock)
             {
-                ProgramMapTables?.Remove(selectedPmt);
-                Debug.WriteLine($"PMT {e.TsPid} refreshed");
-            }
-            else
-            {
-                Debug.WriteLine($"PMT {e.TsPid} added");
-            }
+                var fact = sender as ProgramMapTableFactory;
 
-            ProgramMapTables?.Add(fact.ProgramMapTable);
+                if (fact == null) return;
 
+                var selectedPmt = ProgramMapTables?.FirstOrDefault(t => t.Pid == e.TsPid);
+
+                if (selectedPmt != null)
+                {
+                    ProgramMapTables?.Remove(selectedPmt);
+                    Debug.WriteLine($"PMT {e.TsPid} refreshed");
+                }
+                else
+                {
+                    Debug.WriteLine($"PMT {e.TsPid} added");
+                }
+
+                ProgramMapTables?.Add(fact.ProgramMapTable);
+            }
         }
 
         private static void _patFactory_TableChangeDetected(object sender, TransportStreamEventArgs e)

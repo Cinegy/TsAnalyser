@@ -1,13 +1,22 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using TsAnalyser.TsElements;
 
 namespace TsAnalyser.Tables
 {
     public class ServiceDescriptionTableFactory : TableFactory
     {
+        /// <summary>
+        /// The last decoded ServiceDescription table, with the ServiceDescriptionItems associated with that table section
+        /// </summary>
         public ServiceDescriptionTable ServiceDescriptionTable { get; private set; }
+        
+        /// <summary>
+        /// An agregated list of all current ServiceDescriptionItems, as pulled from all ServiceDescriptionTables with the same ID and version.
+        /// </summary>
+        public List<ServiceDescriptionItem> ServiceDescriptionItems { get; set; } = new List<ServiceDescriptionItem>();
 
         private new ServiceDescriptionTable InProgressTable
         {
@@ -15,6 +24,7 @@ namespace TsAnalyser.Tables
             set { base.InProgressTable = value; }
         }
 
+        private HashSet<int> _sectionsCompleted = new HashSet<int>();
 
         public void AddPacket(TsPacket packet)
         {
@@ -32,14 +42,7 @@ namespace TsAnalyser.Tables
                 var pos = 1 + InProgressTable.PointerField;
 
                 InProgressTable.VersionNumber = (byte)(packet.Payload[pos + 5] & 0x3E);
-
-                //TODO: Since SDT gets transmitted in sections, need to verify each section is completed
-                if (ServiceDescriptionTable?.VersionNumber == InProgressTable.VersionNumber)
-                {
-                    //InProgressTable = null;
-                    //return;
-                }
-
+                
                 InProgressTable.TableId = packet.Payload[pos];
 
                 //TODO: Refactor with enum for well-known table IDs, and add option below as filter
@@ -49,19 +52,30 @@ namespace TsAnalyser.Tables
                     return;
                 }
 
+                if (ServiceDescriptionTable?.VersionNumber != InProgressTable.VersionNumber)
+                {
+                    //if the version number of any section jumps, we need to refresh
+                    _sectionsCompleted = new HashSet<int>();
+                    ServiceDescriptionItems = new List<ServiceDescriptionItem>();
+                }
+
                 InProgressTable.SectionLength =
                     (short)(((packet.Payload[pos + 1] & 0x3) << 8) + packet.Payload[pos + 2]);
-
-
+                
                 InProgressTable.TransportStreamId = (ushort)((packet.Payload[pos + 3] << 8) + packet.Payload[pos + 4]);
                 InProgressTable.CurrentNextIndicator = (packet.Payload[pos + 5] & 0x1) != 0;
                 InProgressTable.SectionNumber = packet.Payload[pos + 6];
                 InProgressTable.LastSectionNumber = packet.Payload[pos + 7];
-
                 InProgressTable.OriginalNetworkId = (ushort)((packet.Payload[pos + 8] << 8) + packet.Payload[pos + 9]);
             }
-
+            
             if (InProgressTable == null) return;
+
+            if (_sectionsCompleted.Contains(InProgressTable.SectionNumber))
+            {
+                InProgressTable = null;
+                return;
+            }
 
             AddData(packet);
 
@@ -90,14 +104,12 @@ namespace TsAnalyser.Tables
 
                 startOfNextField = (ushort)(startOfNextField + 5);
                 var endOfDescriptors = (ushort)(startOfNextField + item.DescriptorsLoopLength);
+
                 if (endOfDescriptors > Data.Length)
                 {
-#if DEBUG
-                    //TODO: Check this is not topical now refactored
-                    Debug.WriteLine("TODO: Figure out why sometimes descriptors are bigger than packet - now ignoring rest of packet");
-#endif
-                    return;
+                    throw new InvalidDataException("Descriptor data in Service Description is marked beyond available data");
                 }
+
                 while (startOfNextField < endOfDescriptors)
                 {
                     var des = DescriptorFactory.DescriptorFromData(Data, startOfNextField);
@@ -106,11 +118,14 @@ namespace TsAnalyser.Tables
                 }
                 item.Descriptors = descriptors;
                 items.Add(item);
-
             }
+
             InProgressTable.Items = items;
+            
+            ServiceDescriptionItems.AddRange(items);
 
             ServiceDescriptionTable = InProgressTable;
+            _sectionsCompleted.Add(InProgressTable.SectionNumber);
 
             OnTableChangeDetected();
         }

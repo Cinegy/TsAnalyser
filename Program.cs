@@ -40,8 +40,8 @@ namespace TsAnalyser
     {
         private static bool _receiving;
         private static bool _suppressConsoleOutput;
-        private static bool _readServiceDescriptions;
-       // private static bool _decodeTeletext;
+        private static bool _decodeTsData;
+        // private static bool _decodeTeletext;
         private static bool _noRtpHeaders;
 
         private static DateTime _startTime = DateTime.UtcNow;
@@ -56,8 +56,8 @@ namespace TsAnalyser
         private static NetworkMetric _networkMetric = new NetworkMetric();
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
-        private static TsMetric _tsMetric = new TsMetric();
-        
+        private static TsMetric _tsMetric;
+
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
 
@@ -117,7 +117,7 @@ namespace TsAnalyser
                 _receiving = true;
                 _logFile = options.LogFile;
                 _suppressConsoleOutput = options.SuppressOutput;
-                _readServiceDescriptions = options.ReadServiceDescriptions;
+                _decodeTsData = options.DecodeTransportStream;
                 _noRtpHeaders = options.NoRtpHeaders;
                 //_decodeTeletext = options.DecodeTeletext;
 
@@ -174,14 +174,11 @@ namespace TsAnalyser
                             _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
                     }
 
-                    PrintToConsole("\nTS Details\n----------------");
-                    lock (_tsMetric)
+                    lock (_pidMetrics)
                     {
-                        if (_tsMetric?.ProgramAssociationTable?.ProgramNumbers != null)
-                        {
-                            PrintToConsole("Unique PID count: {0}\t\tProgram Count: {1}\t\t\t\n(Showing up to 10 PID streams in table by packet count)\t\t\t", _pidMetrics.Count,
-                                _tsMetric?.ProgramAssociationTable.ProgramNumbers.Length);
-                        }
+                        PrintToConsole(_pidMetrics.Count < 10
+                            ? $"\nPID Details - Unique PIDs: {_pidMetrics.Count}\n----------------"
+                            : $"\nPID Details - Unique PIDs: {_pidMetrics.Count}, (10 shown by packet count)\n----------------");
 
                         foreach (var pidMetric in _pidMetrics.OrderByDescending(m => m.PacketCount).Take(10))
                         {
@@ -189,40 +186,39 @@ namespace TsAnalyser
                                 pidMetric.PacketCount, pidMetric.CcErrorCount);
                         }
                     }
-                    
+
                     if (_tsMetric?.ProgramMapTables != null)
                     {
                         lock (_tsMetric.ProgramMapTableLock)
                         {
                             var pmt = _tsMetric.ProgramMapTables.OrderBy(t => t.ProgramNumber).FirstOrDefault();
 
-                            var serviceDesc = pmt?.Descriptors?.SingleOrDefault(sd => (sd as ServiceDescriptor) != null) as ServiceDescriptor;
+                            var serviceDesc = _tsMetric.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
 
                             PrintToConsole(serviceDesc != null
-                                ? $"\t\t\t\nDefault Program - {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (First 5 Elements):\n----------------\t\t\t\t"
-                                : $"\t\t\t\nDefault Program Service ID {pmt?.ProgramNumber} (First 5 Elements):\n----------------\t\t\t\t");
-
+                                ? $"\t\t\t\nElements - Default Program {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)\n----------------\t\t\t\t"
+                                : $"\t\t\t\nElements - Default Program Service ID {pmt?.ProgramNumber} (first 5 shown)\n----------------\t\t\t\t");
+                            
                             if (pmt?.EsStreams != null)
                             {
                                 foreach (var stream in pmt?.EsStreams.Take(5))
                                 {
-                                    PrintToConsole(
-                                        "PID: {0} ({1})", stream?.ElementaryPid, DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[stream.StreamType]);
+                                    if (stream != null)
+                                        PrintToConsole(
+                                            "PID: {0} ({1})", stream?.ElementaryPid,
+                                            DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
+                                                stream.StreamType]);
                                 }
                             }
-                        }
-                    }
-                    
-                    if (_readServiceDescriptions)
-                    {
-                        lock (_tsMetric.ServiceDescriptionTableLock)
-                        {
-                            if (_tsMetric.ServiceDescriptionTable != null && _tsMetric.ServiceDescriptors != null)
-                            {
-                                PrintToConsole(
-                                    "\t\t\t\nService Information (Showing up to 5 Services)\n----------------\t\t\t\t");
 
-                                foreach (var descriptor in _tsMetric.ServiceDescriptors.Take(5))
+                            var descs = _tsMetric?.GetServiceDescriptors();
+                            if (descs != null)
+                            {
+                                PrintToConsole(descs.Count < 5
+                                 ? $"\t\t\t\nService Information - Service Count: {descs.Count}\n----------------\t\t\t\t"
+                                 : $"\t\t\t\nService Information - Service Count: {descs.Count}, (5 shown)\n----------------\t\t\t\t");
+
+                                foreach (var descriptor in descs.Take(5))
                                 {
                                     PrintToConsole(
                                         "Service: {0} ({1}) - {2}\t\t\t",
@@ -232,6 +228,7 @@ namespace TsAnalyser
                                 }
                             }
                         }
+
                     }
 
                     if (_lastPrintedTsCount != _pidMetrics.Count)
@@ -249,7 +246,7 @@ namespace TsAnalyser
 
             LogMessage("Logging stopped.");
         }
-        
+
         private static void StartListeningToNetwork(string multicastAddress, int multicastGroup,
             string listenAdapter = "")
         {
@@ -316,10 +313,11 @@ namespace TsAnalyser
 
                             currentPidMetric.AddPacket(tsPacket);
 
+                            if (_tsMetric == null) continue;
                             lock (_tsMetric)
                             {
                                 _tsMetric.AddPacket(tsPacket);
-                            }                           
+                            }
                         }
                     }
                 }
@@ -467,16 +465,18 @@ namespace TsAnalyser
                 _networkMetric = new NetworkMetric();
                 _rtpMetric = new RtpMetric();
                 _pidMetrics = new List<PidMetric>();
-                _tsMetric = new TsMetric {
-                    DecodeServiceDescriptions = _readServiceDescriptions
-                };
+
+                if (_decodeTsData)
+                {
+                    _tsMetric = new TsMetric();
+                }
 
                 _rtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
                 _networkMetric.BufferOverflow += NetworkMetric_BufferOverflow;
                 _networkMetric.UdpClient = UdpClient;
             }
         }
-        
+
         private static void _tsAnalyserApi_StreamCommand(object sender, StreamCommandEventArgs e)
         {
             switch (e.Command)
