@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace TsAnalyser
+namespace TsAnalyser.Metrics
 {
     public class RtpMetric
     {
@@ -57,7 +57,7 @@ namespace TsAnalyser
         // Sequence Counter Error has been detected
         public event EventHandler SequenceDiscontinuityDetected;
 
-        protected virtual void OnSequenceDiscontinuityDetected()
+        private void OnSequenceDiscontinuityDetected()
         {
             var handler = SequenceDiscontinuityDetected;
             handler?.Invoke(this, EventArgs.Empty);

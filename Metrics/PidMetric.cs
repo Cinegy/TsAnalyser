@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using TsAnalyser.Tables;
 using TsAnalyser.TsElements;
 
 namespace TsAnalyser.Metrics
@@ -11,9 +10,10 @@ namespace TsAnalyser.Metrics
         public delegate void TransportErrorIndicatorDetectedEventHandler(object sender, TransportStreamEventArgs args);
 
         public int Pid { get; set; }
-        public long PacketCount { get; set; }
-        public long CcErrorCount { get; set; }
-        public int LastCc { get; set; }
+        public long PacketCount { get; private set; }
+        public long CcErrorCount { get; private set; }
+
+        private int LastCc { get; set; }
         
         public void AddPacket(TsPacket newPacket)
         {
@@ -30,11 +30,6 @@ namespace TsAnalyser.Metrics
                 {
                     CheckCcContinuity(newPacket);
                     LastCc = newPacket.ContinuityCounter;
-
-                    //if (newPacket.Pid == 0x00)
-                    //{
-                    //    ProgAssociationTable = ProgAssociationTableFactory.ProgAssociationTableFromTsPackets(new[] { newPacket });
-                    //}
                 }
 
                 PacketCount++;
@@ -98,7 +93,7 @@ namespace TsAnalyser.Metrics
         // Transport Error Indicator has been detected inside packet.
         public event TransportErrorIndicatorDetectedEventHandler TransportErrorIndicatorDetected;
 
-        protected virtual void OnDiscontinuityDetected(int tsPid)
+        private void OnDiscontinuityDetected(int tsPid)
         {
             var handler = DiscontinuityDetected;
             if (handler == null) return;
@@ -106,17 +101,12 @@ namespace TsAnalyser.Metrics
             handler(this, args);
         }
 
-        protected virtual void OnTransportErrorIndicatorDetected(int tsPid)
+        private void OnTransportErrorIndicatorDetected(int tsPid)
         {
             var handler = TransportErrorIndicatorDetected;
             if (handler == null) return;
             var args = new TransportStreamEventArgs { TsPid = tsPid };
             handler(this, args);
         }
-    }
-
-    public class TransportStreamEventArgs : EventArgs
-    {
-        public int TsPid { get; set; }
     }
 }

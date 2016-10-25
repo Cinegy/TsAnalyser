@@ -26,7 +26,7 @@ namespace TsAnalyser.Service
         public List<PidMetric> TsMetrics = new List<PidMetric>();
 
         public Tables.ServiceDescriptionTable ServiceMetrics = null;//new Tables.ServiceDescriptionTable();
-        public Tables.ProgramMapTable ProgramMetrics = null;// new Tables.ProgramMapTable();
+        public Tables.ProgramMapTable ProgramMetrics = null;// new Tables.DescriptorDictionaries();
 
         public void GetGlobalOptions()
         {
@@ -173,9 +173,9 @@ namespace TsAnalyser.Service
                     var esInfo = (ProgramMetrics?.EsStreams).FirstOrDefault(p => p.ElementaryPid == ts.Pid);
                     if (esInfo != null)
                     {
-                        if (Tables.ProgramMapTable.ShortElementaryStreamTypeDescriptions.ContainsKey(esInfo.StreamType))
+                        if (DescriptorDictionaries.ShortElementaryStreamTypeDescriptions.ContainsKey(esInfo.StreamType))
                         {
-                            streamType = Tables.ProgramMapTable.ShortElementaryStreamTypeDescriptions[esInfo.StreamType];
+                            streamType = DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[esInfo.StreamType];
                         }
                     }
                 }
