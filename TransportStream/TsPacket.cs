@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace TsAnalyser
+namespace TsAnalyser.TransportStream
 {
     public struct PesHdr
     {
@@ -27,7 +27,7 @@ namespace TsAnalyser
         public byte[] Payload;
     }
 
-    public class TsPacketFactory
+    public static class TsPacketFactory
     {
         private const byte SyncByte = 0x47;
         private const int TsPacketSize = 188;
@@ -206,5 +206,12 @@ namespace TsAnalyser
                 throw;
             }
         }
+    }
+
+    public enum PidType
+    {
+        PatPid = 0x0,
+        NitPid = 0x10,
+        SdtPid = 0x11
     }
 }

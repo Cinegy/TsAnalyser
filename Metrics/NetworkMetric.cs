@@ -2,7 +2,7 @@
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 
-namespace TsAnalyser
+namespace TsAnalyser.Metrics
 {
     public class NetworkMetric
     {
@@ -155,7 +155,7 @@ namespace TsAnalyser
             var handler = BufferOverflow;
             if (handler == null) return;
             if (_bufferOverflow) return;
-            handler(this, EventArgs.Empty);
+            handler(this, System.EventArgs.Empty);
             _bufferOverflow = true;
         }
     }

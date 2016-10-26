@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using TsAnalyser.Tables;
+using TsAnalyser.TransportStream;
 
 namespace TsAnalyser.Teletext
 {
@@ -84,14 +84,14 @@ namespace TsAnalyser.Teletext
                 //ETS 300 706, 9.3.1.1
                 var pageNumber = (ushort)((m << 8) | (Utils.UnHam84(data[7]) << 4) + Utils.UnHam84(data[6]));
 
-                //ETS 300 706 Table 2,C11
+                //ETS 300 706 TableOld 2,C11
                 _transmissionMode = (byte)(Utils.UnHam84(data[7]) & 0x01);
 
-                //ETS 300 706 Table 2, C12, C13, C14
+                //ETS 300 706 TableOld 2, C12, C13, C14
                 var charset = (byte)(((Utils.UnHam84(data[13]) & 0x08) + (Utils.UnHam84(data[13]) & 0x04) + (Utils.UnHam84(data[13]) & 0x02)) >> 1);
 
 
-                //ETS 300 706 Table 2, C11
+                //ETS 300 706 TableOld 2, C11
                 if ((_receivingData) && (
                                         ((_transmissionMode == TransmissionModeSerial) && (Utils.Page(pageNumber) != Utils.Page(PageNumber))) ||
                                         ((_transmissionMode == TransmissionModeParallel) && (Utils.Page(pageNumber) != Utils.Page(PageNumber)) && (m == Utils.Magazine(PageNumber)))))

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace TsAnalyser
+namespace TsAnalyser.Metrics
 {
     public class SerialisableMetrics
     {

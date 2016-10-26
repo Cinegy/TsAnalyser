@@ -1,6 +1,7 @@
 ﻿using System;
+// ReSharper disable UnusedAutoPropertyAccessor.Global
 
-namespace TsAnalyser
+namespace TsAnalyser.TransportStream
 {
     public class OptionalPes
     {
@@ -19,7 +20,6 @@ namespace TsAnalyser
         public bool ExtensionFlag { get; set; } // 	1 	
         public byte PesHeaderLength { get; set; } //	8 	gives the length of the remainder of the PES header
         public byte[] OptionalFields { get; set; } // 	variable length 	presence is determined by flag bits above
-        public byte[] StuffingBytes { get; set; } // 	variable length 	0xff
     }
 
     public class Pes
@@ -32,7 +32,6 @@ namespace TsAnalyser
                                            //Note: The above 4 bytes is called the 32 bit start code.
         public ushort PesPacketLength { get; set; } //	2 bytes 	Specifies the number of bytes remaining in the packet after this field. Can be zero. If the PES packet length is set to zero, the PES packet can be of any length. A value of zero for the PES packet length can be used only when the PES packet payload is a video elementary stream.[8]
         public OptionalPes OptionalPesHeader { get; set; } //	variable length (length >= 9) 	not present in case of Padding stream & Private stream 2 (navigation data)
-        public byte[] StuffingBytes { get; set; } // 	variable length 	
         public byte[] Data { get; set; } //		See elementary stream. In the case of private streams the first byte of the payload is the sub-stream number.
 
         private ushort _pesBytes;

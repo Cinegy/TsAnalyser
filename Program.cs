@@ -28,19 +28,25 @@ using System.ServiceModel.Web;
 using System.Text;
 using System.Threading;
 using CommandLine;
+using TsAnalyser.Metrics;
+using TsAnalyser.Service;
 using TsAnalyser.Tables;
 using TsAnalyser.Teletext;
+using TsAnalyser.TransportStream;
 using static System.String;
 
 namespace TsAnalyser
 {
+    // ReSharper disable once ClassNeverInstantiated.Global
     internal class Program
     {
         private static bool _receiving;
         private static bool _suppressConsoleOutput;
-        private static bool _readServiceDescriptions;
+        private static bool _decodeTsData;
         private static bool _decodeTeletext;
         private static bool _noRtpHeaders;
+        private static ushort _programNumber;
+
         private static DateTime _startTime = DateTime.UtcNow;
         private static string _logFile;
         private static bool _pendingExit;
@@ -52,20 +58,12 @@ namespace TsAnalyser
 
         private static NetworkMetric _networkMetric = new NetworkMetric();
         private static RtpMetric _rtpMetric = new RtpMetric();
-        private static List<TsMetrics> _tsMetrics = new List<TsMetrics>();
-        private static ProgAssociationTable _progAssociationTable;
-        private static ProgramMapTable _programMapTable;
-        private static ServiceDescriptionTable _serviceDescriptionTable;
-        private static readonly object ServiceDescriptionTableLock = new object();
-        private static readonly List<ServiceDescriptor> ServiceDescriptors = new List<ServiceDescriptor>(16);
-
-        private static readonly Dictionary<short, Dictionary<ushort, TeleText>> TeletextSubtitlePages = new Dictionary<short, Dictionary<ushort, TeleText>>();
-        private static readonly Dictionary<short, Pes> TeletextSubtitleBuffers = new Dictionary<short, Pes>();
-        private static readonly object TeletextSubtitleDecodedPagesLock = new object();
-        private static readonly Dictionary<short, Dictionary<ushort, string[]>> TeletextDecodedSubtitlePages = new Dictionary<short, Dictionary<ushort, string[]>>();
+        private static List<PidMetric> _pidMetrics = new List<PidMetric>();
+        private static TsDecoder _tsDecoder;
+        private static TeleTextDecoder _ttxDecoder;
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
-        private static int LastPrintedTsCount = 0;
+        private static int _lastPrintedTsCount;
 
         static void Main(string[] args)
         {
@@ -74,6 +72,7 @@ namespace TsAnalyser
             Console.CancelKeyPress += Console_CancelKeyPress;
 
             Console.WriteLine(
+                // ReSharper disable once AssignNullToNotNullAttribute
                 $"Cinegy Transport Stream Monitoring and Analysis tool v1.1.0 ({File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
 
             try
@@ -122,10 +121,10 @@ namespace TsAnalyser
                 _receiving = true;
                 _logFile = options.LogFile;
                 _suppressConsoleOutput = options.SuppressOutput;
-                _readServiceDescriptions = options.ReadServiceDescriptions;
+                _decodeTsData = options.DecodeTransportStream;
                 _noRtpHeaders = options.NoRtpHeaders;
                 _decodeTeletext = options.DecodeTeletext;
-
+                _programNumber = options.ProgramNumber;
 
                 if (!IsNullOrWhiteSpace(_logFile))
                 {
@@ -155,14 +154,7 @@ namespace TsAnalyser
             {
                 var runningTime = DateTime.UtcNow.Subtract(_startTime);
 
-                //causes occasional total refresh to erase glitches that build up
-                if (runningTime.Milliseconds < 20)
-                {
-                    // Console.Clear();
-                }
-
                 if (!_suppressConsoleOutput)
-
                 {
                     Console.SetCursorPosition(0, 0);
 
@@ -186,59 +178,81 @@ namespace TsAnalyser
                             _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
                     }
 
-                    PrintToConsole("\nTS Details\n----------------");
-                    lock (_tsMetrics)
+                    lock (_pidMetrics)
                     {
-                        var patMetric = _tsMetrics.FirstOrDefault(m => m.Pid == 0x0);
-                        if (patMetric?.ProgAssociationTable.ProgramNumbers != null)
-                        {
-                            PrintToConsole("Unique PID count: {0}\t\tProgram Count: {1}\t\t\t\n(Showing up to 10 PID streams in table by packet count)\t\t\t", _tsMetrics.Count,
-                                patMetric.ProgAssociationTable.ProgramNumbers.Length);
-                        }
+                        PrintToConsole(_pidMetrics.Count < 10
+                            ? $"\nPID Details - Unique PIDs: {_pidMetrics.Count}\n----------------"
+                            : $"\nPID Details - Unique PIDs: {_pidMetrics.Count}, (10 shown by packet count)\n----------------");
 
-                        foreach (var tsMetric in _tsMetrics.OrderByDescending(m => m.PacketCount).Take(10))
+                        foreach (var pidMetric in _pidMetrics.OrderByDescending(m => m.PacketCount).Take(10))
                         {
-                            PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", tsMetric.Pid,
-                                tsMetric.PacketCount, tsMetric.CcErrorCount);
+                            PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", pidMetric.Pid,
+                                pidMetric.PacketCount, pidMetric.CcErrorCount);
                         }
                     }
 
-                    if ( _readServiceDescriptions)
+                    if (_tsDecoder != null)
                     {
-                        if (null != _serviceDescriptionTable )
+                        lock (_tsDecoder)
                         {
-                            lock (ServiceDescriptionTableLock)
+                            var pmts = _tsDecoder?.ProgramMapTables.OrderBy(p => p.ProgramNumber).ToList();
+
+                            if (pmts != null)
                             {
-                                PrintToConsole(
-                                    "\t\t\t\nService Information\n----------------\t\t\t\t");
+                                PrintToConsole(pmts.Count < 5
+                                    ? $"\t\t\t\nService Information - Service Count: {pmts.Count}\n----------------\t\t\t\t"
+                                    : $"\t\t\t\nService Information - Service Count: {pmts.Count}, (5 shown)\n----------------\t\t\t\t");
 
-                                foreach (var descriptor in ServiceDescriptors)
+                                foreach (var pmtable in pmts.Take(5))
                                 {
-                                    PrintToConsole(
-                                        "Service: {0} ({1}) - {2}\t\t\t",
-                                        descriptor.ServiceName.Value, descriptor.ServiceProviderName.Value,
-                                        descriptor.ServiceTypeDescription);
-
+                                    var desc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmtable?.ProgramNumber);
+                                    if (desc != null)
+                                    {
+                                        PrintToConsole(
+                                            $"Service {pmtable.ProgramNumber}: {desc.ServiceName.Value} ({desc.ServiceProviderName.Value}) - {desc.ServiceTypeDescription}\t\t\t"
+                                            );
+                                    }
                                 }
                             }
-                            if (_decodeTeletext)
+
+                            var pmt = _tsDecoder.GetSelectedPmt(_programNumber);
+                            if (pmt != null)
                             {
-                                PrintTeletext();
+                                _programNumber = pmt.ProgramNumber;
+                            }
+
+                            var serviceDesc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
+
+                            PrintToConsole(serviceDesc != null
+                                ? $"\t\t\t\nElements - Selected Program {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)\n----------------\t\t\t\t"
+                                : $"\t\t\t\nElements - Selected Program Service ID {pmt?.ProgramNumber} (first 5 shown)\n----------------\t\t\t\t");
+
+                            if (pmt?.EsStreams != null)
+                            {
+                                foreach (var stream in pmt?.EsStreams.Take(5))
+                                {
+                                    if (stream != null)
+                                        PrintToConsole(
+                                            "PID: {0} ({1})", stream?.ElementaryPid,
+                                            DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
+                                                stream.StreamType]);
+                                }
                             }
                         }
+
+                        if (_decodeTeletext)
+                        {
+                            PrintTeletext();
+                        }
                     }
-                    else if (_decodeTeletext)
+
+                    if (_lastPrintedTsCount != _pidMetrics.Count)
                     {
-                        PrintTeletext();
-                    }
-                    
-                    if(LastPrintedTsCount != _tsMetrics.Count)
-                    {
-                        LastPrintedTsCount = _tsMetrics.Count;
+                        _lastPrintedTsCount = _pidMetrics.Count;
                         Console.Clear();
                     }
                 }
-                
+
                 Console.WriteLine(ConsoleDisplay.ToString());
                 ConsoleDisplay.Clear();
 
@@ -250,40 +264,35 @@ namespace TsAnalyser
 
         private static void PrintTeletext()
         {
-            lock (TeletextSubtitleDecodedPagesLock)
+            lock (_ttxDecoder.TeletextDecodedSubtitlePage)
             {
-                PrintToConsole("\nTeleText Subtitles\n----------------");
-                foreach (var pid in TeletextDecodedSubtitlePages.Keys)
+                PrintToConsole($"\nTeleText Subtitles - decoding from Service ID {_ttxDecoder.ProgramNumber}\n----------------");
+
+                foreach (var page in _ttxDecoder.TeletextDecodedSubtitlePage.Keys)
                 {
-                    foreach (var page in TeletextDecodedSubtitlePages[pid].Keys)
+                    PrintToConsole($"Live Decoding Page {page:X}\n");
+
+                    //some strangeness here to get around the fact we just append to console, to clear out
+                    //a fixed 4 lines of space for TTX render
+                    const string clearLine = "\t\t\t\t\t\t\t\t\t";
+                    var ttxRender = new[] { clearLine, clearLine, clearLine, clearLine };
+
+                    var i = 0;
+
+                    foreach (var line in _ttxDecoder.TeletextDecodedSubtitlePage[page])
                     {
-                        PrintToConsole("Live Decoding Page {0:X} from Pid {1}\n", page, pid);
+                        if (IsNullOrEmpty(line) || IsNullOrEmpty(line.Trim()) || i >= ttxRender.Length)
+                            continue;
 
-                        //some strangeness here to get around the fact we just append to console, to clear out
-                        //a fixed 4 lines of space for TTX render
-                        const string clearLine = "\t\t\t\t\t\t\t\t\t";
-                        var ttxRender = new[] { clearLine, clearLine, clearLine, clearLine };
-
-                        var i = 0;
-
-                        foreach (var line in TeletextDecodedSubtitlePages[pid][page])
-                        {
-                            if (IsNullOrEmpty(line) || IsNullOrEmpty(line.Trim()) || i >= ttxRender.Length)
-                                continue;
-
-                            ttxRender[i] = $"{new string(line.Where(c => !char.IsControl(c)).ToArray())}\t\t\t";
-                            i++;
-                        }
-
-                        foreach (var val in ttxRender)
-                        {
-                            PrintToConsole(val);
-                        }
+                        ttxRender[i] = $"{new string(line.Where(c => !char.IsControl(c)).ToArray())}\t\t\t";
+                        i++;
                     }
 
+                    foreach (var val in ttxRender)
+                    {
+                        PrintToConsole(val);
+                    }
                 }
-
-
             }
         }
 
@@ -296,7 +305,7 @@ namespace TsAnalyser
             var localEp = new IPEndPoint(listenAddress, multicastGroup);
 
             UdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            UdpClient.Client.ReceiveBufferSize = 1024 * 256;
+            UdpClient.Client.ReceiveBufferSize = 1500 * 3000;
             UdpClient.ExclusiveAddressUse = false;
             UdpClient.Client.Bind(localEp);
             _networkMetric.UdpClient = UdpClient;
@@ -314,8 +323,6 @@ namespace TsAnalyser
             receiverThread.Start();
         }
 
-
-
         private static void ReceivingNetworkWorkerThread(UdpClient client, IPEndPoint localEp)
         {
             while (_receiving)
@@ -331,7 +338,6 @@ namespace TsAnalyser
                         _rtpMetric.AddPacket(data);
                     }
 
-                    //TS packet metrics
                     var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
 
                     if (tsPackets == null)
@@ -339,190 +345,40 @@ namespace TsAnalyser
                         break;
                     }
 
-                    lock (_tsMetrics)
+                    lock (_pidMetrics)
                     {
                         foreach (var tsPacket in tsPackets)
                         {
-                            var currentMetric = _tsMetrics.FirstOrDefault(tsMetric => tsMetric.Pid == tsPacket.Pid);
-                            if (currentMetric == null)
+                            var currentPidMetric = _pidMetrics.FirstOrDefault(pidMetric => pidMetric.Pid == tsPacket.Pid);
+
+                            if (currentPidMetric == null)
                             {
-                                currentMetric = new TsMetrics { Pid = tsPacket.Pid };
-                                currentMetric.DiscontinuityDetected += currentMetric_DiscontinuityDetected;
-                                currentMetric.TransportErrorIndicatorDetected += currentMetric_TransportErrorIndicatorDetected;
-                                _tsMetrics.Add(currentMetric);
-                            }
-                            currentMetric.AddPacket(tsPacket);
-
-                            if (currentMetric.Pid == 0x0)
-                            {
-                                _progAssociationTable = currentMetric.ProgAssociationTable;
-                            }
-                            
-                            if (_progAssociationTable != null && tsPacket.Pid == _progAssociationTable.PmtPid)
-                            {
-                                if (tsPacket.PayloadUnitStartIndicator)
-                                {
-                                    _programMapTable = new ProgramMapTable(tsPacket);
-                                }
-                                else
-                                {
-                                    if (_programMapTable != null && !_programMapTable.HasAllBytes())
-                                    {
-                                        _programMapTable?.Add(tsPacket);
-                                    }
-                                }
-
-                                if (_programMapTable != null && _programMapTable.HasAllBytes())
-                                {
-                                    if (_programMapTable.ProcessTable())
-                                    {
-                                        if (_tsAnalyserApi != null && _tsAnalyserApi.ProgramMetrics == null) _tsAnalyserApi.ProgramMetrics = _programMapTable;
-
-                                        if (_decodeTeletext)
-                                        {
-                                            foreach (var esStream in _programMapTable.EsStreams)
-                                            {
-                                                foreach (
-                                                    var descriptor in
-                                                        esStream.Descriptors.Where(d => d.DescriptorTag == 0x56))
-                                                {
-                                                    var teletext = descriptor as TeletextDescriptor;
-                                                    if (null == teletext) continue;
-
-                                                    foreach (var lang in teletext.Languages)
-                                                    {
-                                                        if (lang.TeletextType != 0x02 && lang.TeletextType != 0x05)
-                                                            continue;
-
-                                                        if (!TeletextSubtitlePages.ContainsKey(esStream.ElementaryPid))
-                                                        {
-                                                            TeletextSubtitlePages.Add(esStream.ElementaryPid,
-                                                                new Dictionary<ushort, TeleText>());
-                                                            TeletextSubtitleBuffers.Add(esStream.ElementaryPid, null);
-                                                        }
-                                                        var m = lang.TeletextMagazineNumber;
-                                                        if (lang.TeletextMagazineNumber == 0)
-                                                        {
-                                                            m = 8;
-                                                        }
-                                                        var page = (ushort) ((m << 8) + lang.TeletextPageNumber);
-                                                        //var pageStr = $"{page:X}";
-
-                                                        // if (page == 0x199)
-                                                        {
-                                                            if (
-                                                                TeletextSubtitlePages[esStream.ElementaryPid]
-                                                                    .ContainsKey(page)) continue;
-
-                                                            TeletextSubtitlePages[esStream.ElementaryPid].Add(page,
-                                                                new TeleText(page, esStream.ElementaryPid));
-                                                            TeletextSubtitlePages[esStream.ElementaryPid][page]
-                                                                .TeletextPageRecieved += TeletextPageRecievedMethod;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        _programMapTable = null;
-                                    }
-                                }
-                                
+                                currentPidMetric = new PidMetric { Pid = tsPacket.Pid };
+                                currentPidMetric.DiscontinuityDetected += currentMetric_DiscontinuityDetected;
+                                currentPidMetric.TransportErrorIndicatorDetected += currentMetric_TransportErrorIndicatorDetected;
+                                _pidMetrics.Add(currentPidMetric);
                             }
 
-                            if (TeletextSubtitlePages?.ContainsKey(tsPacket.Pid) == false) continue;
+                            currentPidMetric.AddPacket(tsPacket);
 
-                            if (tsPacket.PayloadUnitStartIndicator)
+                            if (_tsDecoder == null) continue;
+                            lock (_tsDecoder)
                             {
-                                if (null != TeletextSubtitleBuffers[tsPacket.Pid])
+                                _tsDecoder.AddPacket(tsPacket);
+
+                                if (_ttxDecoder == null) continue;
+                                lock (_ttxDecoder)
                                 {
-                                    if (TeletextSubtitleBuffers[tsPacket.Pid].HasAllBytes())
-                                    {
-                                        TeletextSubtitleBuffers[tsPacket.Pid].Decode();
-                                        foreach (var key in TeletextSubtitlePages[tsPacket.Pid].Keys)
-                                        {
-                                            TeletextSubtitlePages[tsPacket.Pid][key].DecodeTeletextData(TeletextSubtitleBuffers[tsPacket.Pid]);
-                                        }
-                                    }
-                                }
-
-                                TeletextSubtitleBuffers[tsPacket.Pid] = new Pes(tsPacket);
-                            }
-                            else if (TeletextSubtitleBuffers[tsPacket.Pid] != null)
-                            {
-                                TeletextSubtitleBuffers[tsPacket.Pid].Add(tsPacket);
-                            }
-
-                            if (!_readServiceDescriptions) continue;
-                            
-                            
-                            if (tsPacket.Pid == 0x0011)
-                            {
-                                lock (ServiceDescriptionTableLock)
-                                {
-                                    if (tsPacket.PayloadUnitStartIndicator)
-                                    {
-                                        _serviceDescriptionTable = new Tables.ServiceDescriptionTable(tsPacket);
-                                    }
-                                    else
-                                    {
-                                        if (_serviceDescriptionTable != null && !_serviceDescriptionTable.HasAllBytes())
-                                        {
-                                            _serviceDescriptionTable.Add(tsPacket);
-                                        }
-                                    }
-
-                                    if (_serviceDescriptionTable != null && _serviceDescriptionTable.HasAllBytes())
-                                    {
-                                        if (_serviceDescriptionTable.ProcessTable())
-                                        {
-                                            if (_tsAnalyserApi != null && _tsAnalyserApi.ServiceMetrics == null) _tsAnalyserApi.ServiceMetrics = _serviceDescriptionTable;
-
-                                            if (null != _serviceDescriptionTable && _readServiceDescriptions)
-                                            {
-                                                lock (ServiceDescriptionTableLock)
-                                                {
-                                                    if (_serviceDescriptionTable?.Items != null &&
-                                                        _serviceDescriptionTable.TableId == 0x42)
-                                                    {
-                                                        foreach (var item in _serviceDescriptionTable.Items)
-                                                        {
-                                                            foreach (
-                                                                var descriptor in
-                                                                    item.Descriptors.Where(d => d.DescriptorTag == 0x48)
-                                                                )
-                                                            {
-                                                                var sd = descriptor as ServiceDescriptor;
-
-                                                                if (sd == null) continue;
-
-                                                                var match = false;
-                                                                foreach (var serviceDescriptor in ServiceDescriptors)
-                                                                {
-                                                                    if (serviceDescriptor.ServiceName.Value == sd.ServiceName.Value)
-                                                                    {
-                                                                        match = true;
-                                                                    }
-                                                                }
-
-                                                                if (!match) ServiceDescriptors.Add(sd);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            _serviceDescriptionTable = null;
-                                        }
-                                    }
+                                    _ttxDecoder.AddPacket(_tsDecoder, tsPacket);
                                 }
                             }
+
+
                         }
                     }
+
+
+
                 }
                 catch (Exception ex)
                 {
@@ -562,9 +418,7 @@ namespace TsAnalyser
         {
             if (_suppressConsoleOutput) return;
 
-            ConsoleDisplay.AppendLine(string.Format(message, arguments));
-
-            //   Console.WriteLine(message, arguments);
+            ConsoleDisplay.AppendLine(Format(message, arguments));
         }
 
         private static void LogMessage(string message)
@@ -572,7 +426,7 @@ namespace TsAnalyser
             ThreadPool.QueueUserWorkItem(WriteToFile, message);
         }
 
-        public static void WriteToFile(object msg)
+        private static void WriteToFile(object msg)
         {
             lock (LogfileWriteLock)
             {
@@ -598,8 +452,6 @@ namespace TsAnalyser
             }
         }
 
-
-
         private static void StartHttpService(string serviceAddress)
         {
             var baseAddress = new Uri(serviceAddress);
@@ -609,7 +461,7 @@ namespace TsAnalyser
             _tsAnalyserApi = new TsAnalyserApi
             {
                 NetworkMetric = _networkMetric,
-                TsMetrics = _tsMetrics,
+                TsMetrics = _pidMetrics,
                 RtpMetric = _rtpMetric
             };
 
@@ -635,9 +487,11 @@ namespace TsAnalyser
 
             serviceEndpoint.Behaviors.Add(webBehavior);
 
+            //TODO: Trying to disable MEX, to allow serving of index when visiting root...
+
             //Metadata Exchange
             //var serviceBehavior = new ServiceMetadataBehavior {HttpGetEnabled = true};
-            //_serviceHost.Description.Behaviors.Add(serviceBehavior);
+            //_serviceHost.Description.Behaviors.AddData(serviceBehavior);
 
             try
             {
@@ -664,42 +518,34 @@ namespace TsAnalyser
 
         private static void SetupMetrics()
         {
-            lock (_tsMetrics)
+            lock (_pidMetrics)
             {
                 _startTime = DateTime.UtcNow;
                 _networkMetric = new NetworkMetric();
                 _rtpMetric = new RtpMetric();
-                _tsMetrics = new List<TsMetrics>();
+                _pidMetrics = new List<PidMetric>();
+
+                if (_decodeTsData)
+                {
+                    _tsDecoder = new TsDecoder();
+                    _tsDecoder.TableChangeDetected += _tsDecoder_TableChangeDetected;
+                }
+
+                if (_decodeTeletext)
+                {
+                    _ttxDecoder = _programNumber > 1 ? new TeleTextDecoder(_programNumber) : new TeleTextDecoder();
+                }
+
                 _rtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
                 _networkMetric.BufferOverflow += NetworkMetric_BufferOverflow;
                 _networkMetric.UdpClient = UdpClient;
+
             }
         }
 
-        private static void TeletextPageRecievedMethod(object sender, EventArgs args)
+        private static void _tsDecoder_TableChangeDetected(object sender, EventArgs e)
         {
-            var teletextArgs = (TeleTextSubtitleEventArgs)args;
-            lock (TeletextSubtitleDecodedPagesLock)
-            {
-                if (!TeletextDecodedSubtitlePages.ContainsKey(teletextArgs.Pid))
-                {
-                    TeletextDecodedSubtitlePages.Add(teletextArgs.Pid, new Dictionary<ushort, string[]>());
-                }
-
-                if (!TeletextDecodedSubtitlePages.ContainsKey(teletextArgs.Pid)) return;
-
-                if (!TeletextDecodedSubtitlePages[teletextArgs.Pid].ContainsKey(teletextArgs.PageNumber))
-                {
-                    TeletextDecodedSubtitlePages[teletextArgs.Pid].Add(teletextArgs.PageNumber, new string[0]);
-                }
-
-                if (TeletextDecodedSubtitlePages[teletextArgs.Pid].ContainsKey(teletextArgs.PageNumber))
-                {
-
-                }
-
-                TeletextDecodedSubtitlePages[teletextArgs.Pid][teletextArgs.PageNumber] = teletextArgs.Page;
-            }
+            Console.Clear();
         }
 
         private static void _tsAnalyserApi_StreamCommand(object sender, StreamCommandEventArgs e)
@@ -710,7 +556,7 @@ namespace TsAnalyser
                     SetupMetrics();
 
                     _tsAnalyserApi.NetworkMetric = _networkMetric;
-                    _tsAnalyserApi.TsMetrics = _tsMetrics;
+                    _tsAnalyserApi.TsMetrics = _pidMetrics;
                     _tsAnalyserApi.RtpMetric = _rtpMetric;
                     Console.Clear();
 
