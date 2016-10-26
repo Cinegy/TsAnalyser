@@ -46,6 +46,10 @@ namespace TsAnalyser
         HelpText = "Optional instruction to skip the expected 12 byte RTP headers (meaning plain MPEGTS inside UDP is expected")]
         public bool NoRtpHeaders { get; set; }
 
+        [Option('p', "programnumber", Required = false,
+        HelpText = "Pick a specific program / service to inspect (otherwise picks default).")]
+        public ushort ProgramNumber { get; set; }
+
         [ParserState]
         public IParserState LastParserState { get; set; }
 

@@ -14,8 +14,6 @@ namespace TsAnalyser.TransportStream
         public ServiceDescriptionTable ServiceDescriptionTable => _sdtFactory.ServiceDescriptionTable;
 
         public List<ProgramMapTable> ProgramMapTables { get; private set; }
-
-        public object ProgramMapTableLock { get; } = new object();
         
         private ProgramAssociationTableFactory _patFactory;
         private ServiceDescriptionTableFactory _sdtFactory;
@@ -108,18 +106,6 @@ namespace TsAnalyser.TransportStream
             return null;
         }
 
-
-        public List<ServiceDescriptor> GetServiceDescriptors()
-        {
-            if (_sdtFactory?.ServiceDescriptionItems == null) return null;
-
-            return (from serviceDescriptionItem in _sdtFactory?.ServiceDescriptionItems
-                select
-                    serviceDescriptionItem.Descriptors?.SingleOrDefault(sd => (sd as ServiceDescriptor) != null) as
-                        ServiceDescriptor).ToList();
-        }
-
-
         private void CheckPmt(TsPacket tsPacket)
         {
             if (ProgramAssociationTable == null) return;
@@ -154,14 +140,37 @@ namespace TsAnalyser.TransportStream
             _sdtFactory.TableChangeDetected += _sdtFactory_TableChangeDetected;
         }
 
+        public ProgramMapTable GetSelectedPmt(int programNumber)
+        {
+            ProgramMapTable pmt;
+
+            if (programNumber == 0)
+            {
+                if (ProgramMapTables?.Count == 0) return null;
+                if (ProgramAssociationTable == null) return null;
+                //without a passed program number, use the default program
+                if (ProgramMapTables?.Count <
+                    (ProgramAssociationTable?.Pids?.Length - 1)) return null;
+
+                pmt = ProgramMapTables?.OrderBy(t => t.ProgramNumber).FirstOrDefault();
+            }
+            else
+            {
+                pmt = ProgramMapTables?.SingleOrDefault(t => t.ProgramNumber == programNumber);
+            }
+
+            return pmt;
+        }
+
         private void _sdtFactory_TableChangeDetected(object sender, TransportStreamEventArgs args)
         {
             Debug.WriteLine($"SDT {args.TsPid}, Version: {ServiceDescriptionTable.VersionNumber} - Section Num: {ServiceDescriptionTable.SectionNumber} refreshed");
+            OnTableChangeDetected();
         }
 
         private void _pmtFactory_TableChangeDetected(object sender, TransportStreamEventArgs e)
         {
-            lock (ProgramMapTableLock)
+            lock (this)
             {
                 var fact = sender as ProgramMapTableFactory;
 
@@ -181,11 +190,23 @@ namespace TsAnalyser.TransportStream
 
                 ProgramMapTables?.Add(fact.ProgramMapTable);
             }
+
+            OnTableChangeDetected();
         }
 
-        private static void _patFactory_TableChangeDetected(object sender, TransportStreamEventArgs e)
+        private void _patFactory_TableChangeDetected(object sender, TransportStreamEventArgs e)
         {
             Debug.WriteLine("PAT refreshed");
+            OnTableChangeDetected();
+        }
+
+        //A decoded table change has been processed
+        public event EventHandler TableChangeDetected;
+
+        private void OnTableChangeDetected()
+        {
+            var handler = TableChangeDetected;
+            handler?.Invoke(this, EventArgs.Empty);
         }
     }
 

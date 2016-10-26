@@ -104,9 +104,9 @@ namespace TsAnalyser.TransportStream
         public string Organization { get; set; }
     }
 
-    public class StreamIdentifierSescriptor : Descriptor
+    public class StreamIdentifierDescriptor : Descriptor
     {
-        public StreamIdentifierSescriptor(byte[] stream, int start) : base(stream, start)
+        public StreamIdentifierDescriptor(byte[] stream, int start) : base(stream, start)
         {
             ComponentTag = stream[start + 2];
         }
@@ -135,11 +135,13 @@ namespace TsAnalyser.TransportStream
             var currentPos = start + 2;
             do
             {
-                var lang = new Language();
-                lang.So639LanguageCode = Encoding.UTF8.GetString(stream, currentPos, 3);
-                lang.SubtitlingType = stream[currentPos + 3];
-                lang.CompositionPageId = (ushort)((stream[currentPos + 4] << 8) + stream[currentPos + 5]);
-                lang.AncillaryPageId = (ushort)((stream[currentPos + 6] << 8) + stream[currentPos + 7]);
+                var lang = new Language
+                {
+                    So639LanguageCode = Encoding.UTF8.GetString(stream, currentPos, 3),
+                    SubtitlingType = stream[currentPos + 3],
+                    CompositionPageId = (ushort) ((stream[currentPos + 4] << 8) + stream[currentPos + 5]),
+                    AncillaryPageId = (ushort) ((stream[currentPos + 6] << 8) + stream[currentPos + 7])
+                };
 
                 languages.Add(lang);
 
@@ -214,7 +216,7 @@ namespace TsAnalyser.TransportStream
 
             public ushort ServiceId { get; set; }
             public byte ServiceType { get; set; }
-            public string ServiceTypeString { get { return ServiceTypeDescription(ServiceType); } }
+            public string ServiceTypeString => ServiceTypeDescription(ServiceType);
         }
         
         public ServiceListDescriptor(byte[] stream, int start) : base(stream, start)
@@ -301,7 +303,7 @@ namespace TsAnalyser.TransportStream
         public byte ServiceProviderNameLength { get; set; }// 8 uimsbf
         public Text ServiceProviderName { get; set; }// 
         public byte ServiceNameLength { get; set; }// 8 uimsbf 
-        public Text ServiceName { get; set; }              
+        public Text ServiceName { get; set; }      
     }
 
     public static class DescriptorFactory
@@ -315,7 +317,7 @@ namespace TsAnalyser.TransportStream
                 case 0x0a: return new Iso639LanguageDescriptor(stream, start);               
                 case 0x41: return new ServiceListDescriptor(stream, start);
                 case 0x48: return new ServiceDescriptor(stream, start);
-                case 0x52: return new StreamIdentifierSescriptor(stream, start);
+                case 0x52: return new StreamIdentifierDescriptor(stream, start);
                 case 0x56: return new TeletextDescriptor(stream, start);
                 case 0x59: return new SubtitlingDescriptor(stream, start);
                 case 0x66: return new DataBroadcastIdDescriptor(stream, start);
