@@ -1,7 +1,8 @@
 using System.Collections.Generic;
+
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 
-namespace TsAnalyser.TsElements
+namespace TsAnalyser.TransportStream
 {
     public class EsInfo
     {

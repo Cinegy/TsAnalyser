@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace TsAnalyser.TsElements
+namespace TsAnalyser.TransportStream
 {
     public class OptionalPes
     {

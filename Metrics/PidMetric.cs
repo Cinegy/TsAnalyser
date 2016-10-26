@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
-using TsAnalyser.TsElements;
+using TsAnalyser.TransportStream;
 
 namespace TsAnalyser.Metrics
 {

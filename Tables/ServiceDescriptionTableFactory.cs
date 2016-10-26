@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using TsAnalyser.TsElements;
+using TsAnalyser.TransportStream;
 
 namespace TsAnalyser.Tables
 {

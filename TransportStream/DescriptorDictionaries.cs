@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace TsAnalyser.TsElements
+namespace TsAnalyser.TransportStream
 {
     public static class DescriptorDictionaries 
     {

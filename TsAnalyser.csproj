@@ -53,8 +53,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="EventArgs\TransportStreamEventArgs.cs" />
-    <Compile Include="Metrics\TsMetric.cs" />
+    <Compile Include="TransportStream\TransportStreamEventArgs.cs" />
+    <Compile Include="TransportStream\TsDecoder.cs" />
     <Compile Include="Tables\ITable.cs" />
     <Compile Include="Tables\ProgramAssociationTableFactory.cs" />
     <Compile Include="Tables\ProgramMapTable.cs" />
@@ -62,7 +62,8 @@
     <Compile Include="Tables\ServiceDescriptionTableFactory.cs" />
     <Compile Include="Tables\Table.cs" />
     <Compile Include="Tables\TableFactory.cs" />
-    <Compile Include="TsElements\Descriptor.cs" />
+    <Compile Include="Teletext\TeleTextDecoder.cs" />
+    <Compile Include="TransportStream\Descriptor.cs" />
     <Compile Include="Service\ITsAnalyserApi.cs" />
     <Compile Include="Metrics\SerialisableMetrics.cs" />
     <Compile Include="Metrics\NetworkMetric.cs" />
@@ -71,9 +72,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Metrics\RtpMetric.cs" />
-    <Compile Include="TsElements\EsInfo.cs" />
-    <Compile Include="TsElements\PES.cs" />
-    <Compile Include="TsElements\DescriptorDictionaries.cs" />
+    <Compile Include="TransportStream\EsInfo.cs" />
+    <Compile Include="TransportStream\PES.cs" />
+    <Compile Include="TransportStream\DescriptorDictionaries.cs" />
     <Compile Include="Tables\ServiceDescriptionTable.cs" />
     <Compile Include="Teletext\PageBuffer.cs" />
     <Compile Include="Teletext\TeleText.cs" />
@@ -81,8 +82,8 @@
     <Compile Include="Teletext\Utils.cs" />
     <Compile Include="Service\TsAnalyserApi.cs" />
     <Compile Include="Metrics\PidMetric.cs" />
-    <Compile Include="TsElements\Text.cs" />
-    <Compile Include="TsElements\TsPacket.cs" />
+    <Compile Include="TransportStream\Text.cs" />
+    <Compile Include="TransportStream\TsPacket.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -101,6 +102,9 @@
     <EmbeddedResource Include="embeddedWebResources\stylesheets\bootstrap.min.css" />
     <EmbeddedResource Include="embeddedWebResources\stylesheets\index.css" />
     <Content Include="FodyWeavers.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="EventArgs\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="packages\Fody.1.28.3\build\Fody.targets" Condition="Exists('packages\Fody.1.28.3\build\Fody.targets')" />

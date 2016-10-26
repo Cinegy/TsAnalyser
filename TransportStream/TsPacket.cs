@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace TsAnalyser.TsElements
+namespace TsAnalyser.TransportStream
 {
     public struct PesHdr
     {

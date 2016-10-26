@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Text;
 
-namespace TsAnalyser.TsElements
+namespace TsAnalyser.TransportStream
 {
     public class Descriptor
     {

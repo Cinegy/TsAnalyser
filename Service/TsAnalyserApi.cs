@@ -8,7 +8,7 @@ using System.Reflection;
 using System.ServiceModel;
 using System.ServiceModel.Web;
 using TsAnalyser.Metrics;
-using TsAnalyser.TsElements;
+using TsAnalyser.TransportStream;
 
 namespace TsAnalyser.Service
 {

@@ -30,7 +30,8 @@ using System.Threading;
 using CommandLine;
 using TsAnalyser.Metrics;
 using TsAnalyser.Service;
-using TsAnalyser.TsElements;
+using TsAnalyser.Teletext;
+using TsAnalyser.TransportStream;
 using static System.String;
 
 namespace TsAnalyser
@@ -41,7 +42,7 @@ namespace TsAnalyser
         private static bool _receiving;
         private static bool _suppressConsoleOutput;
         private static bool _decodeTsData;
-        // private static bool _decodeTeletext;
+        private static bool _decodeTeletext;
         private static bool _noRtpHeaders;
 
         private static DateTime _startTime = DateTime.UtcNow;
@@ -56,7 +57,8 @@ namespace TsAnalyser
         private static NetworkMetric _networkMetric = new NetworkMetric();
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
-        private static TsMetric _tsMetric;
+        private static TsDecoder _tsDecoder;
+        private static TeleTextDecoder _ttxDecoder;
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
@@ -119,7 +121,7 @@ namespace TsAnalyser
                 _suppressConsoleOutput = options.SuppressOutput;
                 _decodeTsData = options.DecodeTransportStream;
                 _noRtpHeaders = options.NoRtpHeaders;
-                //_decodeTeletext = options.DecodeTeletext;
+                _decodeTeletext = options.DecodeTeletext;
 
 
                 if (!IsNullOrWhiteSpace(_logFile))
@@ -187,13 +189,13 @@ namespace TsAnalyser
                         }
                     }
 
-                    if (_tsMetric?.ProgramMapTables != null)
+                    if (_tsDecoder?.ProgramMapTables != null)
                     {
-                        lock (_tsMetric.ProgramMapTableLock)
+                        lock (_tsDecoder.ProgramMapTableLock)
                         {
-                            var pmt = _tsMetric.ProgramMapTables.OrderBy(t => t.ProgramNumber).FirstOrDefault();
+                            var pmt = _tsDecoder.ProgramMapTables.OrderBy(t => t.ProgramNumber).FirstOrDefault();
 
-                            var serviceDesc = _tsMetric.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
+                            var serviceDesc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
 
                             PrintToConsole(serviceDesc != null
                                 ? $"\t\t\t\nElements - Default Program {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)\n----------------\t\t\t\t"
@@ -211,7 +213,7 @@ namespace TsAnalyser
                                 }
                             }
 
-                            var descs = _tsMetric?.GetServiceDescriptors();
+                            var descs = _tsDecoder?.GetServiceDescriptors();
                             if (descs != null)
                             {
                                 PrintToConsole(descs.Count < 5
@@ -226,6 +228,11 @@ namespace TsAnalyser
                                         descriptor.ServiceTypeDescription);
 
                                 }
+                            }
+
+                            if (_decodeTeletext)
+                            {
+                                PrintTeletext();
                             }
                         }
 
@@ -313,13 +320,27 @@ namespace TsAnalyser
 
                             currentPidMetric.AddPacket(tsPacket);
 
-                            if (_tsMetric == null) continue;
-                            lock (_tsMetric)
+                            if (_tsDecoder == null) continue;
+                            lock (_tsDecoder)
                             {
-                                _tsMetric.AddPacket(tsPacket);
+                                _tsDecoder.AddPacket(tsPacket);
+
+                                if (_ttxDecoder == null) continue;
+
+                                if (_tsDecoder.ProgramMapTables?.Count < _tsDecoder.ProgramAssociationTable?.Pids?.Length - 1) continue;
+
+                                lock (_ttxDecoder)
+                                {
+                                    _ttxDecoder.AddPacket(_tsDecoder, tsPacket);
+                                }
                             }
+
+                           
                         }
                     }
+
+
+
                 }
                 catch (Exception ex)
                 {
@@ -468,7 +489,12 @@ namespace TsAnalyser
 
                 if (_decodeTsData)
                 {
-                    _tsMetric = new TsMetric();
+                    _tsDecoder = new TsDecoder();
+                }
+
+                if (_decodeTeletext)
+                {
+                    _ttxDecoder = new TeleTextDecoder();
                 }
 
                 _rtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
@@ -500,6 +526,48 @@ namespace TsAnalyser
                     throw new ArgumentOutOfRangeException();
             }
         }
+
+
+        private static void PrintTeletext()
+        {
+            lock (_ttxDecoder.TeletextSubtitleDecodedPagesLock)
+            {
+                PrintToConsole("\nTeleText Subtitles\n----------------");
+                foreach (var pid in _ttxDecoder.TeletextDecodedSubtitlePages.Keys)
+                {
+                    foreach (var page in _ttxDecoder.TeletextDecodedSubtitlePages[pid].Keys)
+                    {
+                        PrintToConsole("Live Decoding Page {0:X} from Pid {1}\n", page, pid);
+
+                        //some strangeness here to get around the fact we just append to console, to clear out
+                        //a fixed 4 lines of space for TTX render
+                        const string clearLine = "\t\t\t\t\t\t\t\t\t";
+                        var ttxRender = new[] { clearLine, clearLine, clearLine, clearLine };
+
+                        var i = 0;
+
+                        foreach (var line in _ttxDecoder.TeletextDecodedSubtitlePages[pid][page])
+                        {
+                            if (IsNullOrEmpty(line) || IsNullOrEmpty(line.Trim()) || i >= ttxRender.Length)
+                                continue;
+
+                            ttxRender[i] = $"{new string(line.Where(c => !char.IsControl(c)).ToArray())}\t\t\t";
+                            i++;
+                        }
+
+                        foreach (var val in ttxRender)
+                        {
+                            PrintToConsole(val);
+                        }
+                    }
+
+                }
+
+
+            }
+        }
+
+ 
     }
 }
 

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
-using TsAnalyser.TsElements;
+using TsAnalyser.TransportStream;
+
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace TsAnalyser.Tables

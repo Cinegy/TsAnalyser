@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using TsAnalyser.Metrics;
 using TsAnalyser.Tables;
-using TsAnalyser.TsElements;
 
-namespace TsAnalyser.Metrics
+namespace TsAnalyser.TransportStream
 {
-    public class TsMetric
+    public class TsDecoder
     {
 
         public ProgramAssociationTable ProgramAssociationTable => _patFactory.ProgramAssociationTable;
@@ -21,7 +21,7 @@ namespace TsAnalyser.Metrics
         private ServiceDescriptionTableFactory _sdtFactory;
         private List<ProgramMapTableFactory> _pmtFactories;
 
-        public TsMetric()
+        public TsDecoder()
         {
             SetupFactories();
         }
@@ -63,6 +63,51 @@ namespace TsAnalyser.Metrics
 
             return serviceDesc;
         }
+
+        public T GetDescriptorForProgramNumberByTag<T>( int? programNumber, int streamType, int descriptorTag)  where T : class
+        {
+            if (programNumber == null) return null;
+            
+            var selectedPmt = ProgramMapTables?.FirstOrDefault(t => t.ProgramNumber == programNumber);
+
+            if (selectedPmt == null) return null;
+
+            var selectedDesc = default(T);
+
+            foreach (var esStream in selectedPmt.EsStreams)
+            {
+                if (esStream.StreamType != streamType) continue;
+
+                selectedDesc = esStream.Descriptors.SingleOrDefault(d => d.DescriptorTag == descriptorTag) as T;
+
+                if (selectedDesc != null) break;
+            }
+        
+            return selectedDesc;
+            
+        }
+
+        public EsInfo GetEsStreamForProgramNumberByTag(int? programNumber, int streamType, int descriptorTag) 
+        {
+            if (programNumber == null) return null;
+
+            var selectedPmt = ProgramMapTables?.FirstOrDefault(t => t.ProgramNumber == programNumber);
+
+            if (selectedPmt == null) return null;
+
+            foreach (var esStream in selectedPmt.EsStreams)
+            {
+                if (esStream.StreamType != streamType) continue;
+
+                var desc = esStream.Descriptors.SingleOrDefault(d => d.DescriptorTag == descriptorTag);
+
+                if (desc != null) return esStream;
+               
+            }
+
+            return null;
+        }
+
 
         public List<ServiceDescriptor> GetServiceDescriptors()
         {
