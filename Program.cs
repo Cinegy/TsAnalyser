@@ -73,7 +73,7 @@ namespace TsAnalyser
 
             Console.WriteLine(
                 // ReSharper disable once AssignNullToNotNullAttribute
-                $"Cinegy Transport Stream Monitoring and Analysis tool v1.1.0 ({File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
+                $"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
 
             try
             {
