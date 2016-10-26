@@ -30,7 +30,6 @@ using System.Threading;
 using CommandLine;
 using TsAnalyser.Metrics;
 using TsAnalyser.Service;
-using TsAnalyser.Tables;
 using TsAnalyser.Teletext;
 using TsAnalyser.TransportStream;
 using static System.String;
@@ -46,6 +45,7 @@ namespace TsAnalyser
         private static bool _decodeTeletext;
         private static bool _noRtpHeaders;
         private static ushort _programNumber;
+        private static string _filePath;
 
         private static DateTime _startTime = DateTime.UtcNow;
         private static string _logFile;
@@ -125,6 +125,7 @@ namespace TsAnalyser
                 _noRtpHeaders = options.NoRtpHeaders;
                 _decodeTeletext = options.DecodeTeletext;
                 _programNumber = options.ProgramNumber;
+                _filePath = options.FileInput;
 
                 if (!IsNullOrWhiteSpace(_logFile))
                 {
@@ -139,13 +140,21 @@ namespace TsAnalyser
                         StartHttpService(options.ServiceUrl);
                     });
 
-                    var httpThread = new Thread(httpThreadStart) { Priority = ThreadPriority.Normal };
+                    var httpThread = new Thread(httpThreadStart) {Priority = ThreadPriority.Normal};
 
                     httpThread.Start();
                 }
 
                 SetupMetrics();
-                StartListeningToNetwork(options.MulticastAddress, options.MulticastGroup, options.AdapterAddress);
+
+                if (!IsNullOrEmpty(options.FileInput))
+                {
+                    StartStreamingFile(options.FileInput);
+                }
+                else
+                {
+                    StartListeningToNetwork(options.MulticastAddress, options.MulticastGroup, options.AdapterAddress);
+                }
             }
 
             Console.Clear();
@@ -158,24 +167,31 @@ namespace TsAnalyser
                 {
                     Console.SetCursorPosition(0, 0);
 
-                    PrintToConsole("URL: rtp://@{0}:{1}\tRunning time: {2:hh\\:mm\\:ss}\t\t\n", options.MulticastAddress,
+                    PrintToConsole("URL: rtp://@{0}:{1}\tRunning time: {2:hh\\:mm\\:ss}\t\t", options.MulticastAddress,
                         options.MulticastGroup, runningTime);
-                    PrintToConsole(
-                        "Network Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%\t\t\nTotal Data (MB): {2}\t\tPackets per sec:{3}",
-                        _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, _networkMetric.TotalData / 1048576,
-                        _networkMetric.PacketsPerSecond);
-                    PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
-                        _networkMetric.TimeBetweenLastPacket, _networkMetric.ShortestTimeBetweenPackets,
-                        _networkMetric.LongestTimeBetweenPackets);
-                    PrintToConsole("Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
-                        (_networkMetric.CurrentBitrate / 131072.0), _networkMetric.AverageBitrate / 131072.0,
-                        (_networkMetric.HighestBitrate / 131072.0), (_networkMetric.LowestBitrate / 131072.0));
 
-                    if (!_noRtpHeaders)
+                    if (IsNullOrEmpty(_filePath))
                     {
                         PrintToConsole(
-                            "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
-                            _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp, _rtpMetric.Ssrc);
+                            "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%\t\t\nTotal Data (MB): {2}\t\tPackets per sec:{3}",
+                            _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage,
+                            _networkMetric.TotalData/1048576,
+                            _networkMetric.PacketsPerSecond);
+                        PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
+                            _networkMetric.TimeBetweenLastPacket, _networkMetric.ShortestTimeBetweenPackets,
+                            _networkMetric.LongestTimeBetweenPackets);
+                        PrintToConsole(
+                            "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
+                            (_networkMetric.CurrentBitrate/131072.0), _networkMetric.AverageBitrate/131072.0,
+                            (_networkMetric.HighestBitrate/131072.0), (_networkMetric.LowestBitrate/131072.0));
+
+                        if (!_noRtpHeaders)
+                        {
+                            PrintToConsole(
+                                "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
+                                _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp,
+                                _rtpMetric.Ssrc);
+                        }
                     }
 
                     lock (_pidMetrics)
@@ -323,6 +339,48 @@ namespace TsAnalyser
             receiverThread.Start();
         }
 
+        private static void StartStreamingFile(string fileName)
+        {
+            var fs = new FileStream(fileName, FileMode.Open);
+
+            var ts = new ThreadStart(delegate
+            {
+                FileStreamWorkerThread(fs);
+            });
+
+            var receiverThread = new Thread(ts) { Priority = ThreadPriority.Highest };
+
+            receiverThread.Start();
+        }
+
+        private static void FileStreamWorkerThread(FileStream stream)
+        {
+            var data = new byte[188];
+
+            while (stream?.Read(data, 0, 188)>0)
+            {
+                try
+                {
+                    var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
+
+                    if (tsPackets == null) break;
+
+                    AnalysePackets(tsPackets);
+
+                }
+                catch (Exception ex)
+                {
+                    LogMessage($@"Unhandled exception within file streamer: {ex.Message}");
+                }
+            }
+
+            _pendingExit = true;
+            Thread.Sleep(250);
+
+            Console.WriteLine("Completed reading of file - hit enter to exit!");
+            Console.ReadLine();
+        }
+
         private static void ReceivingNetworkWorkerThread(UdpClient client, IPEndPoint localEp)
         {
             while (_receiving)
@@ -340,49 +398,47 @@ namespace TsAnalyser
 
                     var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
 
-                    if (tsPackets == null)
-                    {
-                        break;
-                    }
-
-                    lock (_pidMetrics)
-                    {
-                        foreach (var tsPacket in tsPackets)
-                        {
-                            var currentPidMetric = _pidMetrics.FirstOrDefault(pidMetric => pidMetric.Pid == tsPacket.Pid);
-
-                            if (currentPidMetric == null)
-                            {
-                                currentPidMetric = new PidMetric { Pid = tsPacket.Pid };
-                                currentPidMetric.DiscontinuityDetected += currentMetric_DiscontinuityDetected;
-                                currentPidMetric.TransportErrorIndicatorDetected += currentMetric_TransportErrorIndicatorDetected;
-                                _pidMetrics.Add(currentPidMetric);
-                            }
-
-                            currentPidMetric.AddPacket(tsPacket);
-
-                            if (_tsDecoder == null) continue;
-                            lock (_tsDecoder)
-                            {
-                                _tsDecoder.AddPacket(tsPacket);
-
-                                if (_ttxDecoder == null) continue;
-                                lock (_ttxDecoder)
-                                {
-                                    _ttxDecoder.AddPacket(_tsDecoder, tsPacket);
-                                }
-                            }
-
-
-                        }
-                    }
-
-
-
+                    if (tsPackets == null) break;
+                    
+                    AnalysePackets(tsPackets);
+                    
                 }
                 catch (Exception ex)
                 {
                     LogMessage($@"Unhandled exception within network receiver: {ex.Message}");
+                }
+            }
+        }
+
+        private static void AnalysePackets(TsPacket[] tsPackets)
+        {
+            lock (_pidMetrics)
+            {
+                foreach (var tsPacket in tsPackets)
+                {
+                    var currentPidMetric = _pidMetrics.FirstOrDefault(pidMetric => pidMetric.Pid == tsPacket.Pid);
+
+                    if (currentPidMetric == null)
+                    {
+                        currentPidMetric = new PidMetric { Pid = tsPacket.Pid };
+                        currentPidMetric.DiscontinuityDetected += currentMetric_DiscontinuityDetected;
+                        currentPidMetric.TransportErrorIndicatorDetected += currentMetric_TransportErrorIndicatorDetected;
+                        _pidMetrics.Add(currentPidMetric);
+                    }
+
+                    currentPidMetric.AddPacket(tsPacket);
+
+                    if (_tsDecoder == null) continue;
+                    lock (_tsDecoder)
+                    {
+                        _tsDecoder.AddPacket(tsPacket);
+
+                        if (_ttxDecoder == null) continue;
+                        lock (_ttxDecoder)
+                        {
+                            _ttxDecoder.AddPacket(_tsDecoder, tsPacket);
+                        }
+                    }
                 }
             }
         }

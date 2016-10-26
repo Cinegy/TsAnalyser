@@ -10,11 +10,11 @@ namespace TsAnalyser
         HelpText = "Don't print anything to the console")]
         public bool SuppressOutput { get; set; }
         
-        [Option('m', "multicastaddress", Required = true,
+        [Option('m', "multicastaddress", Required = false,
         HelpText = "Input multicast address to read from.")]
         public string MulticastAddress { get; set; }
 
-        [Option('g', "mulicastgroup", Required = true,
+        [Option('g', "mulicastgroup", Required = false,
         HelpText = "Input multicast group port to read from.")]
         public int MulticastGroup { get; set; }
 
@@ -49,6 +49,10 @@ namespace TsAnalyser
         [Option('p', "programnumber", Required = false,
         HelpText = "Pick a specific program / service to inspect (otherwise picks default).")]
         public ushort ProgramNumber { get; set; }
+
+        [Option('f', "fileinput", Required = false, DefaultValue = "http://localhost:8124/",
+        HelpText = "Allow a .TS file to be opened, instead of a Multicast (experimental)")]
+        public string FileInput { get; set; }
 
         [ParserState]
         public IParserState LastParserState { get; set; }
