@@ -40,15 +40,9 @@ namespace TsAnalyser
     internal class Program
     {
         private static bool _receiving;
-        private static bool _suppressConsoleOutput;
-        private static bool _decodeTsData;
-        private static bool _decodeTeletext;
-        private static bool _noRtpHeaders;
-        private static ushort _programNumber;
-        private static string _filePath;
+        private static Options _options;
 
         private static DateTime _startTime = DateTime.UtcNow;
-        private static string _logFile;
         private static bool _pendingExit;
         private static ServiceHost _serviceHost;
         private static TsAnalyserApi _tsAnalyserApi;
@@ -68,7 +62,7 @@ namespace TsAnalyser
         // ReSharper disable once ArrangeTypeMemberModifiers
         static void Main(string[] args)
         {
-            var options = new Options();
+            _options = new Options();
 
             Console.CancelKeyPress += Console_CancelKeyPress;
 
@@ -86,7 +80,7 @@ namespace TsAnalyser
                 Console.WriteLine("Failed to increase console size - probably screen resolution is low");
             }
 
-            if (!Parser.Default.ParseArguments(args, options))
+            if (!Parser.Default.ParseArguments(args, _options))
             {
                 //ask the user interactively for an address and group
                 Console.WriteLine(
@@ -96,7 +90,7 @@ namespace TsAnalyser
 
                 if (IsNullOrWhiteSpace(address)) return;
 
-                options.MulticastAddress = address;
+                _options.MulticastAddress = address;
 
                 Console.Write("Please enter the multicast group port (e.g. 1234): ");
                 var port = Console.ReadLine();
@@ -106,39 +100,32 @@ namespace TsAnalyser
                     Console.ReadLine();
                     return;
                 }
-                options.MulticastGroup = int.Parse(port);
+                _options.MulticastGroup = int.Parse(port);
 
             }
 
-            WorkLoop(options);
+            WorkLoop();
         }
 
-        private static void WorkLoop(Options options)
+        private static void WorkLoop()
         {
             Console.Clear();
 
             if (!_receiving)
             {
                 _receiving = true;
-                _logFile = options.LogFile;
-                _suppressConsoleOutput = options.SuppressOutput;
-                _decodeTsData = options.DecodeTransportStream;
-                _noRtpHeaders = options.NoRtpHeaders;
-                _decodeTeletext = options.DecodeTeletext;
-                _programNumber = options.ProgramNumber;
-                _filePath = options.FileInput;
-
-                if (!IsNullOrWhiteSpace(_logFile))
+               
+                if (!IsNullOrWhiteSpace(_options.LogFile))
                 {
-                    PrintToConsole("Logging events to file {0}", _logFile);
+                    PrintToConsole("Logging events to file {0}", _options.LogFile);
                 }
                 LogMessage("Logging started.");
 
-                if (options.EnableWebServices)
+                if (_options.EnableWebServices)
                 {
                     var httpThreadStart = new ThreadStart(delegate
                     {
-                        StartHttpService(options.ServiceUrl);
+                        StartHttpService(_options.ServiceUrl);
                     });
 
                     var httpThread = new Thread(httpThreadStart) {Priority = ThreadPriority.Normal};
@@ -148,13 +135,13 @@ namespace TsAnalyser
 
                 SetupMetricsAndDecoders();
 
-                if (!IsNullOrEmpty(options.FileInput))
+                if (!IsNullOrEmpty(_options.FileInput))
                 {
-                    StartStreamingFile(options.FileInput);
+                    StartStreamingFile(_options.FileInput);
                 }
                 else
                 {
-                    StartListeningToNetwork(options.MulticastAddress, options.MulticastGroup, options.AdapterAddress);
+                    StartListeningToNetwork(_options.MulticastAddress, _options.MulticastGroup, _options.AdapterAddress);
                 }
             }
 
@@ -164,14 +151,14 @@ namespace TsAnalyser
             {
                 var runningTime = DateTime.UtcNow.Subtract(_startTime);
 
-                if (!_suppressConsoleOutput)
+                if (!_options.SuppressOutput)
                 {
                     Console.SetCursorPosition(0, 0);
 
-                    PrintToConsole("URL: rtp://@{0}:{1}\tRunning time: {2:hh\\:mm\\:ss}\t\t", options.MulticastAddress,
-                        options.MulticastGroup, runningTime);
+                    PrintToConsole("URL: rtp://@{0}:{1}\tRunning time: {2:hh\\:mm\\:ss}\t\t", _options.MulticastAddress,
+                        _options.MulticastGroup, runningTime);
 
-                    if (IsNullOrEmpty(_filePath))
+                    if (IsNullOrEmpty(_options.FileInput))
                     {
                         PrintToConsole(
                             "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%\t\t\nTotal Data (MB): {2}\t\tPackets per sec:{3}",
@@ -186,7 +173,7 @@ namespace TsAnalyser
                             (_networkMetric.CurrentBitrate/131072.0), _networkMetric.AverageBitrate/131072.0,
                             (_networkMetric.HighestBitrate/131072.0), (_networkMetric.LowestBitrate/131072.0));
 
-                        if (!_noRtpHeaders)
+                        if (!_options.NoRtpHeaders)
                         {
                             PrintToConsole(
                                 "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
@@ -232,10 +219,10 @@ namespace TsAnalyser
                                 }
                             }
 
-                            var pmt = _tsDecoder.GetSelectedPmt(_programNumber);
+                            var pmt = _tsDecoder.GetSelectedPmt(_options.ProgramNumber);
                             if (pmt != null)
                             {
-                                _programNumber = pmt.ProgramNumber;
+                                _options.ProgramNumber = pmt.ProgramNumber;
                             }
 
                             var serviceDesc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
@@ -257,7 +244,7 @@ namespace TsAnalyser
                             }
                         }
 
-                        if (_decodeTeletext)
+                        if (_options.DecodeTeletext)
                         {
                             PrintTeletext();
                         }
@@ -392,7 +379,7 @@ namespace TsAnalyser
                 {
                     _networkMetric.AddPacket(data);
 
-                    if (!_noRtpHeaders)
+                    if (!_options.NoRtpHeaders)
                     {
                         _rtpMetric.AddPacket(data);
                     }
@@ -471,9 +458,14 @@ namespace TsAnalyser
             LogMessage("Network buffer > 99% - probably loss of data from overflow.");
         }
 
+        private static void _networkMetric_ExcessiveIat(object sender, IatEventArgs args)
+        {
+            LogMessage($"Excessive Inter-Packet Arrival Time (IAT) - max {args.MaxIat}, detected {args.MeasuredIat}.");
+        }
+
         private static void PrintToConsole(string message, params object[] arguments)
         {
-            if (_suppressConsoleOutput) return;
+            if (_options.SuppressOutput) return;
 
             ConsoleDisplay.AppendLine(Format(message, arguments));
         }
@@ -491,9 +483,9 @@ namespace TsAnalyser
                 {
                     if (_logFileStream == null || _logFileStream.BaseStream.CanWrite != true)
                     {
-                        if (IsNullOrWhiteSpace(_logFile)) return;
+                        if (IsNullOrWhiteSpace(_options.LogFile)) return;
 
-                        var fs = new FileStream(_logFile, FileMode.Append, FileAccess.Write);
+                        var fs = new FileStream(_options.LogFile, FileMode.Append, FileAccess.Write);
 
                         _logFileStream = new StreamWriter(fs) { AutoFlush = true };
                     }
@@ -582,24 +574,25 @@ namespace TsAnalyser
                 _rtpMetric = new RtpMetric();
                 _pidMetrics = new List<PidMetric>();
 
-                if (_decodeTsData)
+                if (_options.DecodeTransportStream)
                 {
                     _tsDecoder = new TsDecoder.TransportStream.TsDecoder();
                     _tsDecoder.TableChangeDetected += _tsDecoder_TableChangeDetected;
                 }
 
-                if (_decodeTeletext)
+                if (_options.DecodeTeletext)
                 {
-                    _ttxDecoder = _programNumber > 1 ? new TeleTextDecoder(_programNumber) : new TeleTextDecoder();
+                    _ttxDecoder = _options.ProgramNumber > 1 ? new TeleTextDecoder(_options.ProgramNumber) : new TeleTextDecoder();
                 }
 
                 _rtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
                 _networkMetric.BufferOverflow += NetworkMetric_BufferOverflow;
+                _networkMetric.ExcessiveIat += _networkMetric_ExcessiveIat;
                 _networkMetric.UdpClient = UdpClient;
 
             }
         }
-
+        
         private static void _tsDecoder_TableChangeDetected(object sender, EventArgs e)
         {
             Console.Clear();

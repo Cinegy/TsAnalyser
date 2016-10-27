@@ -50,9 +50,13 @@ namespace TsAnalyser
         HelpText = "Pick a specific program / service to inspect (otherwise picks default).")]
         public ushort ProgramNumber { get; set; }
 
-        [Option('f', "fileinput", Required = false, DefaultValue = "http://localhost:8124/",
+        [Option('f', "fileinput", Required = false, DefaultValue = "",
         HelpText = "Allow a .TS file to be opened, instead of a Multicast (experimental)")]
         public string FileInput { get; set; }
+
+        [Option('i', "interarrivaltime", Required = false, DefaultValue = 40,
+        HelpText = "Maximum permitted time between UDP packets before alarming.")]
+        public int InterArrivalTimeMax { get; set; }
 
         [ParserState]
         public IParserState LastParserState { get; set; }

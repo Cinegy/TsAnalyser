@@ -56,6 +56,8 @@ namespace TsAnalyser.Metrics
 
         public long ShortestTimeBetweenPackets { get; set; }
 
+        public int MaxIat { get; set; } 
+
         public UdpClient UdpClient { get; set; }
 
         [DllImport(Lib)]
@@ -78,6 +80,11 @@ namespace TsAnalyser.Metrics
             timeBetweenLastPacket = timeBetweenLastPacket/_timerFreq;
 
             TimeBetweenLastPacket = timeBetweenLastPacket;
+
+            if ((MaxIat > 0) && (TimeBetweenLastPacket > MaxIat))
+            {
+                OnExcessiveIat(timeBetweenLastPacket);
+            }
 
             _lastPacketTime = _currentPacketTime;
 
@@ -147,16 +154,39 @@ namespace TsAnalyser.Metrics
             QueryPerformanceFrequency(out _timerFreq);
             QueryPerformanceCounter(out _lastPacketTime);
         }
+    
+        public delegate void IatEventHandler(object sender, IatEventArgs args);
 
-        public event EventHandler BufferOverflow;
+        public event IatEventHandler ExcessiveIat;
+
+        protected virtual void OnExcessiveIat(long measuredIat)
+        {
+            var handler = ExcessiveIat;
+
+            var args = new IatEventArgs()
+            {
+                MaxIat = MaxIat,
+                MeasuredIat = measuredIat
+            };
+
+            handler?.Invoke(this, args);
+
+        }
+        
+        public event  EventHandler BufferOverflow;
 
         protected virtual void OnBufferOverflow()
         {
             var handler = BufferOverflow;
-            if (handler == null) return;
             if (_bufferOverflow) return;
-            handler(this, System.EventArgs.Empty);
+            handler?.Invoke(this, EventArgs.Empty);
             _bufferOverflow = true;
         }
+    }
+
+    public class IatEventArgs : EventArgs
+    {
+        public int MaxIat { get; set; }
+        public long MeasuredIat { get; set; }
     }
 }
