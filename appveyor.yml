@@ -16,4 +16,4 @@ after_build:
 - cmd: >-
     7z a TsAnalyser-%APPVEYOR_REPO_BRANCH%.zip %APPVEYOR_BUILD_FOLDER%\TsAnalyser\bin\release\TsAnalyser.exe
 
-    appveyor PushArtifact TsAnalyser.zip
+    appveyor PushArtifact TsAnalyser-%APPVEYOR_REPO_BRANCH%.zip
