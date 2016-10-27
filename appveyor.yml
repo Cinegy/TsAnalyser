@@ -1,0 +1,19 @@
+version: 1.2.{build}
+configuration: Release
+platform: Any CPU
+assembly_info:
+  patch: true
+  file: '**\AssemblyInfo.*'
+  assembly_version: '{version}'
+  assembly_file_version: '{version}'
+  assembly_informational_version: '{version}'
+before_build:
+- cmd: nuget restore
+build:
+  project: TsAnalyser.sln
+  verbosity: minimal
+after_build:
+- cmd: >-
+    7z a TsAnalyser.zip %APPVEYOR_BUILD_FOLDER%\TsAnalyser\bin\release\TsAnalyser.exe
+
+    appveyor PushArtifact TsAnalyser.zip
