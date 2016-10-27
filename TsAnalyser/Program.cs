@@ -65,6 +65,7 @@ namespace TsAnalyser
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
 
+        // ReSharper disable once ArrangeTypeMemberModifiers
         static void Main(string[] args)
         {
             var options = new Options();
