@@ -80,8 +80,9 @@ namespace TsAnalyser
                 Console.WriteLine("Failed to increase console size - probably screen resolution is low");
             }
 
-            if (!Parser.Default.ParseArguments(args, _options))
+            if (!Parser.Default.ParseArguments(args, _options) || ((IsNullOrEmpty(_options.MulticastAddress)) && IsNullOrEmpty(_options.FileInput)))
             {
+
                 //ask the user interactively for an address and group
                 Console.WriteLine(
                     "\nSince parameters were not passed at the start, you can now enter the two most important (or just hit enter to quit)");
@@ -107,6 +108,11 @@ namespace TsAnalyser
             WorkLoop();
         }
 
+        ~Program()
+        {
+            Console.CursorVisible = true;
+        }
+
         private static void WorkLoop()
         {
             Console.Clear();
@@ -119,7 +125,7 @@ namespace TsAnalyser
                 {
                     PrintToConsole("Logging events to file {0}", _options.LogFile);
                 }
-                LogMessage("Logging started.");
+                LogMessage($"Logging started {Assembly.GetExecutingAssembly().GetName().Version}.");
 
                 if (_options.EnableWebServices)
                 {
@@ -433,6 +439,7 @@ namespace TsAnalyser
 
         private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
+            Console.CursorVisible = true;
             if (_pendingExit) return; //already trying to exit - allow normal behaviour on subsequent presses
             _pendingExit = true;
             e.Cancel = true;
@@ -570,7 +577,7 @@ namespace TsAnalyser
             lock (_pidMetrics)
             {
                 _startTime = DateTime.UtcNow;
-                _networkMetric = new NetworkMetric();
+                _networkMetric = new NetworkMetric() { MaxIat = _options.InterArrivalTimeMax};
                 _rtpMetric = new RtpMetric();
                 _pidMetrics = new List<PidMetric>();
 
