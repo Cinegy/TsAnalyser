@@ -184,8 +184,8 @@ namespace TsAnalyser
                             _networkMetric.LongestTimeBetweenPackets);
                         PrintToConsole(
                             "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
-                            (_networkMetric.CurrentBitrate / 131072.0), _networkMetric.AverageBitrate / 131072.0,
-                            (_networkMetric.HighestBitrate / 131072.0), (_networkMetric.LowestBitrate / 131072.0));
+                            (_networkMetric.CurrentBitrate / 1048576.0), _networkMetric.AverageBitrate / 1048576.0,
+                            (_networkMetric.HighestBitrate / 1048576.0), (_networkMetric.LowestBitrate / 1048576.0));
 
                         if (!_options.NoRtpHeaders)
                         {
@@ -511,7 +511,6 @@ namespace TsAnalyser
 
                     if (_options.JsonLogs)
                     {
-                       
                         var jsonMsg = new JsonMsg() { EventMessage = msg.ToString() };
 
                         formattedMsg = JsonConvert.SerializeObject(jsonMsg);

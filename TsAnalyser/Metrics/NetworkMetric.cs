@@ -22,7 +22,12 @@ namespace TsAnalyser.Metrics
         private int _packetsThisSecond;
         private int _samplingPeriod = 5000;
 
-        private int _currentPeriodPackets = 0;
+        private int _currentPeriodPackets;
+        private long _periodLongestTimeBetweenPackets;
+        private int _periodShortestTimeBetweenPackets;
+        private float _periodMaxBufferUsage;
+        private int _periodData;
+        private float _periodAverageTimeBetweenPackets;
 
         private DateTime _startTime;
         private long _timerFreq;
@@ -40,8 +45,25 @@ namespace TsAnalyser.Metrics
             lock (this)
             {
                 LastPeriodEndTime = SampleTime;
+
                 PeriodPackets = _currentPeriodPackets;
                 _currentPeriodPackets = 0;
+
+                PeriodLongestTimeBetweenPackets = _periodLongestTimeBetweenPackets;
+                _periodLongestTimeBetweenPackets = 0;
+
+                PeriodShortestTimeBetweenPackets = _periodShortestTimeBetweenPackets;
+                _periodShortestTimeBetweenPackets = 0;
+
+                PeriodMaxNetworkBufferUsage = _periodMaxBufferUsage;
+                _periodMaxBufferUsage = 0;
+
+                PeriodData = _periodData;
+                _periodData = 0;
+
+                PeriodAverageTimeBetweenPackets = _periodAverageTimeBetweenPackets;
+                _periodAverageTimeBetweenPackets = 0;
+
             }
         }
 
@@ -75,41 +97,78 @@ namespace TsAnalyser.Metrics
         public long TotalPackets { get; private set; }
 
         /// <summary>
-        /// Total of packets received within the configured sampling period
+        /// Total of packets received within the last complete sampling period
         /// </summary>
         [DataMember]
         public long PeriodPackets { get; private set; }
 
+        /// <summary>
+        /// Total data volume sum of all packets received (unless explicitly reset)
+        /// </summary>
         [DataMember]
         public long TotalData { get; private set; }
 
+        /// <summary>
+        /// Total data volume sum of all packets received within the last complete sampling period
+        /// </summary>
         [DataMember]
         public long PeriodData { get; private set; }
 
+        /// <summary>
+        /// Instantaneous bitrate, sampled over the last complete second
+        /// </summary>
         [DataMember]
         public long CurrentBitrate { get; private set; }
 
+        /// <summary>
+        /// Highest per-second bitrate measured since start (unless explicitly reset)
+        /// </summary>
         [DataMember]
         public long HighestBitrate { get; private set; }
 
+        //TODO: This
+        /// <summary>
+        /// Highest per-second bitrate measured within the last complete sampling period
+        /// </summary>
         [DataMember]
         public long PeriodHighestBitrate { get; private set; }
 
+        /// <summary>
+        /// Lowest per-second bitrate measured since start (unless explicitly reset)
+        /// </summary>
         [DataMember]
         public long LowestBitrate { get; private set; } = 999999999;
-
+        
+        //TODO: This
+        /// <summary>
+        /// Lowest per-second bitrate measured within the last complete sampling period
+        /// </summary>
         [DataMember]
         public long PeriodLowestBitrate { get; private set; }
 
+        /// <summary>
+        /// All-time average bitrate measured since start (unless explicitly reset)
+        /// </summary>
         [DataMember]
-        public long AverageBitrate => (long) (TotalData/DateTime.UtcNow.Subtract(_startTime).TotalSeconds);
+        public long AverageBitrate => (long) (TotalData/DateTime.UtcNow.Subtract(_startTime).TotalSeconds) * 8;
 
+        //TODO: This
+        /// <summary>
+        /// Average bitrate measured within the last complete sampling period
+        /// </summary>
         [DataMember]
-        public long PeriodAverageBitrate => ((PeriodData / SamplingPeriod)/1000);
+        public long PeriodAverageBitrate => (PeriodData / (SamplingPeriod/1000)) * 8;
 
+        /// <summary>
+        /// Packets received within the last complete second
+        /// </summary>
         [DataMember]
         public int PacketsPerSecond { get; private set; }
 
+        /// <summary>
+        /// Current level of network buffer usage.
+        /// A high value indicates TS Analyser is unable to keep up with the inbound rate and may not account for all packets under overflow conditions
+        /// </summary>
         public float NetworkBufferUsage
         {
             get
@@ -120,28 +179,60 @@ namespace TsAnalyser.Metrics
             }
         }
 
+        /// <summary>
+        /// The highest network buffer usage since since start (unless explicitly reset)
+        /// </summary>
         [DataMember]
         public float MaxNetworkBufferUsage { get; private set; }
 
+        /// <summary>
+        /// The highest network buffer usage within the last sampling period
+        /// </summary>
         [DataMember]
         public float PeriodMaxNetworkBufferUsage { get; private set; }
         
+        /// <summary>
+        /// Instantaneous time between last two received packets
+        /// </summary>
         public long TimeBetweenLastPacket { get; private set; }
 
+        /// <summary>
+        /// All-time longest time between two received packets (unless explicitly reset)
+        /// </summary>
         [DataMember]
         public long LongestTimeBetweenPackets { get; private set; }
 
+        /// <summary>
+        /// Longest time between two received packets within the last sampling period
+        /// </summary>
         [DataMember]
         public long PeriodLongestTimeBetweenPackets { get; private set; }
 
+        /// <summary>
+        /// All-time shortest time between two received packets (unless explicitly reset)
+        /// </summary>
         [DataMember]
         public long ShortestTimeBetweenPackets { get; private set; }
 
+        /// <summary>
+        /// Shortest time between two received packets within the last sampling period
+        /// </summary>
         [DataMember]
-        public long AverageTimeBetweenPackets { get; private set; }
+        public long PeriodShortestTimeBetweenPackets { get; private set; }
 
+        //TODO: This
+        /// <summary>
+        /// All-time average time between two received packets (unless explicitly reset)
+        /// </summary>
         [DataMember]
-        public long PeriodAverageTimeBetweenPackets { get; private set; }
+        public float AverageTimeBetweenPackets { get; private set; }
+
+        //TODO: This
+        /// <summary>
+        /// Average time between two received packets within the last sampling period
+        /// </summary>
+        [DataMember]
+        public float PeriodAverageTimeBetweenPackets { get; private set; }
 
         /// <summary>
         /// Any time the value for time between packets exceeds this value, an event will be raised.
@@ -191,8 +282,13 @@ namespace TsAnalyser.Metrics
                     if (TimeBetweenLastPacket > LongestTimeBetweenPackets)
                         LongestTimeBetweenPackets = TimeBetweenLastPacket;
 
+                    if (TimeBetweenLastPacket > _periodLongestTimeBetweenPackets)
+                        _periodLongestTimeBetweenPackets = TimeBetweenLastPacket;
+
                     if (TimeBetweenLastPacket < ShortestTimeBetweenPackets)
                         ShortestTimeBetweenPackets = TimeBetweenLastPacket;
+
+
 
                     if (DateTime.UtcNow.Second == _currentSecond)
                     {
@@ -209,6 +305,7 @@ namespace TsAnalyser.Metrics
                 TotalPackets++;
                 _currentPeriodPackets++;
                 TotalData += data.Length;
+                _periodData += data.Length;
 
                 if (DateTime.Now.Ticks - _currentSampleTime < _ticksPerSecond)
                 {
@@ -221,13 +318,25 @@ namespace TsAnalyser.Metrics
 
                     if (_averagesReady)
                     {
-                        CurrentBitrate = _dataThisSecond;
+                        CurrentBitrate = _dataThisSecond * 8;
                         if (CurrentBitrate > HighestBitrate) HighestBitrate = CurrentBitrate;
                         if (CurrentBitrate < LowestBitrate) LowestBitrate = CurrentBitrate;
 
                         _dataThisSecond = 0;
                         _currentSampleTime = DateTime.Now.Ticks;
                     }
+                }
+
+                var buffVal = NetworkBufferUsage;
+
+                if (buffVal > _periodMaxBufferUsage)
+                {
+                    _periodMaxBufferUsage = buffVal;
+                }
+
+                if (buffVal > MaxNetworkBufferUsage)
+                {
+                    MaxNetworkBufferUsage = buffVal;
                 }
 
                 if (NetworkBufferUsage > 99)
