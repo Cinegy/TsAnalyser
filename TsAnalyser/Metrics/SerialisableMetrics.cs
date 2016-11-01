@@ -1,26 +1,28 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace TsAnalyser.Metrics
 {
     public class SerialisableMetrics
     {
+        public string SampleTime => DateTime.UtcNow.ToString("o");
+        
         public SerialisableMetrics()
         {
             Network = new SerialisableNetworkMetric();
-            Ts = new SerialisableTsMetric();
+            Pid = new SerialisablePidMetric();
             Rtp = new SerialisableRtpMetric();
             Service = new ServiceDescriptionMetric();
         }
-
+        
         public SerialisableNetworkMetric Network { get; set; }
-        public SerialisableTsMetric Ts { get; set; }
-
+        public SerialisablePidMetric Pid { get; set; }
         public SerialisableRtpMetric Rtp { get; set; }
         public ServiceDescriptionMetric Service { get; set; }
-
+      
         public class SerialisableNetworkMetric
         {
-            public long TotalPacketsRecieved { get; set; }
+            public long TotalPacketsReceived { get; set; }
             public long CurrentBitrate { get; set; }
             public long HighestBitrate { get; set; }
             public long LongestTimeBetweenPackets { get; set; }
@@ -32,9 +34,9 @@ namespace TsAnalyser.Metrics
             public long AverageBitrate { get; set; }
         }
 
-        public class SerialisableTsMetric
+        public class SerialisablePidMetric
         {
-            public SerialisableTsMetric()
+            public SerialisablePidMetric()
             {
                 Pids = new List<PidDetails>();
             }
@@ -63,5 +65,7 @@ namespace TsAnalyser.Metrics
             public string ServiceName { get; set; }
             public string ServiceProvider { get; set; }
         }
+
+       
     }
 }

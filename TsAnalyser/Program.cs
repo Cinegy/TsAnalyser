@@ -22,14 +22,14 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography.X509Certificates;
 using System.ServiceModel;
 using System.ServiceModel.Description;
 using System.ServiceModel.Web;
 using System.Text;
 using System.Threading;
+using System.Web.Script.Serialization;
 using CommandLine;
+using Newtonsoft.Json;
 using TsAnalyser.Metrics;
 using TsAnalyser.Service;
 using TsDecoder.TransportStream;
@@ -51,6 +51,8 @@ namespace TsAnalyser
         private static readonly UdpClient UdpClient = new UdpClient { ExclusiveAddressUse = false };
         private static readonly object LogfileWriteLock = new object();
         private static StreamWriter _logFileStream;
+        private static readonly object JsonLogfileWriteLock = new object();
+        private static StreamWriter _jsonLogFileStream;
 
         private static NetworkMetric _networkMetric = new NetworkMetric();
         private static RtpMetric _rtpMetric = new RtpMetric();
@@ -60,7 +62,6 @@ namespace TsAnalyser
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
-        private static System.Web.Script.Serialization.JavaScriptSerializer _jserial;
 
         // ReSharper disable once ArrangeTypeMemberModifiers
         static void Main(string[] args)
@@ -123,7 +124,7 @@ namespace TsAnalyser
             if (!_receiving)
             {
                 _receiving = true;
-               
+
                 if (!IsNullOrWhiteSpace(_options.LogFile))
                 {
                     PrintToConsole("Logging events to file {0}", _options.LogFile);
@@ -137,7 +138,7 @@ namespace TsAnalyser
                         StartHttpService(_options.ServiceUrl);
                     });
 
-                    var httpThread = new Thread(httpThreadStart) {Priority = ThreadPriority.Normal};
+                    var httpThread = new Thread(httpThreadStart) { Priority = ThreadPriority.Normal };
 
                     httpThread.Start();
                 }
@@ -150,6 +151,10 @@ namespace TsAnalyser
                 }
                 else
                 {
+                    if (!IsNullOrEmpty(_options.TimeSeriesLogFile))
+                    {
+                        var t = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
+                    }
                     StartListeningToNetwork(_options.MulticastAddress, _options.MulticastGroup, _options.AdapterAddress);
                 }
             }
@@ -172,15 +177,15 @@ namespace TsAnalyser
                         PrintToConsole(
                             "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%\t\t\nTotal Data (MB): {2}\t\tPackets per sec:{3}",
                             _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage,
-                            _networkMetric.TotalData/1048576,
+                            _networkMetric.TotalData / 1048576,
                             _networkMetric.PacketsPerSecond);
                         PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
                             _networkMetric.TimeBetweenLastPacket, _networkMetric.ShortestTimeBetweenPackets,
                             _networkMetric.LongestTimeBetweenPackets);
                         PrintToConsole(
                             "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
-                            (_networkMetric.CurrentBitrate/131072.0), _networkMetric.AverageBitrate/131072.0,
-                            (_networkMetric.HighestBitrate/131072.0), (_networkMetric.LowestBitrate/131072.0));
+                            (_networkMetric.CurrentBitrate / 131072.0), _networkMetric.AverageBitrate / 131072.0,
+                            (_networkMetric.HighestBitrate / 131072.0), (_networkMetric.LowestBitrate / 131072.0));
 
                         if (!_options.NoRtpHeaders)
                         {
@@ -354,7 +359,7 @@ namespace TsAnalyser
         {
             var data = new byte[188];
 
-            while (stream?.Read(data, 0, 188)>0)
+            while (stream?.Read(data, 0, 188) > 0)
             {
                 try
                 {
@@ -386,19 +391,21 @@ namespace TsAnalyser
                 if (data == null) continue;
                 try
                 {
-                    _networkMetric.AddPacket(data);
-
-                    if (!_options.NoRtpHeaders)
+                    lock (_networkMetric)
                     {
-                        _rtpMetric.AddPacket(data);
+                        _networkMetric.AddPacket(data);
+
+                        if (!_options.NoRtpHeaders)
+                        {
+                            _rtpMetric.AddPacket(data);
+                        }
+
+                        var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
+
+                        if (tsPackets == null) break;
+
+                        AnalysePackets(tsPackets);
                     }
-
-                    var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
-
-                    if (tsPackets == null) break;
-                    
-                    AnalysePackets(tsPackets);
-                    
                 }
                 catch (Exception ex)
                 {
@@ -504,21 +511,48 @@ namespace TsAnalyser
 
                     if (_options.JsonLogs)
                     {
-                        if (_jserial == null)
-                        {
-                            _jserial = new System.Web.Script.Serialization.JavaScriptSerializer();
-                        }
-                        var jsonMsg = new JsonMsg() {EventMessage = msg.ToString()};
-                        
-                        formattedMsg = _jserial.Serialize(jsonMsg);
+                       
+                        var jsonMsg = new JsonMsg() { EventMessage = msg.ToString() };
+
+                        formattedMsg = JsonConvert.SerializeObject(jsonMsg);
                     }
                     else
                     {
-                         formattedMsg = $"{DateTime.UtcNow.ToString("o")} - {msg}";
-                         
+                        formattedMsg = $"{DateTime.UtcNow.ToString("o")} - {msg}";
+
                     }
 
                     _logFileStream.WriteLine(formattedMsg);
+                }
+                catch (Exception)
+                {
+                    Debug.WriteLine("Concurrency error writing to log file...");
+                    _logFileStream?.Close();
+                    _logFileStream?.Dispose();
+                }
+            }
+        }
+
+        private static void UpdateSeriesDataTimerCallback(object o)
+        {
+            if (_tsAnalyserApi == null) return;
+
+            lock (JsonLogfileWriteLock)
+            {
+                try
+                {
+                    if (_jsonLogFileStream == null || _jsonLogFileStream.BaseStream.CanWrite != true)
+                    {
+                        if (IsNullOrWhiteSpace(_options.TimeSeriesLogFile)) return;
+
+                        var fs = new FileStream(_options.TimeSeriesLogFile, FileMode.Append, FileAccess.Write);
+
+                        _jsonLogFileStream = new StreamWriter(fs) { AutoFlush = true };
+                    }
+
+                    var output = JsonConvert.SerializeObject(_networkMetric);
+
+                    _jsonLogFileStream.WriteLine($"{output}");
                 }
                 catch (Exception)
                 {
@@ -598,7 +632,7 @@ namespace TsAnalyser
             lock (_pidMetrics)
             {
                 _startTime = DateTime.UtcNow;
-                _networkMetric = new NetworkMetric() { MaxIat = _options.InterArrivalTimeMax};
+                _networkMetric = new NetworkMetric() { MaxIat = _options.InterArrivalTimeMax };
                 _rtpMetric = new RtpMetric();
                 _pidMetrics = new List<PidMetric>();
 
@@ -620,7 +654,7 @@ namespace TsAnalyser
 
             }
         }
-        
+
         private static void _tsDecoder_TableChangeDetected(object sender, EventArgs e)
         {
             Console.Clear();

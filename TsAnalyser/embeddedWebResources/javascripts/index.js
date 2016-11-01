@@ -29,7 +29,7 @@ $(document).ready(function () {
             PacketsPerSecond : ko.observable(''),
             ShortestTimeBetweenPackets : ko.observable(''),
             TimeBetweenLastPacket: ko.observable(''),
-            TotalPacketsRecieved: ko.observable('')
+            TotalPacketsReceived: ko.observable('')
         };
         self.Rtp = {
             MinLostPackets: ko.observable(''),
@@ -62,7 +62,7 @@ $(document).ready(function () {
             self.Network.PacketsPerSecond(values.Network.PacketsPerSecond);
             self.Network.ShortestTimeBetweenPackets(values.Network.ShortestTimeBetweenPackets);
             self.Network.TimeBetweenLastPacket(values.Network.TimeBetweenLastPacket);
-            self.Network.TotalPacketsRecieved(values.Network.TotalPacketsRecieved);
+            self.Network.TotalPacketsReceived(values.Network.TotalPacketsReceived);
 
             self.Rtp.MinLostPackets(values.Rtp.MinLostPackets);
             self.Rtp.SSRC(values.Rtp.SSRC);

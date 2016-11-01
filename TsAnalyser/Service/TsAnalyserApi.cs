@@ -17,9 +17,7 @@ namespace TsAnalyser.Service
     public class TsAnalyserApi : ITsAnalyserApi
     {
         private readonly Assembly _assembly = Assembly.GetExecutingAssembly();
-
-        private SerialisableMetrics _serialisableMetric = new SerialisableMetrics();
-
+        
         public NetworkMetric NetworkMetric { get; set; }
         
         public RtpMetric RtpMetric { get; set; }
@@ -27,6 +25,7 @@ namespace TsAnalyser.Service
         public List<PidMetric> TsMetrics = new List<PidMetric>();
 
         public ServiceDescriptionTable ServiceMetrics = null;//new Tables.ServiceDescriptionTable();
+
         public ProgramMapTable ProgramMetrics = null;// new Tables.DescriptorDictionaries();
 
         public void GetGlobalOptions()
@@ -110,9 +109,7 @@ namespace TsAnalyser.Service
             WebOperationContext.Current?.OutgoingResponse.Headers.Add("Access-Control-Allow-Origin", "*");
             WebOperationContext.Current?.OutgoingResponse.Headers.Add("Cache-Control", "no-cache");
 
-            RefreshMetrics();
-
-            return _serialisableMetric;
+            return RefreshMetrics();
         }
 
         public void ResetMetrics()
@@ -139,13 +136,13 @@ namespace TsAnalyser.Service
             throw new NotImplementedException();
         }
 
-        private void RefreshMetrics()
+        private SerialisableMetrics RefreshMetrics()
         {
-            _serialisableMetric = new SerialisableMetrics
+            var serialisableMetric = new SerialisableMetrics
             {
                 Network =
                 {
-                    TotalPacketsRecieved = NetworkMetric.TotalPackets,
+                    TotalPacketsReceived = NetworkMetric.TotalPackets,
                     AverageBitrate = NetworkMetric.AverageBitrate,
                     CurrentBitrate = NetworkMetric.CurrentBitrate,
                     HighestBitrate = NetworkMetric.HighestBitrate,
@@ -180,7 +177,7 @@ namespace TsAnalyser.Service
                         }
                     }
                 }
-                _serialisableMetric.Ts.Pids.Add(new SerialisableMetrics.SerialisableTsMetric.PidDetails()
+                serialisableMetric.Pid.Pids.Add(new SerialisableMetrics.SerialisablePidMetric.PidDetails()
                 {
                     CcErrorCount = ts.CcErrorCount,
                     Pid = ts.Pid,
@@ -189,15 +186,17 @@ namespace TsAnalyser.Service
                 });
             }
 
-            if (ServiceMetrics?.Items == null || ServiceMetrics?.Items?.Count <= 0) return;
+            if (ServiceMetrics?.Items == null || ServiceMetrics?.Items?.Count <= 0) return serialisableMetric;
 
             foreach (var descriptor in ServiceMetrics?.Items[0].Descriptors.Where(d => d.DescriptorTag == 0x48))
             {
                 var sd = descriptor as ServiceDescriptor;
                 if (null == sd) continue;
-                _serialisableMetric.Service.ServiceName = sd.ServiceName.Value;
-                _serialisableMetric.Service.ServiceProvider = sd.ServiceProviderName.Value;
+                serialisableMetric.Service.ServiceName = sd.ServiceName.Value;
+                serialisableMetric.Service.ServiceProvider = sd.ServiceProviderName.Value;
             }
+
+            return serialisableMetric;
         }
 
         public delegate void StreamCommandEventHandler(object sender, StreamCommandEventArgs e);
