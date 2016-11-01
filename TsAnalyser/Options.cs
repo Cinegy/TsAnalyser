@@ -22,6 +22,11 @@ namespace TsAnalyser
         HelpText = "Optional file to record events to.")]
         public string LogFile { get; set; }
 
+
+        [Option('j', "jsonlogs", Required = false, DefaultValue = false,
+        HelpText = "Optional instruction to write to log as JSON structure (for passing to analytics)")]
+        public bool JsonLogs { get; set; }
+
         [Option('a', "adapter", Required = false,
         HelpText = "IP address of the adapter to listen for multicasts (if not set, tries first binding adapter).")]
         public string AdapterAddress { get; set; }

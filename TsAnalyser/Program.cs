@@ -22,6 +22,8 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography.X509Certificates;
 using System.ServiceModel;
 using System.ServiceModel.Description;
 using System.ServiceModel.Web;
@@ -58,6 +60,7 @@ namespace TsAnalyser
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
+        private static System.Web.Script.Serialization.JavaScriptSerializer _jserial;
 
         // ReSharper disable once ArrangeTypeMemberModifiers
         static void Main(string[] args)
@@ -497,7 +500,25 @@ namespace TsAnalyser
                         _logFileStream = new StreamWriter(fs) { AutoFlush = true };
                     }
 
-                    _logFileStream.WriteLine($"{DateTime.Now} - {msg}");
+                    string formattedMsg;
+
+                    if (_options.JsonLogs)
+                    {
+                        if (_jserial == null)
+                        {
+                            _jserial = new System.Web.Script.Serialization.JavaScriptSerializer();
+                        }
+                        var jsonMsg = new JsonMsg() {EventMessage = msg.ToString()};
+                        
+                        formattedMsg = _jserial.Serialize(jsonMsg);
+                    }
+                    else
+                    {
+                         formattedMsg = $"{DateTime.UtcNow.ToString("o")} - {msg}";
+                         
+                    }
+
+                    _logFileStream.WriteLine(formattedMsg);
                 }
                 catch (Exception)
                 {
@@ -627,6 +648,13 @@ namespace TsAnalyser
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+
+        private class JsonMsg
+        {
+            public string EventTime = DateTime.UtcNow.ToString("o");
+
+            public string EventMessage;
         }
     }
 }
