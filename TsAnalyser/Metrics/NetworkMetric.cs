@@ -27,7 +27,8 @@ namespace TsAnalyser.Metrics
         private int _periodShortestTimeBetweenPackets;
         private float _periodMaxBufferUsage;
         private int _periodData;
-        private float _periodAverageTimeBetweenPackets;
+       // private float _periodAverageTimeBetweenPackets;
+        private int _periodMaxPacketQueue;
 
         private DateTime _startTime;
         private long _timerFreq;
@@ -61,8 +62,11 @@ namespace TsAnalyser.Metrics
                 PeriodData = _periodData;
                 _periodData = 0;
 
-                PeriodAverageTimeBetweenPackets = _periodAverageTimeBetweenPackets;
-                _periodAverageTimeBetweenPackets = 0;
+                //PeriodAverageTimeBetweenPackets = _periodAverageTimeBetweenPackets;
+                //_periodAverageTimeBetweenPackets = 0;
+
+                PeriodMaxPacketQueue = _periodMaxPacketQueue;
+                _periodMaxPacketQueue = 0;
 
                 SampleCount++;
 
@@ -141,8 +145,8 @@ namespace TsAnalyser.Metrics
         /// <summary>
         /// Highest per-second bitrate measured within the last complete sampling period
         /// </summary>
-        [DataMember]
-        public long PeriodHighestBitrate { get; private set; }
+        //[DataMember]
+        //public long PeriodHighestBitrate { get; private set; }
 
         /// <summary>
         /// Lowest per-second bitrate measured since start (unless explicitly reset)
@@ -150,20 +154,19 @@ namespace TsAnalyser.Metrics
         [DataMember]
         public long LowestBitrate { get; private set; } = 999999999;
         
-        //TODO: This
-        /// <summary>
-        /// Lowest per-second bitrate measured within the last complete sampling period
-        /// </summary>
-        [DataMember]
-        public long PeriodLowestBitrate { get; private set; }
+        ////TODO: This
+        ///// <summary>
+        ///// Lowest per-second bitrate measured within the last complete sampling period
+        ///// </summary>
+        //[DataMember]
+        //public long PeriodLowestBitrate { get; private set; }
 
         /// <summary>
         /// All-time average bitrate measured since start (unless explicitly reset)
         /// </summary>
         [DataMember]
         public long AverageBitrate => (long) (TotalData/DateTime.UtcNow.Subtract(_startTime).TotalSeconds) * 8;
-
-        //TODO: This
+        
         /// <summary>
         /// Average bitrate measured within the last complete sampling period
         /// </summary>
@@ -231,19 +234,38 @@ namespace TsAnalyser.Metrics
         [DataMember]
         public long PeriodShortestTimeBetweenPackets { get; private set; }
 
-        //TODO: This
-        /// <summary>
-        /// All-time average time between two received packets (unless explicitly reset)
-        /// </summary>
-        [DataMember]
-        public float AverageTimeBetweenPackets { get; private set; }
+        ////TODO: This
+        ///// <summary>
+        ///// All-time average time between two received packets (unless explicitly reset)
+        ///// </summary>
+        //[DataMember]
+        //public float AverageTimeBetweenPackets { get; private set; }
 
-        //TODO: This
+        ////TODO: This
+        ///// <summary>
+        ///// Average time between two received packets within the last sampling period
+        ///// </summary>
+        //[DataMember]
+        //public float PeriodAverageTimeBetweenPackets { get; private set; }
+        
         /// <summary>
-        /// Average time between two received packets within the last sampling period
+        /// Current count of packets waiting in queue for processing
         /// </summary>
         [DataMember]
-        public float PeriodAverageTimeBetweenPackets { get; private set; }
+        public float CurrentPacketQueue { get; private set; }
+
+        /// <summary>
+        /// All-time maximum value for count of packets waiting in queue (unless explicitly reset)
+        /// </summary>
+        [DataMember]
+        public float MaxPacketQueue { get; private set; }
+
+        /// <summary>
+        /// Maximum value for count of packets waiting in queue within the last sampling period
+        /// </summary>
+        [DataMember]
+        public float PeriodMaxPacketQueue { get; private set; }
+
 
         /// <summary>
         /// Any time the value for time between packets exceeds this value, an event will be raised.
@@ -265,7 +287,7 @@ namespace TsAnalyser.Metrics
         [DllImport(Lib)]
         private static extern bool QueryPerformanceFrequency(out long lpFrequency);
 
-        public void AddPacket(byte[] data, long recvTime)
+        public void AddPacket(byte[] data, long recvTime, int currentQueueSize)
         {
             lock (this)
             {
@@ -275,6 +297,11 @@ namespace TsAnalyser.Metrics
                 }
 
                 _currentPacketTime = recvTime;
+                CurrentPacketQueue = currentQueueSize;
+
+                if (MaxPacketQueue < currentQueueSize) MaxPacketQueue = currentQueueSize;
+
+                if (_periodMaxPacketQueue < currentQueueSize) _periodMaxPacketQueue = currentQueueSize;
 
                 var timeBetweenLastPacket = (_currentPacketTime - _lastPacketTime)*1000;
 

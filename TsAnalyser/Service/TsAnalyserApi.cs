@@ -7,6 +7,8 @@ using System.Net;
 using System.Reflection;
 using System.ServiceModel;
 using System.ServiceModel.Web;
+using System.Text;
+using Newtonsoft.Json;
 using TsAnalyser.Metrics;
 using TsDecoder.Tables;
 using TsDecoder.TransportStream;
@@ -104,12 +106,15 @@ namespace TsAnalyser.Service
             }
         }
    
-        public SerialisableMetrics GetCurrentMetrics()
+        public Stream GetNetworkMetric()
         {
             WebOperationContext.Current?.OutgoingResponse.Headers.Add("Access-Control-Allow-Origin", "*");
             WebOperationContext.Current?.OutgoingResponse.Headers.Add("Cache-Control", "no-cache");
+            WebOperationContext.Current?.OutgoingResponse.Headers.Add("ContentType", "application/json; charset=utf-8");
 
-            return RefreshMetrics();
+            var json =  JsonConvert.SerializeObject(NetworkMetric);
+            var ms = new MemoryStream(Encoding.UTF8.GetBytes(json));
+            return ms;
         }
 
         public void ResetMetrics()
@@ -136,68 +141,68 @@ namespace TsAnalyser.Service
             throw new NotImplementedException();
         }
 
-        private SerialisableMetrics RefreshMetrics()
-        {
-            var serialisableMetric = new SerialisableMetrics
-            {
-                Network =
-                {
-                    TotalPacketsReceived = NetworkMetric.TotalPackets,
-                    AverageBitrate = NetworkMetric.AverageBitrate,
-                    CurrentBitrate = NetworkMetric.CurrentBitrate,
-                    HighestBitrate = NetworkMetric.HighestBitrate,
-                    LongestTimeBetweenPackets = NetworkMetric.LongestTimeBetweenPackets,
-                    LowestBitrate = NetworkMetric.LowestBitrate,
-                    NetworkBufferUsage = NetworkMetric.NetworkBufferUsage,
-                    PacketsPerSecond = NetworkMetric.PacketsPerSecond,
-                    ShortestTimeBetweenPackets = NetworkMetric.ShortestTimeBetweenPackets,
-                    TimeBetweenLastPacket = NetworkMetric.TimeBetweenLastPacket
-                },
-                Rtp =
-                {
-                    MinLostPackets = RtpMetric.MinLostPackets,
-                    SequenceNumber = RtpMetric.LastSequenceNumber,
-                    Ssrc = RtpMetric.Ssrc,
-                    Timestamp = RtpMetric.LastTimestamp
-                },
+        //private SerialisableMetrics RefreshMetrics()
+        //{
+        //    var serialisableMetric = new SerialisableMetrics
+        //    {
+        //        Network =
+        //        {
+        //            TotalPacketsReceived = NetworkMetric.TotalPackets,
+        //            AverageBitrate = NetworkMetric.AverageBitrate,
+        //            CurrentBitrate = NetworkMetric.CurrentBitrate,
+        //            HighestBitrate = NetworkMetric.HighestBitrate,
+        //            LongestTimeBetweenPackets = NetworkMetric.LongestTimeBetweenPackets,
+        //            LowestBitrate = NetworkMetric.LowestBitrate,
+        //            NetworkBufferUsage = NetworkMetric.NetworkBufferUsage,
+        //            PacketsPerSecond = NetworkMetric.PacketsPerSecond,
+        //            ShortestTimeBetweenPackets = NetworkMetric.ShortestTimeBetweenPackets,
+        //            TimeBetweenLastPacket = NetworkMetric.TimeBetweenLastPacket
+        //        },
+        //        Rtp =
+        //        {
+        //            MinLostPackets = RtpMetric.MinLostPackets,
+        //            SequenceNumber = RtpMetric.LastSequenceNumber,
+        //            Ssrc = RtpMetric.Ssrc,
+        //            Timestamp = RtpMetric.LastTimestamp
+        //        },
                 
-            };
+        //    };
 
-            foreach (var ts in TsMetrics.OrderBy(p => p.Pid))
-            {
-                var streamType = "";
-                if (ProgramMetrics?.EsStreams != null)
-                {
-                    var esInfo = (ProgramMetrics?.EsStreams).FirstOrDefault(p => p.ElementaryPid == ts.Pid);
-                    if (esInfo != null)
-                    {
-                        if (DescriptorDictionaries.ShortElementaryStreamTypeDescriptions.ContainsKey(esInfo.StreamType))
-                        {
-                            streamType = DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[esInfo.StreamType];
-                        }
-                    }
-                }
-                serialisableMetric.Pid.Pids.Add(new SerialisableMetrics.SerialisablePidMetric.PidDetails()
-                {
-                    CcErrorCount = ts.CcErrorCount,
-                    Pid = ts.Pid,
-                    PacketCount = ts.PacketCount,
-                    StreamType = streamType
-                });
-            }
+        //    foreach (var ts in TsMetrics.OrderBy(p => p.Pid))
+        //    {
+        //        var streamType = "";
+        //        if (ProgramMetrics?.EsStreams != null)
+        //        {
+        //            var esInfo = (ProgramMetrics?.EsStreams).FirstOrDefault(p => p.ElementaryPid == ts.Pid);
+        //            if (esInfo != null)
+        //            {
+        //                if (DescriptorDictionaries.ShortElementaryStreamTypeDescriptions.ContainsKey(esInfo.StreamType))
+        //                {
+        //                    streamType = DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[esInfo.StreamType];
+        //                }
+        //            }
+        //        }
+        //        serialisableMetric.Pid.Pids.Add(new SerialisableMetrics.SerialisablePidMetric.PidDetails()
+        //        {
+        //            CcErrorCount = ts.CcErrorCount,
+        //            Pid = ts.Pid,
+        //            PacketCount = ts.PacketCount,
+        //            StreamType = streamType
+        //        });
+        //    }
 
-            if (ServiceMetrics?.Items == null || ServiceMetrics?.Items?.Count <= 0) return serialisableMetric;
+        //    if (ServiceMetrics?.Items == null || ServiceMetrics?.Items?.Count <= 0) return serialisableMetric;
 
-            foreach (var descriptor in ServiceMetrics?.Items[0].Descriptors.Where(d => d.DescriptorTag == 0x48))
-            {
-                var sd = descriptor as ServiceDescriptor;
-                if (null == sd) continue;
-                serialisableMetric.Service.ServiceName = sd.ServiceName.Value;
-                serialisableMetric.Service.ServiceProvider = sd.ServiceProviderName.Value;
-            }
+        //    foreach (var descriptor in ServiceMetrics?.Items[0].Descriptors.Where(d => d.DescriptorTag == 0x48))
+        //    {
+        //        var sd = descriptor as ServiceDescriptor;
+        //        if (null == sd) continue;
+        //        serialisableMetric.Service.ServiceName = sd.ServiceName.Value;
+        //        serialisableMetric.Service.ServiceProvider = sd.ServiceProviderName.Value;
+        //    }
 
-            return serialisableMetric;
-        }
+        //    return serialisableMetric;
+        //}
 
         public delegate void StreamCommandEventHandler(object sender, StreamCommandEventArgs e);
 

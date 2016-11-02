@@ -40,8 +40,11 @@ namespace TsAnalyser
     // ReSharper disable once ClassNeverInstantiated.Global
     internal class Program
     {
+        private const int WarmUpTime = 1000;
+
         private static bool _receiving;
         private static Options _options;
+        private static bool _warmedUp;
 
         private static DateTime _startTime = DateTime.UtcNow;
         private static bool _pendingExit;
@@ -53,6 +56,7 @@ namespace TsAnalyser
         private static readonly object JsonLogfileWriteLock = new object();
         private static StreamWriter _jsonLogFileStream;
 
+        private static readonly Queue<DataPacket> PacketQueue = new Queue<DataPacket>(3000);
         private static NetworkMetric _networkMetric;
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
@@ -61,6 +65,7 @@ namespace TsAnalyser
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
+        private static Timer _seriesTimer;
 
         // ReSharper disable once ArrangeTypeMemberModifiers
         static void Main(string[] args)
@@ -152,8 +157,9 @@ namespace TsAnalyser
                 {
                     if (!IsNullOrEmpty(_options.TimeSeriesLogFile))
                     {
-                        var t = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
+                        _seriesTimer = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
                     }
+
                     StartListeningToNetwork(_options.MulticastAddress, _options.MulticastGroup, _options.AdapterAddress);
                 }
             }
@@ -174,8 +180,8 @@ namespace TsAnalyser
                     if (IsNullOrEmpty(_options.FileInput))
                     {
                         PrintToConsole(
-                            "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%\t\t\nTotal Data (MB): {2}\t\tPackets per sec:{3}",
-                            _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage,
+                            "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/{2}\t\t\nTotal Data (MB): {3}\t\tPackets per sec:{4}",
+                            _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, PacketQueue.Count,
                             _networkMetric.TotalData / 1048576,
                             _networkMetric.PacketsPerSecond);
                         PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
@@ -338,6 +344,10 @@ namespace TsAnalyser
             var receiverThread = new Thread(ts) { Priority = ThreadPriority.Highest };
 
             receiverThread.Start();
+            
+            var queueThread = new Thread(ProcessQueueWorkerThread) {Priority = ThreadPriority.AboveNormal};
+
+            queueThread.Start();
         }
 
         private static void StartStreamingFile(string fileName)
@@ -354,7 +364,7 @@ namespace TsAnalyser
             receiverThread.Start();
         }
 
-        private static void FileStreamWorkerThread(FileStream stream)
+        private static void FileStreamWorkerThread(Stream stream)
         {
             var data = new byte[188];
 
@@ -389,33 +399,70 @@ namespace TsAnalyser
                 var data = client.Receive(ref localEp);
                 if (data == null) continue;
 
-                var recvTime = NetworkMetric.AccurateCurrentTime();
-                try
+                if (_warmedUp)
                 {
-                    lock (_networkMetric)
+                    var dataPkt = new DataPacket
                     {
-                        _networkMetric.AddPacket(data,recvTime);
+                        DataPayload = data,
+                        Timestamp = NetworkMetric.AccurateCurrentTime()
+                    };
 
-                        if (!_options.NoRtpHeaders)
-                        {
-                            _rtpMetric.AddPacket(data);
-                        }
-
-                        var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
-
-                        if (tsPackets == null) break;
-
-                        AnalysePackets(tsPackets);
+                    lock (PacketQueue)
+                    {
+                        PacketQueue.Enqueue(dataPkt);
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    LogMessage($@"Unhandled exception within network receiver: {ex.Message}");
+                    if (DateTime.Now.Subtract(_startTime) > new TimeSpan(0, 0, 0, 0, WarmUpTime))
+                        _warmedUp = true;
                 }
             }
         }
 
-        private static void AnalysePackets(TsPacket[] tsPackets)
+        private static void ProcessQueueWorkerThread()
+        {
+            while (_pendingExit != true) {
+                if (PacketQueue.Count > 0)
+                {
+                    DataPacket data;
+                    lock (PacketQueue)
+                    {
+                        data = PacketQueue.Dequeue();
+                    }
+
+                    if (data?.DataPayload == null) continue;
+                    try
+                    {
+                        lock (_networkMetric)
+                        {
+                            _networkMetric.AddPacket(data.DataPayload, data.Timestamp, PacketQueue.Count);
+
+                            if (!_options.NoRtpHeaders)
+                            {
+                                _rtpMetric.AddPacket(data.DataPayload);
+                            }
+
+                            var tsPackets = TsPacketFactory.GetTsPacketsFromData(data.DataPayload);
+
+                            if (tsPackets == null) break;
+
+                            AnalysePackets(tsPackets);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($@"Unhandled exception within network receiver: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Thread.Sleep(1);
+                }
+            }
+        }
+
+        private static void AnalysePackets(IEnumerable<TsPacket> tsPackets)
         {
             lock (_pidMetrics)
             {

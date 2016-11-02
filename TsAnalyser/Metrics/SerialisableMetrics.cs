@@ -3,36 +3,18 @@ using System.Collections.Generic;
 
 namespace TsAnalyser.Metrics
 {
-    public class SerialisableMetrics
+    public class SerialisableMetricsOld
     {
-        public string SampleTime => DateTime.UtcNow.ToString("o");
-        
-        public SerialisableMetrics()
+        public SerialisableMetricsOld()
         {
-            Network = new SerialisableNetworkMetric();
             Pid = new SerialisablePidMetric();
             Rtp = new SerialisableRtpMetric();
             Service = new ServiceDescriptionMetric();
         }
         
-        public SerialisableNetworkMetric Network { get; set; }
         public SerialisablePidMetric Pid { get; set; }
         public SerialisableRtpMetric Rtp { get; set; }
         public ServiceDescriptionMetric Service { get; set; }
-      
-        public class SerialisableNetworkMetric
-        {
-            public long TotalPacketsReceived { get; set; }
-            public long CurrentBitrate { get; set; }
-            public long HighestBitrate { get; set; }
-            public long LongestTimeBetweenPackets { get; set; }
-            public long LowestBitrate { get; set; }
-            public float NetworkBufferUsage { get; set; }
-            public int PacketsPerSecond { get; set; }
-            public long ShortestTimeBetweenPackets { get; set; }
-            public long TimeBetweenLastPacket { get; set; }
-            public long AverageBitrate { get; set; }
-        }
 
         public class SerialisablePidMetric
         {

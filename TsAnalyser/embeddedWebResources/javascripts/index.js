@@ -53,29 +53,28 @@ $(document).ready(function () {
         
         self.UpdateValues = function (values) {
             //self.Network = values.Network;
-            self.Network.AverageBitrate((Math.round(values.Network.AverageBitrate / 1310.72))/100);
-            self.Network.CurrentBitrate((Math.round(values.Network.CurrentBitrate / 1310.72))/100);
-            self.Network.HighestBitrate((Math.round(values.Network.HighestBitrate / 1310.72))/100);
-            self.Network.LongestTimeBetweenPackets(values.Network.LongestTimeBetweenPackets);
-            self.Network.LowestBitrate(values.Network.LowestBitrate);
-            self.Network.NetworkBufferUsage(Math.round(values.Network.NetworkBufferUsage * 100)/100);
-            self.Network.PacketsPerSecond(values.Network.PacketsPerSecond);
-            self.Network.ShortestTimeBetweenPackets(values.Network.ShortestTimeBetweenPackets);
-            self.Network.TimeBetweenLastPacket(values.Network.TimeBetweenLastPacket);
-            self.Network.TotalPacketsReceived(values.Network.TotalPacketsReceived);
+            self.Network.AverageBitrate((Math.round(values.AverageBitrate / 10485.76)) / 100);
+            self.Network.CurrentBitrate((Math.round(values.CurrentBitrate / 10485.76)) / 100);
+            self.Network.HighestBitrate((Math.round(values.HighestBitrate / 10485.76)) / 100);
+            self.Network.LongestTimeBetweenPackets(values.PeriodLongestTimeBetweenPackets);
+            self.Network.LowestBitrate((Math.round(values.LowestBitrate / 10485.76)) / 100);
+            self.Network.NetworkBufferUsage(Math.round(values.PeriodMaxNetworkBufferUsage * 100)/100);
+            self.Network.PacketsPerSecond(values.PacketsPerSecond);
+            self.Network.ShortestTimeBetweenPackets(values.PeriodShortestTimeBetweenPackets);
+            self.Network.TotalPacketsReceived(values.TotalPackets);
 
-            self.Rtp.MinLostPackets(values.Rtp.MinLostPackets);
-            self.Rtp.SSRC(values.Rtp.SSRC);
-            self.Rtp.SequenceNumber(values.Rtp.SequenceNumber);
-            self.Rtp.Timestamp(values.Rtp.Timestamp);
+            //self.Rtp.MinLostPackets(values.Rtp.MinLostPackets);
+            //self.Rtp.SSRC(values.Rtp.SSRC);
+            //self.Rtp.SequenceNumber(values.Rtp.SequenceNumber);
+            //self.Rtp.Timestamp(values.Rtp.Timestamp);
 
-            self.Service.ServiceName(values.Service.ServiceName);
-            self.Service.ServiceProvider(values.Service.ServiceProvider);
+            //self.Service.ServiceName(values.Service.ServiceName);
+            //self.Service.ServiceProvider(values.Service.ServiceProvider);
 
-            self.Ts.Pids.removeAll();
-            $.each(values.Ts.Pids, function(k,v){
-                self.Ts.Pids.push(v);
-            });
+            //self.Ts.Pids.removeAll();
+            //$.each(values.Ts.Pids, function(k,v){
+            //    self.Ts.Pids.push(v);
+            //});
         };
     };
 
@@ -87,7 +86,7 @@ $(document).ready(function () {
     }
 
     setInterval(function () {
-        $.getJSON("/V1/CurrentMetrics", function (data) { viewModelObj.UpdateValues(data); });
+        $.getJSON("/V1/NetworkMetric", function (data) { viewModelObj.UpdateValues(data); });
     }, 800);
 
 

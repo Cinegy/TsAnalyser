@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.ServiceModel;
 using System.ServiceModel.Web;
 using TsAnalyser.Metrics;
@@ -22,9 +23,9 @@ namespace TsAnalyser.Service
         Stream ServeIndexEmbeddedStaticFile();
 
         [OperationContract]
-        [WebGet(UriTemplate = "/V1/CurrentMetrics")]
-        SerialisableMetrics GetCurrentMetrics();
-
+        [WebGet(UriTemplate = "/V1/NetworkMetric", RequestFormat = WebMessageFormat.Json, ResponseFormat = WebMessageFormat.Json)]
+        Stream GetNetworkMetric();
+        
         [OperationContract]
         [WebInvoke(Method = "POST", UriTemplate = "/V1/ResetMetrics")]
         void ResetMetrics();
