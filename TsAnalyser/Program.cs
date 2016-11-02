@@ -274,10 +274,11 @@ namespace TsAnalyser
                         _lastPrintedTsCount = _pidMetrics.Count;
                         Console.Clear();
                     }
-                }
-
+               
                 Console.WriteLine(ConsoleDisplay.ToString());
                 ConsoleDisplay.Clear();
+
+                }
 
                 Thread.Sleep(20);
             }
@@ -582,8 +583,6 @@ namespace TsAnalyser
 
         private static void UpdateSeriesDataTimerCallback(object o)
         {
-            if (_tsAnalyserApi == null) return;
-
             lock (JsonLogfileWriteLock)
             {
                 try
