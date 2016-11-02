@@ -64,6 +64,8 @@ namespace TsAnalyser.Metrics
                 PeriodAverageTimeBetweenPackets = _periodAverageTimeBetweenPackets;
                 _periodAverageTimeBetweenPackets = 0;
 
+                SampleCount++;
+
             }
         }
 
@@ -72,6 +74,15 @@ namespace TsAnalyser.Metrics
         
         [DataMember]
         public string LastPeriodEndTime { get; private set; }
+
+        [DataMember]
+        public long SampleCount { get; private set; }
+
+        [DataMember]
+        public string MulticastAddress { get; set; }
+
+        [DataMember]
+        public int  MulticastGroup { get; set; }
 
         /// <summary>
         /// Defines the internal sampling period in milliseconds - each time the sampling period has rolled over during packet addition, the periodic values reset.
@@ -241,13 +252,20 @@ namespace TsAnalyser.Metrics
 
         public UdpClient UdpClient { get; set; }
 
+        public static long AccurateCurrentTime()
+        {
+            long time;
+            QueryPerformanceCounter(out time);
+            return time;
+        }
+
         [DllImport(Lib)]
         private static extern int QueryPerformanceCounter(out long count);
 
         [DllImport(Lib)]
         private static extern bool QueryPerformanceFrequency(out long lpFrequency);
 
-        public void AddPacket(byte[] data)
+        public void AddPacket(byte[] data, long recvTime)
         {
             lock (this)
             {
@@ -256,7 +274,7 @@ namespace TsAnalyser.Metrics
                     RegisterFirstPacket();
                 }
 
-                QueryPerformanceCounter(out _currentPacketTime);
+                _currentPacketTime = recvTime;
 
                 var timeBetweenLastPacket = (_currentPacketTime - _lastPacketTime)*1000;
 

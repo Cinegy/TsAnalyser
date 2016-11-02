@@ -27,7 +27,6 @@ using System.ServiceModel.Description;
 using System.ServiceModel.Web;
 using System.Text;
 using System.Threading;
-using System.Web.Script.Serialization;
 using CommandLine;
 using Newtonsoft.Json;
 using TsAnalyser.Metrics;
@@ -54,7 +53,7 @@ namespace TsAnalyser
         private static readonly object JsonLogfileWriteLock = new object();
         private static StreamWriter _jsonLogFileStream;
 
-        private static NetworkMetric _networkMetric = new NetworkMetric();
+        private static NetworkMetric _networkMetric;
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
         private static TsDecoder.TransportStream.TsDecoder _tsDecoder;
@@ -389,11 +388,13 @@ namespace TsAnalyser
             {
                 var data = client.Receive(ref localEp);
                 if (data == null) continue;
+
+                var recvTime = NetworkMetric.AccurateCurrentTime();
                 try
                 {
                     lock (_networkMetric)
                     {
-                        _networkMetric.AddPacket(data);
+                        _networkMetric.AddPacket(data,recvTime);
 
                         if (!_options.NoRtpHeaders)
                         {
@@ -631,7 +632,13 @@ namespace TsAnalyser
             lock (_pidMetrics)
             {
                 _startTime = DateTime.UtcNow;
-                _networkMetric = new NetworkMetric() { MaxIat = _options.InterArrivalTimeMax };
+                _networkMetric = new NetworkMetric()
+                {
+                    MaxIat = _options.InterArrivalTimeMax,
+                    MulticastAddress = _options.MulticastAddress,
+                    MulticastGroup = _options.MulticastGroup
+                };
+
                 _rtpMetric = new RtpMetric();
                 _pidMetrics = new List<PidMetric>();
 
