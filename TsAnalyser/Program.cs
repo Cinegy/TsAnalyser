@@ -416,7 +416,7 @@ namespace TsAnalyser
                 }
                 else
                 {
-                    if (DateTime.Now.Subtract(_startTime) > new TimeSpan(0, 0, 0, 0, WarmUpTime))
+                    if (DateTime.UtcNow.Subtract(_startTime) > new TimeSpan(0, 0, 0, 0, WarmUpTime))
                         _warmedUp = true;
                 }
             }
