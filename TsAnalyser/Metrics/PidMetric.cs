@@ -1,17 +1,49 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.Serialization;
+using System.Threading;
 using TsDecoder.TransportStream;
 
 namespace TsAnalyser.Metrics
 {
-    public class PidMetric
+    [DataContract]
+    public class PidMetric : Metric
     {
         public delegate void DiscontinuityDetectedEventHandler(object sender, TransportStreamEventArgs args);
         public delegate void TransportErrorIndicatorDetectedEventHandler(object sender, TransportStreamEventArgs args);
 
+        private long _periodPacketCount = 0;
+        private int _periodCcErrorCount = 0;
+
+        internal override void ResetPeriodTimerCallback(object o)
+        {
+            lock (this)
+            {
+                PeriodPacketCount = _periodPacketCount;
+                _periodPacketCount = 0;
+
+                PeriodCcErrorCount = _periodCcErrorCount;
+                _periodCcErrorCount = 0;
+                
+                base.ResetPeriodTimerCallback(o);
+            }
+        }
+
+        [DataMember]
         public int Pid { get; set; }
+
+        [DataMember]
         public long PacketCount { get; private set; }
+        
+        [DataMember]
+        public long PeriodPacketCount { get; private set; }
+
+        [DataMember]
         public long CcErrorCount { get; private set; }
+
+        [DataMember]
+        public long PeriodCcErrorCount { get; private set; }
 
         private int LastCc { get; set; }
         
@@ -33,6 +65,7 @@ namespace TsAnalyser.Metrics
                 }
 
                 PacketCount++;
+                _periodPacketCount++;
             }
             catch (Exception ex)
             {
@@ -58,6 +91,7 @@ namespace TsAnalyser.Metrics
                     if (newPacket.ContainsPayload)
                     {
                         CcErrorCount++;
+                        _periodCcErrorCount++;
                     }
 
                     //special case of no data... ignore for now
@@ -71,6 +105,7 @@ namespace TsAnalyser.Metrics
                     if (LastCc + 1 != newPacket.ContinuityCounter)
                     {
                         CcErrorCount++;
+                        _periodCcErrorCount++;
                         OnDiscontinuityDetected(newPacket.Pid);
                         return;
                     }
@@ -79,6 +114,7 @@ namespace TsAnalyser.Metrics
                 if (LastCc != 15 || newPacket.ContinuityCounter == 0) return;
 
                 CcErrorCount++;
+                _periodCcErrorCount++;
                 OnDiscontinuityDetected(newPacket.Pid);
             }
             catch (Exception ex)

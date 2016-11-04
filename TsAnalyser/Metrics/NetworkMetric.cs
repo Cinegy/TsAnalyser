@@ -7,10 +7,9 @@ using System.Threading;
 namespace TsAnalyser.Metrics
 {
     [DataContract]
-    public class NetworkMetric
+    public class NetworkMetric : Metric
     {
         private const string Lib = "kernel32.dll";
-        private readonly long _ticksPerSecond;
 
         private bool _averagesReady;
         private bool _bufferOverflow;
@@ -20,7 +19,6 @@ namespace TsAnalyser.Metrics
         private long _dataThisSecond;
         private long _lastPacketTime;
         private int _packetsThisSecond;
-        private int _samplingPeriod = 5000;
 
         private int _currentPeriodPackets;
         private long _periodLongestTimeBetweenPackets;
@@ -29,24 +27,13 @@ namespace TsAnalyser.Metrics
         private int _periodData;
        // private float _periodAverageTimeBetweenPackets;
         private int _periodMaxPacketQueue;
-
-        private DateTime _startTime;
+        
         private long _timerFreq;
-        private Timer _periodTimer;
-
-        public NetworkMetric()
-        {
-            _ticksPerSecond = new TimeSpan(0, 0, 0, 1).Ticks;
-
-            _periodTimer = new Timer(ResetPeriodTimerCallback, null, 0, SamplingPeriod);
-        }
-
-        private void ResetPeriodTimerCallback(object o)
+        
+        internal override void ResetPeriodTimerCallback(object o)
         {
             lock (this)
             {
-                LastPeriodEndTime = SampleTime;
-
                 PeriodPackets = _currentPeriodPackets;
                 _currentPeriodPackets = 0;
 
@@ -68,42 +55,22 @@ namespace TsAnalyser.Metrics
                 PeriodMaxPacketQueue = _periodMaxPacketQueue;
                 _periodMaxPacketQueue = 0;
 
-                SampleCount++;
+                base.ResetPeriodTimerCallback(o);
 
             }
         }
-
-        [DataMember]
-        public string SampleTime => DateTime.UtcNow.ToString("o");
         
-        [DataMember]
-        public string LastPeriodEndTime { get; private set; }
-
-        [DataMember]
-        public long SampleCount { get; private set; }
-
+        /// <summary>
+        /// The multicast address that is associated with this metric
+        /// </summary>
         [DataMember]
         public string MulticastAddress { get; set; }
 
-        [DataMember]
-        public int  MulticastGroup { get; set; }
-
         /// <summary>
-        /// Defines the internal sampling period in milliseconds - each time the sampling period has rolled over during packet addition, the periodic values reset.
-        /// The values returned by all 'Period' properties represent the values gathered within the last completed period.
+        /// The multicast group that is associated with this metric
         /// </summary>
         [DataMember]
-        public int SamplingPeriod
-        {
-            get { return _samplingPeriod; }
-            set
-            {
-                _samplingPeriod = value;
-                ResetPeriodTimerCallback(null);
-                _periodTimer = new Timer(ResetPeriodTimerCallback, null, 0, SamplingPeriod);
-                
-            }
-        }
+        public int  MulticastGroup { get; set; }
 
         /// <summary>
         /// All time total of packets received (unless explicitly reset)
@@ -165,7 +132,7 @@ namespace TsAnalyser.Metrics
         /// All-time average bitrate measured since start (unless explicitly reset)
         /// </summary>
         [DataMember]
-        public long AverageBitrate => (long) (TotalData/DateTime.UtcNow.Subtract(_startTime).TotalSeconds) * 8;
+        public long AverageBitrate => (long) (TotalData/DateTime.UtcNow.Subtract(StartTime).TotalSeconds) * 8;
         
         /// <summary>
         /// Average bitrate measured within the last complete sampling period
@@ -352,13 +319,13 @@ namespace TsAnalyser.Metrics
                 TotalData += data.Length;
                 _periodData += data.Length;
 
-                if (DateTime.Now.Ticks - _currentSampleTime < _ticksPerSecond)
+                if (DateTime.Now.Ticks - _currentSampleTime < TicksPerSecond)
                 {
                     _dataThisSecond += data.Length;
                 }
                 else
                 {
-                    if (!_averagesReady & (DateTime.UtcNow.Subtract(_startTime).TotalMilliseconds > 1000))
+                    if (!_averagesReady & (DateTime.UtcNow.Subtract(StartTime).TotalMilliseconds > 1000))
                         _averagesReady = true;
 
                     if (_averagesReady)
@@ -397,8 +364,8 @@ namespace TsAnalyser.Metrics
 
         private void RegisterFirstPacket()
         {
-            _startTime = DateTime.UtcNow;
-            _currentSampleTime = _startTime.Ticks;
+            StartTime = DateTime.UtcNow;
+            _currentSampleTime = StartTime.Ticks;
             QueryPerformanceFrequency(out _timerFreq);
             QueryPerformanceCounter(out _lastPacketTime);
         }

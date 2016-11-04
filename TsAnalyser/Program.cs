@@ -17,6 +17,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -196,7 +197,7 @@ namespace TsAnalyser
                         {
                             PrintToConsole(
                                 "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
-                                _rtpMetric.LastSequenceNumber, _rtpMetric.MinLostPackets, _rtpMetric.LastTimestamp,
+                                _rtpMetric.LastSequenceNumber, _rtpMetric.EstimatedLostPackets, _rtpMetric.LastTimestamp,
                                 _rtpMetric.Ssrc);
                         }
                     }
@@ -274,9 +275,9 @@ namespace TsAnalyser
                         _lastPrintedTsCount = _pidMetrics.Count;
                         Console.Clear();
                     }
-               
-                Console.WriteLine(ConsoleDisplay.ToString());
-                ConsoleDisplay.Clear();
+
+                    Console.WriteLine(ConsoleDisplay.ToString());
+                    ConsoleDisplay.Clear();
 
                 }
 
@@ -345,8 +346,8 @@ namespace TsAnalyser
             var receiverThread = new Thread(ts) { Priority = ThreadPriority.Highest };
 
             receiverThread.Start();
-            
-            var queueThread = new Thread(ProcessQueueWorkerThread) {Priority = ThreadPriority.AboveNormal};
+
+            var queueThread = new Thread(ProcessQueueWorkerThread) { Priority = ThreadPriority.AboveNormal };
 
             queueThread.Start();
         }
@@ -423,7 +424,8 @@ namespace TsAnalyser
 
         private static void ProcessQueueWorkerThread()
         {
-            while (_pendingExit != true) {
+            while (_pendingExit != true)
+            {
                 if (PacketQueue.Count > 0)
                 {
                     DataPacket data;
@@ -560,7 +562,7 @@ namespace TsAnalyser
 
                     if (_options.JsonLogs)
                     {
-                        var jsonMsg = new JsonMsg() { EventMessage = msg.ToString() };
+                        var jsonMsg = new JsonMsg() { EventMessage = msg.ToString(), EventTags = _options.DescriptorTags };
 
                         formattedMsg = JsonConvert.SerializeObject(jsonMsg);
                     }
@@ -596,9 +598,42 @@ namespace TsAnalyser
                         _jsonLogFileStream = new StreamWriter(fs) { AutoFlush = true };
                     }
 
-                    var output = JsonConvert.SerializeObject(_networkMetric);
+                    var sb = new StringBuilder();
+                    var qt = '"'.ToString();
+                    sb.Append($"{{{qt}Ts{qt}:{{");
 
-                    _jsonLogFileStream.WriteLine($"{output}");
+                    sb.Append($"{qt}Tags{qt}:{qt}{_options.DescriptorTags}{qt},");
+
+                    var json = JsonConvert.SerializeObject(_networkMetric);
+                    sb.Append($"{qt}Net{qt}:{json},");
+
+                    if (!_options.NoRtpHeaders)
+                    {
+                        json = JsonConvert.SerializeObject(_rtpMetric);
+                        sb.Append($"{qt}Rtp{qt}:{json},");
+                    }
+
+                    var pidCount = 0;
+                    long totalCcErrors = 0;
+                    long totalPidPackets = 0;
+                    foreach (var pidMetric in _pidMetrics)
+                    {
+                        pidCount++;
+                        totalPidPackets += pidMetric.PeriodPacketCount;
+                        totalCcErrors += pidMetric.PeriodCcErrorCount;
+                    }
+
+                    sb.Append($"{qt}Pid{qt}:{{");
+                    sb.Append($"{qt}Count{qt}:{pidCount},");
+                    sb.Append($"{qt}Packets{qt}:{totalPidPackets},");
+                    sb.Append($"{qt}CCErrors{qt}:{totalCcErrors}");
+                    
+                    sb.Append("}}}");
+                    
+                    _jsonLogFileStream.WriteLine($"{sb}");
+
+
+
                 }
                 catch (Exception)
                 {
@@ -736,11 +771,14 @@ namespace TsAnalyser
             }
         }
 
+        [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+        [SuppressMessage("ReSharper", "UnusedMember.Local")]
         private class JsonMsg
         {
             public string EventTime = DateTime.UtcNow.ToString("o");
 
-            public string EventMessage;
+            public string EventTags { get; set; }
+            public string EventMessage { get; set; }
         }
     }
 }

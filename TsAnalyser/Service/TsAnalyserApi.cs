@@ -160,7 +160,7 @@ namespace TsAnalyser.Service
         //        },
         //        Rtp =
         //        {
-        //            MinLostPackets = RtpMetric.MinLostPackets,
+        //            EstimatedLostPackets = RtpMetric.EstimatedLostPackets,
         //            SequenceNumber = RtpMetric.LastSequenceNumber,
         //            Ssrc = RtpMetric.Ssrc,
         //            Timestamp = RtpMetric.LastTimestamp

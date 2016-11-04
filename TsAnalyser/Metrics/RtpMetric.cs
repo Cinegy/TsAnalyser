@@ -1,13 +1,38 @@
 ﻿using System;
+using System.Runtime.Serialization;
 
 namespace TsAnalyser.Metrics
 {
-    public class RtpMetric
+    [DataContract]
+    public class RtpMetric : Metric
     {
         private long _totalPackets;
-        public long MinLostPackets { get; private set; }
+        private int _periodEstimatedLostPackets = 0;
+
+        internal override void ResetPeriodTimerCallback(object o)
+        {
+            lock (this)
+            {
+                PeriodEstimatedLostPackets = _periodEstimatedLostPackets ;
+               _periodEstimatedLostPackets = 0;
+                
+                base.ResetPeriodTimerCallback(o);
+            }
+        }
+
+        [DataMember]
+        public long EstimatedLostPackets { get; private set; }
+
+        [DataMember]
+        public long PeriodEstimatedLostPackets { get; private set; }
+
+        [DataMember]
         public int LastSequenceNumber { get; private set; }
+        
+        [DataMember]
         public uint Ssrc { get; private set; }
+
+        [DataMember]
         public uint LastTimestamp { get; private set; }
 
         public void AddPacket(byte[] data)
@@ -28,7 +53,12 @@ namespace TsAnalyser.Metrics
             {
                 if (LastSequenceNumber != ushort.MaxValue)
                 {
-                    MinLostPackets += ushort.MaxValue - LastSequenceNumber;
+                    var lost = ushort.MaxValue - LastSequenceNumber;
+                    if (lost > 30000)
+                    {
+                        lost = 1;
+                    }
+                    EstimatedLostPackets += lost;
                     OnSequenceDiscontinuityDetected();
                 }
             }
@@ -40,7 +70,11 @@ namespace TsAnalyser.Metrics
                 {
                     seqDiff = seqNum + ushort.MaxValue - LastSequenceNumber;
                 }
-                MinLostPackets += seqDiff;
+                if (seqDiff > 30000)
+                {
+                    seqDiff = 1;
+                }
+                EstimatedLostPackets += seqDiff;
                 OnSequenceDiscontinuityDetected();
             }
 

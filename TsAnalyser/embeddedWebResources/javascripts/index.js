@@ -63,7 +63,7 @@ $(document).ready(function () {
             self.Network.ShortestTimeBetweenPackets(values.PeriodShortestTimeBetweenPackets);
             self.Network.TotalPacketsReceived(values.TotalPackets);
 
-            //self.Rtp.MinLostPackets(values.Rtp.MinLostPackets);
+            //self.Rtp.EstimatedLostPackets(values.Rtp.EstimatedLostPackets);
             //self.Rtp.SSRC(values.Rtp.SSRC);
             //self.Rtp.SequenceNumber(values.Rtp.SequenceNumber);
             //self.Rtp.Timestamp(values.Rtp.Timestamp);

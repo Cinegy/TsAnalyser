@@ -66,6 +66,10 @@ namespace TsAnalyser
         HelpText = "Maximum permitted time between UDP packets before alarming.")]
         public int InterArrivalTimeMax { get; set; }
 
+        [Option('d', "descriptortags", Required = false, DefaultValue = "",
+        HelpText = "Comma separated tag values added to all log entries for instance and machine identification")]
+        public string DescriptorTags { get; set; }
+
         [ParserState]
         public IParserState LastParserState { get; set; }
 

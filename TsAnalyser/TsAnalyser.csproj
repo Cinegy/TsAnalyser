@@ -61,6 +61,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Metrics\DataPacket.cs" />
+    <Compile Include="Metrics\Metric.cs" />
     <Compile Include="Service\ITsAnalyserApi.cs" />
     <Compile Include="Metrics\SerialisableMetrics.cs" />
     <Compile Include="Metrics\NetworkMetric.cs" />
