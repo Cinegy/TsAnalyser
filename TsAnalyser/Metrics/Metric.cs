@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace TsAnalyser.Metrics
 {
+[DataContract]
     public abstract class Metric
     {
         private int _samplingPeriod = 5000;
