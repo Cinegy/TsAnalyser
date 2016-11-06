@@ -42,6 +42,7 @@ namespace TsAnalyser
     internal class Program
     {
         private const int WarmUpTime = 1000;
+        private const int HistoricaBufferSize = 10000;
 
         private static bool _receiving;
         private static Options _options;
@@ -56,8 +57,11 @@ namespace TsAnalyser
         private static StreamWriter _logFileStream;
         private static readonly object JsonLogfileWriteLock = new object();
         private static StreamWriter _jsonLogFileStream;
+        private static readonly object HistoricalFileLock = new object();
+        private static bool _historicalBufferFlushing;
 
         private static readonly Queue<DataPacket> PacketQueue = new Queue<DataPacket>(3000);
+        private static readonly Queue<DataPacket> HistoricalBuffer = new Queue<DataPacket>(HistoricaBufferSize);
         private static NetworkMetric _networkMetric;
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
@@ -129,11 +133,7 @@ namespace TsAnalyser
             if (!_receiving)
             {
                 _receiving = true;
-
-                if (!IsNullOrWhiteSpace(_options.LogFile))
-                {
-                    PrintToConsole("Logging events to file {0}", _options.LogFile);
-                }
+                
                 LogMessage($"Logging started {Assembly.GetExecutingAssembly().GetName().Version}.");
 
                 if (_options.EnableWebServices)
@@ -188,10 +188,18 @@ namespace TsAnalyser
                         PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
                             _networkMetric.TimeBetweenLastPacket, _networkMetric.ShortestTimeBetweenPackets,
                             _networkMetric.LongestTimeBetweenPackets);
-                        PrintToConsole(
-                            "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
-                            (_networkMetric.CurrentBitrate / 1048576.0), _networkMetric.AverageBitrate / 1048576.0,
-                            (_networkMetric.HighestBitrate / 1048576.0), (_networkMetric.LowestBitrate / 1048576.0));
+
+                        if (_historicalBufferFlushing)
+                        {
+                            PrintToConsole("### Flushing historical stream buffer to file due to error! ###");
+                        }
+                        else
+                        {
+                            PrintToConsole(
+                                "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
+                                (_networkMetric.CurrentBitrate/1048576.0), _networkMetric.AverageBitrate/1048576.0,
+                                (_networkMetric.HighestBitrate/1048576.0), (_networkMetric.LowestBitrate/1048576.0));
+                        }
 
                         if (!_options.NoRtpHeaders)
                         {
@@ -413,6 +421,17 @@ namespace TsAnalyser
                     {
                         PacketQueue.Enqueue(dataPkt);
                     }
+
+                    if (!_options.SaveHistoricalData) continue;
+
+                    lock (HistoricalBuffer)
+                    {
+                        HistoricalBuffer.Enqueue(dataPkt);
+                        if (HistoricalBuffer.Count >= HistoricaBufferSize)
+                        {
+                            HistoricalBuffer.Dequeue();
+                        }
+                    }
                 }
                 else
                 {
@@ -509,6 +528,9 @@ namespace TsAnalyser
         private static void currentMetric_DiscontinuityDetected(object sender, TransportStreamEventArgs e)
         {
             LogMessage($"Discontinuity on TS PID {e.TsPid}");
+
+            //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
+            FlushHistoricalBufferToFile();
         }
 
         private static void currentMetric_TransportErrorIndicatorDetected(object sender, TransportStreamEventArgs e)
@@ -519,6 +541,9 @@ namespace TsAnalyser
         private static void RtpMetric_SequenceDiscontinuityDetected(object sender, EventArgs e)
         {
             LogMessage("Discontinuity in RTP sequence.");
+            
+            //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
+            FlushHistoricalBufferToFile();
         }
 
         private static void NetworkMetric_BufferOverflow(object sender, EventArgs e)
@@ -541,6 +566,104 @@ namespace TsAnalyser
         private static void LogMessage(string message)
         {
             ThreadPool.QueueUserWorkItem(WriteToFile, message);
+        }
+
+        private static void FlushHistoricalBufferToFile()
+        {
+            if (_historicalBufferFlushing) return;
+
+            if (!_options.SaveHistoricalData) return;
+            
+            ThreadPool.QueueUserWorkItem(WriteHistoricalData,null);
+            
+        }
+
+        private static void WriteHistoricalData(object context)
+        {
+            _historicalBufferFlushing = true;
+
+            DataPacket[] recentTs;
+
+            lock (HistoricalBuffer)
+            {
+                //return if buffer is not nearly full - either we are just starting, or the buffer was recently flushed...
+                if (HistoricalBuffer.Count < (HistoricaBufferSize - 10))
+                {
+                    _historicalBufferFlushing = false;
+                    return;
+                }
+
+                LogMessage("Flushing recent data into file.");
+
+                recentTs = HistoricalBuffer.ToArray();
+
+                HistoricalBuffer.Clear();
+            }
+
+            lock (HistoricalFileLock)
+            {
+                try
+                {
+                    if (IsNullOrWhiteSpace(_options.LogFile)) return;
+
+                    var fileName = Path.GetDirectoryName(_options.LogFile) + $"\\streamerror-{DateTime.UtcNow.ToFileTime()}.ts";
+
+                    var fs = new FileStream(fileName, FileMode.Create, FileAccess.Write);
+
+                    var errorStream = new BinaryWriter(fs) { };
+
+                    foreach (var dataPacket in recentTs)
+                    {
+                        if (_options.NoRtpHeaders)
+                        {
+                            errorStream.Write(dataPacket.DataPayload);
+                        }
+                        else
+                        {
+                            errorStream.Write(dataPacket.DataPayload, 12, dataPacket.DataPayload.Length - 12);
+                        }
+                    }
+
+                    //sleep 5 seconds, to allow the historical buffer to fill with some more packets after the event
+                    //before flushing
+                    Thread.Sleep(5000);
+
+                    lock (HistoricalBuffer)
+                    {
+                        if (HistoricalBuffer.Count > (HistoricaBufferSize - 10))
+                        {
+                            LogMessage("Packet rate is too high for historical buffer size - clipped error stream");
+                            _historicalBufferFlushing = false;
+                            return;
+                        };
+
+                        recentTs = HistoricalBuffer.ToArray();
+
+                        HistoricalBuffer.Clear();
+
+                        foreach (var dataPacket in recentTs)
+                        {
+                            if (_options.NoRtpHeaders)
+                            {
+                                errorStream.Write(dataPacket.DataPayload);
+                            }
+                            else
+                            {
+                                errorStream.Write(dataPacket.DataPayload, 12, dataPacket.DataPayload.Length - 12);
+                            }
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    LogMessage("Error writing error buffer to file...");
+                    _historicalBufferFlushing = false;
+                }
+
+                LogMessage("Finished flushing recent data into file.");
+                _historicalBufferFlushing = false;
+                Console.Clear();
+            }
         }
 
         private static void WriteToFile(object msg)

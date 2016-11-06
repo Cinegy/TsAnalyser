@@ -70,6 +70,10 @@ namespace TsAnalyser
         HelpText = "Comma separated tag values added to all log entries for instance and machine identification")]
         public string DescriptorTags { get; set; }
 
+        [Option('h', "savehistoricaldata", Required = false, DefaultValue = false,
+        HelpText = "Optional instruction to save and then flush to disk recent TS data on stream problems.")]
+        public bool SaveHistoricalData { get; set; }
+
         [ParserState]
         public IParserState LastParserState { get; set; }
 
