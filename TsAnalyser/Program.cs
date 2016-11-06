@@ -42,7 +42,7 @@ namespace TsAnalyser
     internal class Program
     {
         private const int WarmUpTime = 1000;
-        private const int HistoricaBufferSize = 10000;
+        private const int HistoricaBufferSize = 100000;
 
         private static bool _receiving;
         private static Options _options;
