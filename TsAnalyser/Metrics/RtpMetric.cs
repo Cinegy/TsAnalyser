@@ -7,7 +7,7 @@ namespace TsAnalyser.Metrics
     public class RtpMetric : Metric
     {
         private long _totalPackets;
-        private int _periodEstimatedLostPackets = 0;
+        private int _periodEstimatedLostPackets;
 
         internal override void ResetPeriodTimerCallback(object o)
         {
@@ -59,6 +59,8 @@ namespace TsAnalyser.Metrics
                         lost = 1;
                     }
                     EstimatedLostPackets += lost;
+                    _periodEstimatedLostPackets += lost;
+
                     OnSequenceDiscontinuityDetected();
                 }
             }
@@ -75,6 +77,8 @@ namespace TsAnalyser.Metrics
                     seqDiff = 1;
                 }
                 EstimatedLostPackets += seqDiff;
+                _periodEstimatedLostPackets += seqDiff;
+
                 OnSequenceDiscontinuityDetected();
             }
 
