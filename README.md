@@ -43,10 +43,10 @@ The help details for the 'stream' verb look like this:
 
 ```
 c:\> TsAnalyser.exe  help stream      
-                                                                                             
-TsAnalyser 1.3.118.0                                                                                                            
-Copyright © Cinegy GmbH 2016                                                                                                    
-                                                                                                                                
+                                                         
+TsAnalyser 1.3.118.0                                                                    
+Copyright © Cinegy GmbH 2016                                                         
+                                                                            
   -m, --multicastaddress             Required. Input multicast address to read from.
 
   -g, --mulicastgroup                Required. Input multicast group port to read from.
@@ -97,7 +97,7 @@ Copyright © Cinegy GmbH 2016
   --help                             Display this help screen.
 
   --version                          Display version information.
-                                                                                                                          
+
 ```
 
 So - what does this look like when you point it at a complex live stream? Here is a shot from a UK DVB-T2 stream:
