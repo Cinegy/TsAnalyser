@@ -47,47 +47,57 @@ c:\> TsAnalyser.exe  help stream
 TsAnalyser 1.3.118.0                                                                                                            
 Copyright © Cinegy GmbH 2016                                                                                                    
                                                                                                                                 
-  -m, --multicastaddress             Required. Input multicast address to read from.                                            
-                                                                                                                                
-  -g, --mulicastgroup                Required. Input multicast group port to read from.                                         
-                                                                                                                                
-  -e, --timeserieslogfile            Optional file to record time slice metric data to.                                         
-                                                                                                                                
-  -a, --adapter                      IP address of the adapter to listen for multicasts (if not set, tries first binding        
-                                     adapter).                                                                                  
-                                                                                                                                
-  -n, --nortpheaders                 (Default: false) Optional instruction to skip the expected 12 byte RTP headers (meaning    
-                                     plain MPEGTS inside UDP is expected                                                        
-                                                                                                                                
-  -i, --interarrivaltime             (Default: 40) Maximum permitted time between UDP packets before alarming.                  
-                                                                                                                                
-  -h, --savehistoricaldata           (Default: false) Optional instruction to save and then flush to disk recent TS data on     
-                                     stream problems.                                                                           
-                                                                                                                                
-  -q, --quiet                        (Default: false) Don't print anything to the console                                       
-                                                                                                                                
-  -l, --logfile                      Optional file to record events to.                                                         
-                                                                                                                                
-  -w, --webservices                  (Default: false) Enable Web Services (control page available on                            
-                                     http://localhost:8124/index.html by default).                                              
-                                                                                                                                
-  -u, --serviceurl                   (Default: http://localhost:8124/) Optional service URL for REST web services (must change  
-                                     if running multiple instances with web services enabled).                                  
-                                                                                                                                
-  -s, --skipdecodetransportstream    (Default: false) Optional instruction to skip decoding further TS and DVB data and metadata
-                                                                                                                                
-  -t, --teletextdecode               (Default: false) Optional instruction to decode DVB teletext subtitles from default program
-                                     (experimental)                                                                             
-                                                                                                                                
-  -p, --programnumber                Pick a specific program / service to inspect (otherwise picks default).                    
-                                                                                                                                
-  -d, --descriptortags               (Default: ) Comma separated tag values added to all log entries for instance and machine   
-                                     identification                                                                             
-                                                                                                                                
-  --help                             Display this help screen.                                                                  
-                                                                                                                                
-  --version                          Display version information.                                                               
-                                                                                                                                
+  -m, --multicastaddress             Required. Input multicast address to read from.
+
+  -g, --mulicastgroup                Required. Input multicast group port to read from.
+
+  -e, --timeserieslogfile            Optional file to record time slice metric data to.
+
+  -a, --adapter                      IP address of the adapter to listen for multicasts
+                                     (if not set, tries first binding adapter).
+
+  -n, --nortpheaders                 (Default: false) Optional instruction to skip the
+                                     expected 12 byte RTP headers (meaning plain MPEGTS
+                                     inside UDP is expected
+
+  -i, --interarrivaltime             (Default: 40) Maximum permitted time between UDP
+                                     packets before alarming.
+
+  -h, --savehistoricaldata           (Default: false) Optional instruction to save and
+                                     then flush to disk recent TS data on stream
+                                     problems.
+
+  -q, --quiet                        (Default: false) Don't print anything to the
+                                     console
+
+  -l, --logfile                      Optional file to record events to.
+
+  -w, --webservices                  (Default: false) Enable Web Services (control page
+                                     available on http://localhost:8124/index.html by
+                                     default).
+
+  -u, --serviceurl                   (Default: http://localhost:8124/) Optional service
+                                     URL for REST web services (must change if running
+                                     multiple instances with web services enabled).
+
+  -s, --skipdecodetransportstream    (Default: false) Optional instruction to skip
+                                     decoding further TS and DVB data and metadata
+
+  -t, --teletextdecode               (Default: false) Optional instruction to decode
+                                     DVB teletext subtitles from default program
+                                     (experimental)
+
+  -p, --programnumber                Pick a specific program / service to inspect
+                                     (otherwise picks default).
+
+  -d, --descriptortags               (Default: ) Comma separated tag values added to
+                                     all log entries for instance and machine
+                                     identification
+
+  --help                             Display this help screen.
+
+  --version                          Display version information.
+                                                                                                                          
 ```
 
 So - what does this look like when you point it at a complex live stream? Here is a shot from a UK DVB-T2 stream:
