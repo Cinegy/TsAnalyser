@@ -41,11 +41,12 @@ namespace TsAnalyser
     // ReSharper disable once ClassNeverInstantiated.Global
     internal class Program
     {
-        private const int WarmUpTime = 1000;
+        private const int WarmUpTime = 500;
         private const int HistoricaBufferSize = 100000;
 
         private static bool _receiving;
         private static Options _options;
+        
         private static bool _warmedUp;
 
         private static DateTime _startTime = DateTime.UtcNow;
@@ -70,13 +71,86 @@ namespace TsAnalyser
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
-        private static Timer _seriesTimer;
 
-        // ReSharper disable once ArrangeTypeMemberModifiers
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
-            _options = new Options();
+            if (args == null || args.Length == 0)
+            {
+                return RunStreamInteractive();
+            }
 
+            if ((args.Length == 1) && (File.Exists(args[0])))
+            {
+                //a single argument was used, and it was a file - so skip all other parsing
+                return Run(new ReadOptions {FileInput = args[0]});
+            }
+
+            var result = Parser.Default.ParseArguments<StreamOptions, ReadOptions>(args);
+
+            return result.MapResult(
+                (StreamOptions opts) => Run(opts),
+                (ReadOptions opts) => Run(opts),
+                errs => CheckArgumentErrors());
+        }
+
+        private static int CheckArgumentErrors()
+        {
+            //will print using library the appropriate help - now pause the console for the viewer
+            Console.WriteLine("Hit enter to quit");
+            Console.ReadLine();
+            return -1;
+        }
+
+        private static int RunStreamInteractive()
+        {
+            Console.WriteLine("No arguments supplied - would you like to enter interactive mode? [Y/N]");
+            var response = Console.ReadKey();
+
+            if (response.Key != ConsoleKey.Y)
+            {
+                Console.WriteLine("\n\n");
+                Parser.Default.ParseArguments<StreamOptions,ReadOptions>(new string[] { });
+                return CheckArgumentErrors();
+            }
+            
+            var newOpts = new StreamOptions();
+            //ask the user interactively for an address and group
+            Console.WriteLine(
+                "\nYou chose to run in interactive mode, so now you can now set up a basic stream monitor. Making no entry uses defaults.");
+
+            Console.Write("\nPlease enter the multicast address to listen to [239.1.1.1]: ");
+            var address = Console.ReadLine();
+
+            if (IsNullOrWhiteSpace(address)) address = "239.1.1.1";
+
+            newOpts.MulticastAddress = address;
+
+            Console.Write("Please enter the multicast group port [1234]: ");
+            var port = Console.ReadLine();
+
+            if (IsNullOrWhiteSpace(port))
+            {
+                port = "1234";
+            }
+
+            newOpts.MulticastGroup = int.Parse(port);
+
+            Console.Write("Please enter the adapter address to listen for multicast packets [0.0.0.0]: ");
+
+            var adapter = Console.ReadLine();
+
+            if (IsNullOrWhiteSpace(adapter))
+            {
+                adapter = "0.0.0.0";
+            }
+
+            newOpts.AdapterAddress = adapter;
+
+            return Run(newOpts);
+        }
+
+        private static int Run(Options opts)
+        {
             Console.CancelKeyPress += Console_CancelKeyPress;
 
             Console.WriteLine(
@@ -92,35 +166,13 @@ namespace TsAnalyser
             {
                 Console.WriteLine("Failed to increase console size - probably screen resolution is low");
             }
-
-            if (!Parser.Default.ParseArguments(args, _options) || ((IsNullOrEmpty(_options.MulticastAddress)) && IsNullOrEmpty(_options.FileInput)))
-            {
-
-                //ask the user interactively for an address and group
-                Console.WriteLine(
-                    "\nSince parameters were not passed at the start, you can now enter the two most important (or just hit enter to quit)");
-                Console.Write("\nPlease enter the multicast address to listen to (e.g. 239.1.1.1): ");
-                var address = Console.ReadLine();
-
-                if (IsNullOrWhiteSpace(address)) return;
-
-                _options.MulticastAddress = address;
-
-                Console.Write("Please enter the multicast group port (e.g. 1234): ");
-                var port = Console.ReadLine();
-                if (IsNullOrWhiteSpace(port))
-                {
-                    Console.WriteLine("Not a valid group port number - press enter to exit.");
-                    Console.ReadLine();
-                    return;
-                }
-                _options.MulticastGroup = int.Parse(port);
-
-            }
-
+            _options = opts;
+            
             WorkLoop();
-        }
 
+            return 0;
+        }
+        
         ~Program()
         {
             Console.CursorVisible = true;
@@ -133,7 +185,7 @@ namespace TsAnalyser
             if (!_receiving)
             {
                 _receiving = true;
-                
+
                 LogMessage($"Logging started {Assembly.GetExecutingAssembly().GetName().Version}.");
 
                 if (_options.EnableWebServices)
@@ -149,19 +201,23 @@ namespace TsAnalyser
                 }
 
                 SetupMetricsAndDecoders();
+                
+                var filePath = (_options as ReadOptions)?.FileInput;
 
-                if (!IsNullOrEmpty(_options.FileInput))
+                if (!IsNullOrEmpty(filePath))
                 {
-                    StartStreamingFile(_options.FileInput);
+                    StartStreamingFile(filePath);
                 }
-                else
+
+                var streamOptions = _options as StreamOptions;
+                if (streamOptions != null)
                 {
-                    if (!IsNullOrEmpty(_options.TimeSeriesLogFile))
+                    if (!IsNullOrEmpty(streamOptions.TimeSeriesLogFile))
                     {
-                        _seriesTimer = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
+                        var timer = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
                     }
 
-                    StartListeningToNetwork(_options.MulticastAddress, _options.MulticastGroup, _options.AdapterAddress);
+                    StartListeningToNetwork(streamOptions.MulticastAddress, streamOptions.MulticastGroup, streamOptions.AdapterAddress);
                 }
             }
 
@@ -169,130 +225,131 @@ namespace TsAnalyser
 
             while (!_pendingExit)
             {
-                var runningTime = DateTime.UtcNow.Subtract(_startTime);
-
                 if (!_options.SuppressOutput)
                 {
-                    Console.SetCursorPosition(0, 0);
-
-                    PrintToConsole("URL: rtp://@{0}:{1}\tRunning time: {2:hh\\:mm\\:ss}\t\t", _options.MulticastAddress,
-                        _options.MulticastGroup, runningTime);
-
-                    if (IsNullOrEmpty(_options.FileInput))
-                    {
-                        PrintToConsole(
-                            "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/{2}\t\t\nTotal Data (MB): {3}\t\tPackets per sec:{4}",
-                            _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, PacketQueue.Count,
-                            _networkMetric.TotalData / 1048576,
-                            _networkMetric.PacketsPerSecond);
-                        PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
-                            _networkMetric.TimeBetweenLastPacket, _networkMetric.ShortestTimeBetweenPackets,
-                            _networkMetric.LongestTimeBetweenPackets);
-
-                        if (_historicalBufferFlushing)
-                        {
-                            PrintToConsole("### Flushing historical stream buffer to file due to error! ###");
-                        }
-                        else
-                        {
-                            PrintToConsole(
-                                "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
-                                (_networkMetric.CurrentBitrate/1048576.0), _networkMetric.AverageBitrate/1048576.0,
-                                (_networkMetric.HighestBitrate/1048576.0), (_networkMetric.LowestBitrate/1048576.0));
-                        }
-
-                        if (!_options.NoRtpHeaders)
-                        {
-                            PrintToConsole(
-                                "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
-                                _rtpMetric.LastSequenceNumber, _rtpMetric.EstimatedLostPackets, _rtpMetric.LastTimestamp,
-                                _rtpMetric.Ssrc);
-                        }
-                    }
-
-                    lock (_pidMetrics)
-                    {
-                        PrintToConsole(_pidMetrics.Count < 10
-                            ? $"\nPID Details - Unique PIDs: {_pidMetrics.Count}\n----------------"
-                            : $"\nPID Details - Unique PIDs: {_pidMetrics.Count}, (10 shown by packet count)\n----------------");
-
-                        foreach (var pidMetric in _pidMetrics.OrderByDescending(m => m.PacketCount).Take(10))
-                        {
-                            PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", pidMetric.Pid,
-                                pidMetric.PacketCount, pidMetric.CcErrorCount);
-                        }
-                    }
-
-                    if (_tsDecoder != null)
-                    {
-                        lock (_tsDecoder)
-                        {
-                            var pmts = _tsDecoder?.ProgramMapTables.OrderBy(p => p.ProgramNumber).ToList();
-
-                            if (pmts != null)
-                            {
-                                PrintToConsole(pmts.Count < 5
-                                    ? $"\t\t\t\nService Information - Service Count: {pmts.Count}\n----------------\t\t\t\t"
-                                    : $"\t\t\t\nService Information - Service Count: {pmts.Count}, (5 shown)\n----------------\t\t\t\t");
-
-                                foreach (var pmtable in pmts.Take(5))
-                                {
-                                    var desc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmtable?.ProgramNumber);
-                                    if (desc != null)
-                                    {
-                                        PrintToConsole(
-                                            $"Service {pmtable.ProgramNumber}: {desc.ServiceName.Value} ({desc.ServiceProviderName.Value}) - {desc.ServiceTypeDescription}\t\t\t"
-                                            );
-                                    }
-                                }
-                            }
-
-                            var pmt = _tsDecoder.GetSelectedPmt(_options.ProgramNumber);
-                            if (pmt != null)
-                            {
-                                _options.ProgramNumber = pmt.ProgramNumber;
-                            }
-
-                            var serviceDesc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
-
-                            PrintToConsole(serviceDesc != null
-                                ? $"\t\t\t\nElements - Selected Program {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)\n----------------\t\t\t\t"
-                                : $"\t\t\t\nElements - Selected Program Service ID {pmt?.ProgramNumber} (first 5 shown)\n----------------\t\t\t\t");
-
-                            if (pmt?.EsStreams != null)
-                            {
-                                foreach (var stream in pmt?.EsStreams.Take(5))
-                                {
-                                    if (stream != null)
-                                        PrintToConsole(
-                                            "PID: {0} ({1})", stream?.ElementaryPid,
-                                            DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
-                                                stream.StreamType]);
-                                }
-                            }
-                        }
-
-                        if (_options.DecodeTeletext)
-                        {
-                            PrintTeletext();
-                        }
-                    }
-
-                    if (_lastPrintedTsCount != _pidMetrics.Count)
-                    {
-                        _lastPrintedTsCount = _pidMetrics.Count;
-                        Console.Clear();
-                    }
-
-                    Console.WriteLine(ConsoleDisplay.ToString());
-                    ConsoleDisplay.Clear();
-
+                    PrintConsoleFeedback();
                 }
 
                 Thread.Sleep(20);
             }
 
             LogMessage("Logging stopped.");
+        }
+
+        private static void PrintConsoleFeedback()
+        {
+            var runningTime = DateTime.UtcNow.Subtract(_startTime);
+
+            Console.SetCursorPosition(0, 0);
+
+            if ((_options as StreamOptions) != null)
+            {
+                PrintToConsole("URL: rtp://@{0}:{1}\tRunning time: {2:hh\\:mm\\:ss}\t\t", ((StreamOptions)_options).MulticastAddress,
+                    ((StreamOptions)_options).MulticastGroup, runningTime);
+
+                PrintToConsole(
+                    "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/{2}\t\t\nTotal Data (MB): {3}\t\tPackets per sec:{4}",
+                    _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, PacketQueue.Count,
+                    _networkMetric.TotalData / 1048576,
+                    _networkMetric.PacketsPerSecond);
+                PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
+                    _networkMetric.TimeBetweenLastPacket, _networkMetric.ShortestTimeBetweenPackets,
+                    _networkMetric.LongestTimeBetweenPackets);
+
+                if (_historicalBufferFlushing)
+                {
+                    PrintToConsole("### Flushing historical stream buffer to file due to error! ###");
+                }
+                else
+                {
+                    PrintToConsole(
+                        "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
+                        (_networkMetric.CurrentBitrate / 1048576.0), _networkMetric.AverageBitrate / 1048576.0,
+                        (_networkMetric.HighestBitrate / 1048576.0), (_networkMetric.LowestBitrate / 1048576.0));
+                }
+
+                if (!((StreamOptions)_options).NoRtpHeaders)
+                {
+                    PrintToConsole(
+                        "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
+                        _rtpMetric.LastSequenceNumber, _rtpMetric.EstimatedLostPackets, _rtpMetric.LastTimestamp,
+                        _rtpMetric.Ssrc);
+                }
+            }
+
+            lock (_pidMetrics)
+            {
+                PrintToConsole(_pidMetrics.Count < 10
+                    ? $"\nPID Details - Unique PIDs: {_pidMetrics.Count}\n----------------"
+                    : $"\nPID Details - Unique PIDs: {_pidMetrics.Count}, (10 shown by packet count)\n----------------");
+
+                foreach (var pidMetric in _pidMetrics.OrderByDescending(m => m.PacketCount).Take(10))
+                {
+                    PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", pidMetric.Pid,
+                        pidMetric.PacketCount, pidMetric.CcErrorCount);
+                }
+            }
+
+            if (_tsDecoder != null)
+            {
+                lock (_tsDecoder)
+                {
+                    var pmts = _tsDecoder?.ProgramMapTables.OrderBy(p => p.ProgramNumber).ToList();
+
+                    PrintToConsole(pmts.Count < 5
+                        ? $"\t\t\t\nService Information - Service Count: {pmts.Count}\n----------------\t\t\t\t"
+                        : $"\t\t\t\nService Information - Service Count: {pmts.Count}, (5 shown)\n----------------\t\t\t\t");
+
+                    foreach (var pmtable in pmts.Take(5))
+                    {
+                        var desc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmtable?.ProgramNumber);
+                        if (desc != null)
+                        {
+                            PrintToConsole(
+                                $"Service {pmtable?.ProgramNumber}: {desc.ServiceName.Value} ({desc.ServiceProviderName.Value}) - {desc.ServiceTypeDescription}\t\t\t"
+                                );
+                        }
+                    }
+
+                    var pmt = _tsDecoder.GetSelectedPmt(_options.ProgramNumber);
+                    if (pmt != null)
+                    {
+                        _options.ProgramNumber = pmt.ProgramNumber;
+                    }
+
+                    var serviceDesc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
+
+                    PrintToConsole(serviceDesc != null
+                        ? $"\t\t\t\nElements - Selected Program {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)\n----------------\t\t\t\t"
+                        : $"\t\t\t\nElements - Selected Program Service ID {pmt?.ProgramNumber} (first 5 shown)\n----------------\t\t\t\t");
+
+                    if (pmt?.EsStreams != null)
+                    {
+                        foreach (var stream in pmt.EsStreams.Take(5))
+                        {
+                            if (stream != null)
+                                PrintToConsole(
+                                    "PID: {0} ({1})", stream.ElementaryPid,
+                                    DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
+                                        stream.StreamType]);
+                        }
+                    }
+                }
+
+                if (_options.DecodeTeletext)
+                {
+                    PrintTeletext();
+                }
+            }
+
+            if (_lastPrintedTsCount != _pidMetrics.Count)
+            {
+                _lastPrintedTsCount = _pidMetrics.Count;
+                Console.Clear();
+            }
+
+            Console.WriteLine(ConsoleDisplay.ToString());
+            ConsoleDisplay.Clear();
         }
 
         private static void PrintTeletext()
@@ -422,7 +479,7 @@ namespace TsAnalyser
                         PacketQueue.Enqueue(dataPkt);
                     }
 
-                    if (!_options.SaveHistoricalData) continue;
+                    if (!((StreamOptions)_options).SaveHistoricalData) continue;
 
                     lock (HistoricalBuffer)
                     {
@@ -460,7 +517,7 @@ namespace TsAnalyser
                         {
                             _networkMetric.AddPacket(data.DataPayload, data.Timestamp, PacketQueue.Count);
 
-                            if (!_options.NoRtpHeaders)
+                            if (!((StreamOptions)_options).NoRtpHeaders)
                             {
                                 _rtpMetric.AddPacket(data.DataPayload);
                             }
@@ -541,7 +598,7 @@ namespace TsAnalyser
         private static void RtpMetric_SequenceDiscontinuityDetected(object sender, EventArgs e)
         {
             LogMessage("Discontinuity in RTP sequence.");
-            
+
             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
             FlushHistoricalBufferToFile();
         }
@@ -572,10 +629,10 @@ namespace TsAnalyser
         {
             if (_historicalBufferFlushing) return;
 
-            if (!_options.SaveHistoricalData) return;
-            
-            ThreadPool.QueueUserWorkItem(WriteHistoricalData,null);
-            
+            if (!((StreamOptions)_options).SaveHistoricalData) return;
+
+            ThreadPool.QueueUserWorkItem(WriteHistoricalData, null);
+
         }
 
         private static void WriteHistoricalData(object context)
@@ -610,11 +667,11 @@ namespace TsAnalyser
 
                     var fs = new FileStream(fileName, FileMode.Create, FileAccess.Write);
 
-                    var errorStream = new BinaryWriter(fs) { };
+                    var errorStream = new BinaryWriter(fs);
 
                     foreach (var dataPacket in recentTs)
                     {
-                        if (_options.NoRtpHeaders)
+                        if (((StreamOptions)_options).NoRtpHeaders)
                         {
                             errorStream.Write(dataPacket.DataPayload);
                         }
@@ -635,7 +692,7 @@ namespace TsAnalyser
                             LogMessage("Packet rate is too high for historical buffer size - clipped error stream");
                             _historicalBufferFlushing = false;
                             return;
-                        };
+                        }
 
                         recentTs = HistoricalBuffer.ToArray();
 
@@ -643,7 +700,7 @@ namespace TsAnalyser
 
                         foreach (var dataPacket in recentTs)
                         {
-                            if (_options.NoRtpHeaders)
+                            if (((StreamOptions)_options).NoRtpHeaders)
                             {
                                 errorStream.Write(dataPacket.DataPayload);
                             }
@@ -681,20 +738,10 @@ namespace TsAnalyser
                         _logFileStream = new StreamWriter(fs) { AutoFlush = true };
                     }
 
-                    string formattedMsg;
+                    var jsonMsg = new JsonMsg() { EventMessage = msg.ToString(), EventTags = _options.DescriptorTags };
 
-                    if (_options.JsonLogs)
-                    {
-                        var jsonMsg = new JsonMsg() { EventMessage = msg.ToString(), EventTags = _options.DescriptorTags };
-
-                        formattedMsg = JsonConvert.SerializeObject(jsonMsg);
-                    }
-                    else
-                    {
-                        formattedMsg = $"{DateTime.UtcNow.ToString("o")} - {msg}";
-
-                    }
-
+                    var formattedMsg = JsonConvert.SerializeObject(jsonMsg);
+                  
                     _logFileStream.WriteLine(formattedMsg);
                 }
                 catch (Exception)
@@ -714,9 +761,9 @@ namespace TsAnalyser
                 {
                     if (_jsonLogFileStream == null || _jsonLogFileStream.BaseStream.CanWrite != true)
                     {
-                        if (IsNullOrWhiteSpace(_options.TimeSeriesLogFile)) return;
+                        if (IsNullOrWhiteSpace(((StreamOptions)_options).TimeSeriesLogFile)) return;
 
-                        var fs = new FileStream(_options.TimeSeriesLogFile, FileMode.Append, FileAccess.Write);
+                        var fs = new FileStream(((StreamOptions)_options).TimeSeriesLogFile, FileMode.Append, FileAccess.Write);
 
                         _jsonLogFileStream = new StreamWriter(fs) { AutoFlush = true };
                     }
@@ -730,7 +777,7 @@ namespace TsAnalyser
                     var json = JsonConvert.SerializeObject(_networkMetric);
                     sb.Append($"{qt}Net{qt}:{json},");
 
-                    if (!_options.NoRtpHeaders)
+                    if (!((StreamOptions)_options).NoRtpHeaders)
                     {
                         json = JsonConvert.SerializeObject(_rtpMetric);
                         sb.Append($"{qt}Rtp{qt}:{json},");
@@ -750,9 +797,9 @@ namespace TsAnalyser
                     sb.Append($"{qt}Count{qt}:{pidCount},");
                     sb.Append($"{qt}Packets{qt}:{totalPidPackets},");
                     sb.Append($"{qt}CCErrors{qt}:{totalCcErrors}");
-                    
+
                     sb.Append("}}}");
-                    
+
                     _jsonLogFileStream.WriteLine($"{sb}");
 
 
@@ -836,17 +883,29 @@ namespace TsAnalyser
             lock (_pidMetrics)
             {
                 _startTime = DateTime.UtcNow;
-                _networkMetric = new NetworkMetric()
-                {
-                    MaxIat = _options.InterArrivalTimeMax,
-                    MulticastAddress = _options.MulticastAddress,
-                    MulticastGroup = _options.MulticastGroup
-                };
 
-                _rtpMetric = new RtpMetric();
+                var streamOpts = _options as StreamOptions;
+
+                if (streamOpts != null)
+                {
+                    _networkMetric = new NetworkMetric()
+                    {
+                        MaxIat = streamOpts.InterArrivalTimeMax,
+                        MulticastAddress = streamOpts.MulticastAddress,
+                        MulticastGroup = streamOpts.MulticastGroup
+                    };
+
+                    _rtpMetric = new RtpMetric();
+
+                    _rtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
+                    _networkMetric.BufferOverflow += NetworkMetric_BufferOverflow;
+                    _networkMetric.ExcessiveIat += _networkMetric_ExcessiveIat;
+                    _networkMetric.UdpClient = UdpClient;
+                }
+
                 _pidMetrics = new List<PidMetric>();
 
-                if (_options.DecodeTransportStream)
+                if (!_options.SkipDecodeTransportStream)
                 {
                     _tsDecoder = new TsDecoder.TransportStream.TsDecoder();
                     _tsDecoder.TableChangeDetected += _tsDecoder_TableChangeDetected;
@@ -857,11 +916,7 @@ namespace TsAnalyser
                     _ttxDecoder = _options.ProgramNumber > 1 ? new TeleTextDecoder(_options.ProgramNumber) : new TeleTextDecoder();
                 }
 
-                _rtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
-                _networkMetric.BufferOverflow += NetworkMetric_BufferOverflow;
-                _networkMetric.ExcessiveIat += _networkMetric_ExcessiveIat;
-                _networkMetric.UdpClient = UdpClient;
-
+                
             }
         }
 

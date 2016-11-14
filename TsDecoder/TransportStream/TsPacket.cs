@@ -69,6 +69,8 @@ namespace TsDecoder.TransportStream
                             if (adaptationFieldSize >= payloadSize)
                                 throw new Exception("adaptationFieldSize >= payloadSize");
 
+                            //todo: actually read adaptationfield here
+
                             payloadSize -= adaptationFieldSize;
                             payloadOffs += adaptationFieldSize;
                         }
