@@ -1,4 +1,4 @@
-﻿#Cinegy TS Analyser Tool
+#Cinegy TS Analyser Tool
 
 Use this tool to view inbound network, RTP and TS packet details. Use newly introduce powers to view into the service description tables, and even decode a teletext stream!
 
@@ -19,9 +19,9 @@ And see some realtime things displayed in your browser (great if you run the ana
 Double click, or just run without (or with incorrect) arguments, and you'll see this:
 
 ```
-Cinegy Transport Stream Monitoring and Analysis tool v1.1.0 (26/09/2016 19:23:56)
+Cinegy Transport Stream Monitoring and Analysis Tool (Built: 26/10/2016 12:29:54)
 
-TsAnalyser 1.1.0.0
+TsAnalyser 1.2.0.0
 Copyright © Cinegy GmbH 2016
 
 ERROR(S):
@@ -29,42 +29,47 @@ ERROR(S):
   -g/--mulicastgroup required option is missing.
 
 
-  -q, --quiet                  (Default: False) Don't print anything to the
-                               console
+  -q, --quiet                    (Default: False) Don't print anything to the
+                                 console
 
-  -m, --multicastaddress       Required. Input multicast address to read from.
+  -m, --multicastaddress         Required. Input multicast address to read
+                                 from.
 
-  -g, --mulicastgroup          Required. Input multicast group port to read
-                               from.
+  -g, --mulicastgroup            Required. Input multicast group port to read
+                                 from.
 
-  -l, --logfile                Optional file to record events to.
+  -l, --logfile                  Optional file to record events to.
 
-  -a, --adapter                IP address of the adapter to listen for
-                               multicasts (if not set, tries first binding
-                               adapter).
+  -a, --adapter                  IP address of the adapter to listen for
+                                 multicasts (if not set, tries first binding
+                                 adapter).
 
-  -w, --webservices            (Default: False) Enable Web Services (available
-                               on http://localhost:8124/ by default).
+  -w, --webservices              (Default: False) Enable Web Services (control
+                                 page available on
+                                 http://localhost:8124/index.html by default).
 
-  -u, --serviceurl             (Default: http://localhost:8124/) Optional
-                               service URL for REST web services (must change
-                               if running multiple instances with web services
-                               enabled.
+  -u, --serviceurl               (Default: http://localhost:8124/) Optional
+                                 service URL for REST web services (must change
+                                 if running multiple instances with web
+                                 services enabled).
 
-  -s, --servicedescriptions    (Default: False) Optional instruction to decode
-                               further DVB service description metadata
-                               (experimental)
+  -s, --decodetransportstream    (Default: False) Optional instruction to
+                                 decode further TS and DVB data and metadata
 
-  -n, --nortpheaders           (Default: False) Optional instruction to skip
-                               the expected 12 byte RTP headers (meaning plain
-                               MPEGTS inside UDP is expected
+  -t, --teletextdecode           (Default: False) Optional instruction to
+                                 decode DVB teletext subtitles from default
+                                 program (experimental)
 
-  --help                       Display this help screen.
+  -n, --nortpheaders             (Default: False) Optional instruction to skip
+                                 the expected 12 byte RTP headers (meaning
+                                 plain MPEGTS inside UDP is expected
 
+  -p, --programnumber            Pick a specific program / service to inspect
+                                 (otherwise picks default).
+
+  --help                         Display this help screen.
 
 ```
-
-Todo: update with changes for teletext
 
 Because most of the time you might want a quick-and-dirty scan of a stream, if you just double-click the EXE (or run without arguments) it will ask you interactively what multicast address and group you want to listen to - perfect for people that hate typing!
 
