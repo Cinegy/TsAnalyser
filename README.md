@@ -4,80 +4,97 @@ Use this tool to view inbound network, RTP and TS packet details. Use newly intr
 
 ##How easy is it?
 
-Well, we've added everything you need into a single teeny-tiny EXE again, which just depends on .NET 4. And then we gave it all a nice Apache license, so you can tinker and throw the tool wherever you need to on the planet.
+Well, we've added everything you need into a single teeny-tiny EXE again, which just depends on .NET 4.5. And then we gave it all a nice Apache license, so you can tinker and throw the tool wherever you need to on the planet.
 
-Just run the EXE from inside a command-prompt, and a handy help message will pop up like this:
+Just run the EXE from inside a command-prompt, and you will be offered a basic interactive mode to get cracking checking out your stream.
 
-Once you run the EXE, if you enabled the embedded web service, you can browse to:
+Now in v1.3, you can check out a .TS file and scan through it - just drag / drop the .TS file onto the EXE!
+
+If you start launching things with arguments (maybe from a BAT file), try enabling the embedded web service - then you can browse to:
 
 http://localhost:8124/index.html 
 
 And see some realtime things displayed in your browser (great if you run the analyser headless on remote machines).
+
+You can print live Teletext decoding, and you can use the tool to generate input logs for 'big data' analysis (which is very cool).
 
 ##Command line arguments:
 
 Double click, or just run without (or with incorrect) arguments, and you'll see this:
 
 ```
-Cinegy Transport Stream Monitoring and Analysis Tool (Built: 26/10/2016 12:29:54)
-
-TsAnalyser 1.2.0.0
+TsAnalyser 1.3.118.0
 Copyright © Cinegy GmbH 2016
 
 ERROR(S):
-  -m/--multicastaddress required option is missing.
-  -g/--mulicastgroup required option is missing.
+  No verb selected.
 
+  stream     Stream from the network.
 
-  -q, --quiet                    (Default: False) Don't print anything to the
-                                 console
+  read       Read from a file.
 
-  -m, --multicastaddress         Required. Input multicast address to read
-                                 from.
+  help       Display more information on a specific command.
 
-  -g, --mulicastgroup            Required. Input multicast group port to read
-                                 from.
-
-  -l, --logfile                  Optional file to record events to.
-
-  -a, --adapter                  IP address of the adapter to listen for
-                                 multicasts (if not set, tries first binding
-                                 adapter).
-
-  -w, --webservices              (Default: False) Enable Web Services (control
-                                 page available on
-                                 http://localhost:8124/index.html by default).
-
-  -u, --serviceurl               (Default: http://localhost:8124/) Optional
-                                 service URL for REST web services (must change
-                                 if running multiple instances with web
-                                 services enabled).
-
-  -s, --decodetransportstream    (Default: False) Optional instruction to
-                                 decode further TS and DVB data and metadata
-
-  -t, --teletextdecode           (Default: False) Optional instruction to
-                                 decode DVB teletext subtitles from default
-                                 program (experimental)
-
-  -n, --nortpheaders             (Default: False) Optional instruction to skip
-                                 the expected 12 byte RTP headers (meaning
-                                 plain MPEGTS inside UDP is expected
-
-  -p, --programnumber            Pick a specific program / service to inspect
-                                 (otherwise picks default).
-
-  --help                         Display this help screen.
+  version    Display version information.
 
 ```
 
-Because most of the time you might want a quick-and-dirty scan of a stream, if you just double-click the EXE (or run without arguments) it will ask you interactively what multicast address and group you want to listen to - perfect for people that hate typing!
+The help details for the 'stream' verb look like this:
 
-Even better, just to make your life easier, we auto-build this using AppVeyor - here is how we are doing right now: 
+```
+c:\> TsAnalyser.exe  help stream      
+                                                                                             
+TsAnalyser 1.3.118.0                                                                                                            
+Copyright © Cinegy GmbH 2016                                                                                                    
+                                                                                                                                
+  -m, --multicastaddress             Required. Input multicast address to read from.                                            
+                                                                                                                                
+  -g, --mulicastgroup                Required. Input multicast group port to read from.                                         
+                                                                                                                                
+  -e, --timeserieslogfile            Optional file to record time slice metric data to.                                         
+                                                                                                                                
+  -a, --adapter                      IP address of the adapter to listen for multicasts (if not set, tries first binding        
+                                     adapter).                                                                                  
+                                                                                                                                
+  -n, --nortpheaders                 (Default: false) Optional instruction to skip the expected 12 byte RTP headers (meaning    
+                                     plain MPEGTS inside UDP is expected                                                        
+                                                                                                                                
+  -i, --interarrivaltime             (Default: 40) Maximum permitted time between UDP packets before alarming.                  
+                                                                                                                                
+  -h, --savehistoricaldata           (Default: false) Optional instruction to save and then flush to disk recent TS data on     
+                                     stream problems.                                                                           
+                                                                                                                                
+  -q, --quiet                        (Default: false) Don't print anything to the console                                       
+                                                                                                                                
+  -l, --logfile                      Optional file to record events to.                                                         
+                                                                                                                                
+  -w, --webservices                  (Default: false) Enable Web Services (control page available on                            
+                                     http://localhost:8124/index.html by default).                                              
+                                                                                                                                
+  -u, --serviceurl                   (Default: http://localhost:8124/) Optional service URL for REST web services (must change  
+                                     if running multiple instances with web services enabled).                                  
+                                                                                                                                
+  -s, --skipdecodetransportstream    (Default: false) Optional instruction to skip decoding further TS and DVB data and metadata
+                                                                                                                                
+  -t, --teletextdecode               (Default: false) Optional instruction to decode DVB teletext subtitles from default program
+                                     (experimental)                                                                             
+                                                                                                                                
+  -p, --programnumber                Pick a specific program / service to inspect (otherwise picks default).                    
+                                                                                                                                
+  -d, --descriptortags               (Default: ) Comma separated tag values added to all log entries for instance and machine   
+                                     identification                                                                             
+                                                                                                                                
+  --help                             Display this help screen.                                                                  
+                                                                                                                                
+  --version                          Display version information.                                                               
+                                                                                                                                
+```
+
+Just to make your life easier, we auto-build this using AppVeyor - here is how we are doing right now: 
 
 [![Build status](https://ci.appveyor.com/api/projects/status/08dqscip26lr0g1o/branch/master?svg=true)](https://ci.appveyor.com/project/cinegy/tsanalyser/branch/master)
 
-We're just getting started, but if you want you can check out a compiled binary from the latest code here:
+You can check out the latest compiled binary from the master or pre-master code here:
 
 [AppVeyor TSAnalyser Project Builder](https://ci.appveyor.com/project/cinegy/tsanalyser/build/artifacts)
 
