@@ -90,6 +90,60 @@ Copyright © Cinegy GmbH 2016
                                                                                                                                 
 ```
 
+So - what does this look like when you point it at a complex live stream? Here is a shot from a UK DVB-T2 stream:
+
+```
+URL: rtp://@239.1.1.1:1234      Running time: 00:00:11
+
+Network Details
+----------------
+Total Packets Rcvd: 47381       Buffer Usage: 0.00%/5
+Total Data (MB): 60             Packets per sec:4232
+Time Between Packets (ms): 0    Shortest/Longest: 0/3
+Bitrates (Mbps): 42.92/42.86/42.98/42.83 (Current/Avg/Peak/Low)
+
+RTP Details
+----------------
+Seq Num: 49141  Min Lost Pkts: 0
+Timestamp: 3188860157   SSRC: 3194950522
+
+PID Details - Unique PIDs: 58, (10 shown by packet count)
+----------------
+TS PID: 8191    Packet Count: 184466            CC Error Count: 0
+TS PID: 5500    Packet Count: 32484             CC Error Count: 0
+TS PID: 5600    Packet Count: 31731             CC Error Count: 0
+TS PID: 5400    Packet Count: 17151             CC Error Count: 0
+TS PID: 5300    Packet Count: 16778             CC Error Count: 0
+TS PID: 2322    Packet Count: 11175             CC Error Count: 0
+TS PID: 3847    Packet Count: 5215              CC Error Count: 0
+TS PID: 2321    Packet Count: 3726              CC Error Count: 0
+TS PID: 192     Packet Count: 2462              CC Error Count: 0
+TS PID: 50      Packet Count: 2208              CC Error Count: 0
+
+Service Information - Service Count: 8, (5 shown)
+----------------
+Service 6940: BBC Two HD (BSkyB) - H.264/AVC HD digital television service
+Service 6941: BBC One HD (BSkyB) - H.264/AVC HD digital television service
+Service 6943: BBC One NI HD (BSkyB) - H.264/AVC HD digital television service
+Service 6945: 6945 (BSkyB) - H.264/AVC HD digital television service
+Service 6952: CBBC HD (BSkyB) - H.264/AVC HD digital television service
+
+Elements - Selected Program BBC Two HD (ID:6940) (first 5 shown)
+----------------
+PID: 5500 (H.264 video)
+PID: 5502 (MPEG-1 audio)
+PID: 5504 (MPEG-2 packetized data privately defined)
+PID: 5503 (MPEG-2 packetized data privately defined)
+PID: 5501 (MPEG-2 packetized data privately defined)
+
+TeleText Subtitles - decoding from Service ID 6940
+----------------
+Live Decoding Page 888
+
+party. If he is elected,
+
+```
+
 Just to make your life easier, we auto-build this using AppVeyor - here is how we are doing right now: 
 
 [![Build status](https://ci.appveyor.com/api/projects/status/08dqscip26lr0g1o/branch/master?svg=true)](https://ci.appveyor.com/project/cinegy/tsanalyser/branch/master)
