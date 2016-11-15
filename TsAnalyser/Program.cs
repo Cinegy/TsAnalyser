@@ -71,6 +71,7 @@ namespace TsAnalyser
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
+        private static Timer _periodicDataTimer;
 
         static int Main(string[] args)
         {
@@ -214,7 +215,7 @@ namespace TsAnalyser
                 {
                     if (!IsNullOrEmpty(streamOptions.TimeSeriesLogFile))
                     {
-                        var timer = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
+                        _periodicDataTimer = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
                     }
 
                     StartListeningToNetwork(streamOptions.MulticastAddress, streamOptions.MulticastGroup, streamOptions.AdapterAddress);
