@@ -18,6 +18,6 @@ after_build:
 
     appveyor PushArtifact TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip
     
-    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\bin\release\*.*
+    7z a TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%-PDB.zip %APPVEYOR_BUILD_FOLDER%\TsAnalyser\bin\release
 
-    appveyor PushArtifact TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip
+    appveyor PushArtifact TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%-PDB.zip
