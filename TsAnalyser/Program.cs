@@ -478,6 +478,19 @@ namespace TsAnalyser
                     lock (PacketQueue)
                     {
                         PacketQueue.Enqueue(dataPkt);
+                        if (PacketQueue.Count > HistoricaBufferSize)
+                        {
+                            LogMessage("Packet Queue grown too large - flushing all queues.");
+
+                            //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
+                            FlushHistoricalBufferToFile();
+                            
+                            LogMessage("Disabling historical data buffer after queue overflow - possibly resource constraints.");
+
+                            ((StreamOptions) _options).SaveHistoricalData = false;
+
+                            PacketQueue.Clear();
+                        }
                     }
 
                     if (!((StreamOptions)_options).SaveHistoricalData) continue;
