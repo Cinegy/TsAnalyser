@@ -485,10 +485,12 @@ namespace TsAnalyser
                             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
                             FlushHistoricalBufferToFile();
                             
-                            LogMessage("Disabling historical data buffer after queue overflow - possibly resource constraints.");
+							if(((StreamOptions)_options).SaveHistoricalData){
+								LogMessage("Disabling historical data buffer after queue overflow - possibly resource constraints.");
 
-                            ((StreamOptions) _options).SaveHistoricalData = false;
-
+								((StreamOptions) _options).SaveHistoricalData = false;
+							}
+							
                             PacketQueue.Clear();
                         }
                     }
@@ -523,8 +525,9 @@ namespace TsAnalyser
                     {
                         data = PacketQueue.Dequeue();
                     }
-
+                    
                     if (data?.DataPayload == null) continue;
+                  
                     try
                     {
                         lock (_networkMetric)
@@ -553,6 +556,7 @@ namespace TsAnalyser
                     Thread.Sleep(1);
                 }
             }
+            LogMessage("Stopping analysis thread due to exit request.");
         }
 
         private static void AnalysePackets(IEnumerable<TsPacket> tsPackets)
