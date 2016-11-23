@@ -18,6 +18,9 @@ namespace TsDecoder.TransportStream
         private ServiceDescriptionTableFactory _sdtFactory;
         private List<ProgramMapTableFactory> _pmtFactories;
 
+
+        public delegate void TableChangeEventHandler(object sender, TableChangedEventArgs args);
+
         public TsDecoder()
         {
             SetupFactories();
@@ -161,14 +164,25 @@ namespace TsDecoder.TransportStream
             return pmt;
         }
 
-        private void _sdtFactory_TableChangeDetected(object sender, TransportStreamEventArgs args)
+        private void _sdtFactory_TableChangeDetected(object sender, TransportStreamEventArgs e)
         {
-            Debug.WriteLine($"SDT {args.TsPid}, Version: {ServiceDescriptionTable.VersionNumber} - Section Num: {ServiceDescriptionTable.SectionNumber} refreshed");
-            OnTableChangeDetected();
+            try
+            {
+                var name = GetServiceDescriptorForProgramNumber(ProgramMapTables.FirstOrDefault()?.ProgramNumber);
+                var message =
+                    $"SDT {e.TsPid} Refreshed: {name.ServiceName} - {name.ServiceProviderName} (Version {ServiceDescriptionTable.VersionNumber}, Section {ServiceDescriptionTable.SectionNumber})";
+
+                OnTableChangeDetected(new TableChangedEventArgs() { Message = message, TablePid = e.TsPid });
+            }
+            catch(Exception ex)
+            {
+                Debug.WriteLine("Problem reading service name: " + ex.Message);   
+            }
         }
 
         private void _pmtFactory_TableChangeDetected(object sender, TransportStreamEventArgs e)
         {
+            string message;
             lock (this)
             {
                 var fact = sender as ProgramMapTableFactory;
@@ -180,32 +194,37 @@ namespace TsDecoder.TransportStream
                 if (selectedPmt != null)
                 {
                     ProgramMapTables?.Remove(selectedPmt);
-                    Debug.WriteLine($"PMT {e.TsPid} refreshed");
+                    message = $"PMT {e.TsPid} refreshed";
                 }
                 else
                 {
-                    Debug.WriteLine($"PMT {e.TsPid} added");
+                    message = $"PMT {e.TsPid} added";
                 }
 
                 ProgramMapTables?.Add(fact.ProgramMapTable);
             }
 
-            OnTableChangeDetected();
+            OnTableChangeDetected(new TableChangedEventArgs() { Message = message, TablePid = e.TsPid });
         }
 
         private void _patFactory_TableChangeDetected(object sender, TransportStreamEventArgs e)
         {
-            Debug.WriteLine("PAT refreshed");
-            OnTableChangeDetected();
+            _pmtFactories = new List<ProgramMapTableFactory>(16);
+            ProgramMapTables = new List<ProgramMapTable>(16);
+
+            _sdtFactory = new ServiceDescriptionTableFactory();
+            _sdtFactory.TableChangeDetected += _sdtFactory_TableChangeDetected;
+
+            OnTableChangeDetected(new TableChangedEventArgs() {Message = "PAT refreshed - resetting all factories" , TablePid = e.TsPid});
         }
 
         //A decoded table change has been processed
-        public event EventHandler TableChangeDetected;
+        public event TableChangeEventHandler TableChangeDetected;
 
-        private void OnTableChangeDetected()
-        {
+        private void OnTableChangeDetected(TableChangedEventArgs args)
+        {   
             var handler = TableChangeDetected;
-            handler?.Invoke(this, EventArgs.Empty);
+            handler?.Invoke(this, args);
         }
     }
 

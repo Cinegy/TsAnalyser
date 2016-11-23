@@ -10,5 +10,6 @@ namespace TsDecoder.Tables
         public byte LastSectionNumber { get; set; }
         public short[] ProgramNumbers { get; set; }
         public short[] Pids { get; set; }
+        public int Crc { get; set; }
     }
 }

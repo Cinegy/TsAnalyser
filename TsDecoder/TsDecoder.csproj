@@ -55,6 +55,7 @@
     <Compile Include="TransportStream\EsInfo.cs" />
     <Compile Include="TransportStream\PES.cs" />
     <Compile Include="TransportStream\Text.cs" />
+    <Compile Include="TransportStream\TableChangedEventArgs.cs" />
     <Compile Include="TransportStream\TransportStreamEventArgs.cs" />
     <Compile Include="TransportStream\TsDecoder.cs" />
     <Compile Include="TransportStream\TsPacket.cs" />

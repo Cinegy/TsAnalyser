@@ -647,6 +647,8 @@ namespace TsAnalyser
         {
             if (_historicalBufferFlushing) return;
 
+            if (HistoricalBuffer.Count < 1) return;
+
             if (!((StreamOptions)_options).SaveHistoricalData) return;
 
             ThreadPool.QueueUserWorkItem(WriteHistoricalData, null);
@@ -938,8 +940,9 @@ namespace TsAnalyser
             }
         }
 
-        private static void _tsDecoder_TableChangeDetected(object sender, EventArgs e)
+        private static void _tsDecoder_TableChangeDetected(object sender, TableChangedEventArgs e)
         {
+            LogMessage("Table Change: " + e.Message);
             Console.Clear();
         }
 
