@@ -846,6 +846,7 @@ namespace TsAnalyser
                     tsmetric.PidCount++;
                     tsmetric.PidPackets += pidMetric.PeriodPacketCount;
                     tsmetric.PidCcErrors += pidMetric.PeriodCcErrorCount;
+                    tsmetric.TeiErrors += pidMetric.PeriodTeiCount;
                 }
 
                 tsMetricLogRecord.Ts = tsmetric;

@@ -17,5 +17,8 @@ namespace TsAnalyser.Metrics
 
         [DataMember]
         public int PidCcErrors { get; set; }
+
+        [DataMember]
+        public int TeiErrors { get; set; }
     }
 }
