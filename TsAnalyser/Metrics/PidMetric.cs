@@ -13,7 +13,7 @@ namespace TsAnalyser.Metrics
         public delegate void DiscontinuityDetectedEventHandler(object sender, TransportStreamEventArgs args);
         public delegate void TransportErrorIndicatorDetectedEventHandler(object sender, TransportStreamEventArgs args);
 
-        private long _periodPacketCount = 0;
+        private int _periodPacketCount = 0;
         private int _periodCcErrorCount = 0;
 
         internal override void ResetPeriodTimerCallback(object o)
@@ -37,13 +37,13 @@ namespace TsAnalyser.Metrics
         public long PacketCount { get; private set; }
         
         [DataMember]
-        public long PeriodPacketCount { get; private set; }
+        public int PeriodPacketCount { get; private set; }
 
         [DataMember]
         public long CcErrorCount { get; private set; }
 
         [DataMember]
-        public long PeriodCcErrorCount { get; private set; }
+        public int PeriodCcErrorCount { get; private set; }
 
         private int LastCc { get; set; }
         

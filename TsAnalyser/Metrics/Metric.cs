@@ -23,8 +23,7 @@ namespace TsAnalyser.Metrics
 
             _periodTimer = new Timer(ResetPeriodTimerCallback, null, 0, SamplingPeriod);
         }
-
-        [DataMember]
+        
         public string SampleTime => DateTime.UtcNow.ToString("o");
 
         [DataMember]

@@ -30,6 +30,7 @@ using System.Text;
 using System.Threading;
 using CommandLine;
 using Newtonsoft.Json;
+using TsAnalyser.Logging;
 using TsAnalyser.Metrics;
 using TsAnalyser.Service;
 using TsDecoder.TransportStream;
@@ -46,7 +47,7 @@ namespace TsAnalyser
 
         private static bool _receiving;
         private static Options _options;
-        
+
         private static bool _warmedUp;
 
         private static DateTime _startTime = DateTime.UtcNow;
@@ -56,8 +57,6 @@ namespace TsAnalyser
         private static readonly UdpClient UdpClient = new UdpClient { ExclusiveAddressUse = false };
         private static readonly object LogfileWriteLock = new object();
         private static StreamWriter _logFileStream;
-        private static readonly object JsonLogfileWriteLock = new object();
-        private static StreamWriter _jsonLogFileStream;
         private static readonly object HistoricalFileLock = new object();
         private static bool _historicalBufferFlushing;
 
@@ -83,7 +82,7 @@ namespace TsAnalyser
             if ((args.Length == 1) && (File.Exists(args[0])))
             {
                 //a single argument was used, and it was a file - so skip all other parsing
-                return Run(new ReadOptions {FileInput = args[0]});
+                return Run(new ReadOptions { FileInput = args[0] });
             }
 
             var result = Parser.Default.ParseArguments<StreamOptions, ReadOptions>(args);
@@ -110,10 +109,10 @@ namespace TsAnalyser
             if (response.Key != ConsoleKey.Y)
             {
                 Console.WriteLine("\n\n");
-                Parser.Default.ParseArguments<StreamOptions,ReadOptions>(new string[] { });
+                Parser.Default.ParseArguments<StreamOptions, ReadOptions>(new string[] { });
                 return CheckArgumentErrors();
             }
-            
+
             var newOpts = new StreamOptions();
             //ask the user interactively for an address and group
             Console.WriteLine(
@@ -168,12 +167,12 @@ namespace TsAnalyser
                 Console.WriteLine("Failed to increase console size - probably screen resolution is low");
             }
             _options = opts;
-            
+
             WorkLoop();
 
             return 0;
         }
-        
+
         ~Program()
         {
             Console.CursorVisible = true;
@@ -201,8 +200,10 @@ namespace TsAnalyser
                     httpThread.Start();
                 }
 
+                _periodicDataTimer = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
+
                 SetupMetricsAndDecoders();
-                
+
                 var filePath = (_options as ReadOptions)?.FileInput;
 
                 if (!IsNullOrEmpty(filePath))
@@ -210,14 +211,11 @@ namespace TsAnalyser
                     StartStreamingFile(filePath);
                 }
 
+
                 var streamOptions = _options as StreamOptions;
                 if (streamOptions != null)
                 {
-                    if (!IsNullOrEmpty(streamOptions.TimeSeriesLogFile))
-                    {
-                        _periodicDataTimer = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
-                    }
-
+                 
                     StartListeningToNetwork(streamOptions.MulticastAddress, streamOptions.MulticastGroup, streamOptions.AdapterAddress);
                 }
             }
@@ -484,13 +482,14 @@ namespace TsAnalyser
 
                             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
                             FlushHistoricalBufferToFile();
-                            
-							if(((StreamOptions)_options).SaveHistoricalData){
-								LogMessage("Disabling historical data buffer after queue overflow - possibly resource constraints.");
 
-								((StreamOptions) _options).SaveHistoricalData = false;
-							}
-							
+                            if (((StreamOptions)_options).SaveHistoricalData)
+                            {
+                                LogMessage("Disabling historical data buffer after queue overflow - possibly resource constraints.");
+
+                                ((StreamOptions)_options).SaveHistoricalData = false;
+                            }
+
                             PacketQueue.Clear();
                         }
                     }
@@ -525,9 +524,9 @@ namespace TsAnalyser
                     {
                         data = PacketQueue.Dequeue();
                     }
-                    
+
                     if (data?.DataPayload == null) continue;
-                  
+
                     try
                     {
                         lock (_networkMetric)
@@ -640,7 +639,17 @@ namespace TsAnalyser
 
         private static void LogMessage(string message)
         {
-            ThreadPool.QueueUserWorkItem(WriteToFile, message);
+            var logRecord = new LogRecord()
+            {
+                EventCategory = "Info",
+                EventKey = "GenericEvent",
+                EventTags = _options.DescriptorTags,
+                ProductName = "TSAnalyser",
+                EventMessage = message
+            };
+
+            var formattedMsg = JsonConvert.SerializeObject(logRecord);
+            ThreadPool.QueueUserWorkItem(WriteToFile, formattedMsg);
         }
 
         private static void FlushHistoricalBufferToFile()
@@ -743,7 +752,7 @@ namespace TsAnalyser
             }
         }
 
-        private static void WriteToFile(object msg)
+        private static void WriteToFile(object line)
         {
             lock (LogfileWriteLock)
             {
@@ -757,12 +766,7 @@ namespace TsAnalyser
 
                         _logFileStream = new StreamWriter(fs) { AutoFlush = true };
                     }
-
-                    var jsonMsg = new JsonMsg() { EventMessage = msg.ToString(), EventTags = _options.DescriptorTags };
-
-                    var formattedMsg = JsonConvert.SerializeObject(jsonMsg);
-                  
-                    _logFileStream.WriteLine(formattedMsg);
+                    _logFileStream.WriteLine(line);
                 }
                 catch (Exception)
                 {
@@ -775,63 +779,46 @@ namespace TsAnalyser
 
         private static void UpdateSeriesDataTimerCallback(object o)
         {
-            lock (JsonLogfileWriteLock)
+            if (!_options.TimeSeriesLogging) return;
+            
+            try
             {
-                try
+                var tsMetricLogRecord = new TsMetricLogRecord()
                 {
-                    if (_jsonLogFileStream == null || _jsonLogFileStream.BaseStream.CanWrite != true)
-                    {
-                        if (IsNullOrWhiteSpace(((StreamOptions)_options).TimeSeriesLogFile)) return;
+                    EventCategory = "Info",
+                    EventKey = "Metric",
+                    EventTags = _options.DescriptorTags,
+                    ProductName = "TSAnalyser",
+                    Net = _networkMetric
+                };
 
-                        var fs = new FileStream(((StreamOptions)_options).TimeSeriesLogFile, FileMode.Append, FileAccess.Write);
-
-                        _jsonLogFileStream = new StreamWriter(fs) { AutoFlush = true };
-                    }
-
-                    var sb = new StringBuilder();
-                    var qt = '"'.ToString();
-                    sb.Append($"{{{qt}Ts{qt}:{{");
-
-                    sb.Append($"{qt}Tags{qt}:{qt}{_options.DescriptorTags}{qt},");
-
-                    var json = JsonConvert.SerializeObject(_networkMetric);
-                    sb.Append($"{qt}Net{qt}:{json},");
-
-                    if (!((StreamOptions)_options).NoRtpHeaders)
-                    {
-                        json = JsonConvert.SerializeObject(_rtpMetric);
-                        sb.Append($"{qt}Rtp{qt}:{json},");
-                    }
-
-                    var pidCount = 0;
-                    long totalCcErrors = 0;
-                    long totalPidPackets = 0;
-                    foreach (var pidMetric in _pidMetrics)
-                    {
-                        pidCount++;
-                        totalPidPackets += pidMetric.PeriodPacketCount;
-                        totalCcErrors += pidMetric.PeriodCcErrorCount;
-                    }
-
-                    sb.Append($"{qt}Pid{qt}:{{");
-                    sb.Append($"{qt}Count{qt}:{pidCount},");
-                    sb.Append($"{qt}Packets{qt}:{totalPidPackets},");
-                    sb.Append($"{qt}CCErrors{qt}:{totalCcErrors}");
-
-                    sb.Append("}}}");
-
-                    _jsonLogFileStream.WriteLine($"{sb}");
-
-
-
-                }
-                catch (Exception)
+                if (!((StreamOptions)_options).NoRtpHeaders)
                 {
-                    Debug.WriteLine("Concurrency error writing to log file...");
-                    _logFileStream?.Close();
-                    _logFileStream?.Dispose();
+                    tsMetricLogRecord.Rtp = _rtpMetric;
                 }
+
+                var tsmetric = new TsMetric();
+
+                foreach (var pidMetric in _pidMetrics)
+                {
+                    tsmetric.PidCount++;
+                    tsmetric.PidPackets += pidMetric.PeriodPacketCount;
+                    tsmetric.PidCcErrors += pidMetric.PeriodCcErrorCount;
+                }
+
+                tsMetricLogRecord.Ts = tsmetric;
+
+                var formattedMsg = JsonConvert.SerializeObject(tsMetricLogRecord);
+                
+                WriteToFile(formattedMsg);
             }
+            catch (Exception)
+            {
+                Debug.WriteLine("Concurrency error writing to log file...");
+                _logFileStream?.Close();
+                _logFileStream?.Dispose();
+            }
+
         }
 
         private static void StartHttpService(string serviceAddress)
@@ -936,7 +923,7 @@ namespace TsAnalyser
                     _ttxDecoder = _options.ProgramNumber > 1 ? new TeleTextDecoder(_options.ProgramNumber) : new TeleTextDecoder();
                 }
 
-                
+
             }
         }
 
@@ -970,15 +957,6 @@ namespace TsAnalyser
             }
         }
 
-        [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
-        [SuppressMessage("ReSharper", "UnusedMember.Local")]
-        private class JsonMsg
-        {
-            public string EventTime = DateTime.UtcNow.ToString("o");
-
-            public string EventTags { get; set; }
-            public string EventMessage { get; set; }
-        }
     }
 }
 

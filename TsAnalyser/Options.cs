@@ -37,6 +37,10 @@ namespace TsAnalyser
         HelpText = "Comma separated tag values added to all log entries for instance and machine identification")]
         public string DescriptorTags { get; set; }
 
+        [Option('e', "timeserieslogging", Required = false,
+        HelpText = "Record time slice metric data to.")]
+        public bool TimeSeriesLogging { get; set; }
+
     }
     
     // Define a class to receive parsed values
@@ -50,10 +54,6 @@ namespace TsAnalyser
         [Option('g', "mulicastgroup", Required = true,
         HelpText = "Input multicast group port to read from.")]
         public int MulticastGroup { get; set; }
-        
-        [Option('e', "timeserieslogfile", Required = false,
-        HelpText = "Optional file to record time slice metric data to.")]
-        public string TimeSeriesLogFile { get; set; }
         
         [Option('a', "adapter", Required = false,
         HelpText = "IP address of the adapter to listen for multicasts (if not set, tries first binding adapter).")]

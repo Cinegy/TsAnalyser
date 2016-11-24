@@ -60,10 +60,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Logging\LogRecord.cs" />
+    <Compile Include="Logging\TsMetricLogRecord.cs" />
     <Compile Include="Metrics\DataPacket.cs" />
     <Compile Include="Metrics\Metric.cs" />
+    <Compile Include="Metrics\TsMetric.cs" />
     <Compile Include="Service\ITsAnalyserApi.cs" />
-    <Compile Include="Metrics\SerialisableMetrics.cs" />
     <Compile Include="Metrics\NetworkMetric.cs" />
     <Compile Include="Options.cs" />
     <Compile Include="Program.cs" />
