@@ -19,7 +19,7 @@ namespace TsAnalyser.Logging
         public string EventCategory { get; set; }
 
         [DataMember]
-        public string ProductName { get; set; }
+        public string ProductName => "TSAnalyser";
 
         [DataMember]
         public string ProductVersion

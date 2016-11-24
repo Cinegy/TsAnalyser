@@ -17,7 +17,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -59,6 +58,7 @@ namespace TsAnalyser
         private static StreamWriter _logFileStream;
         private static readonly object HistoricalFileLock = new object();
         private static bool _historicalBufferFlushing;
+        private static Dictionary<string,DateTime> _logFloodPreventionDictionary = new Dictionary<string, DateTime>();
 
         private static readonly Queue<DataPacket> PacketQueue = new Queue<DataPacket>(3000);
         private static readonly Queue<DataPacket> HistoricalBuffer = new Queue<DataPacket>(HistoricaBufferSize);
@@ -478,7 +478,13 @@ namespace TsAnalyser
                         PacketQueue.Enqueue(dataPkt);
                         if (PacketQueue.Count > HistoricaBufferSize)
                         {
-                            LogMessage("Packet Queue grown too large - flushing all queues.");
+                            LogMessage(new LogRecord()
+                            {
+                                EventCategory = "Error",
+                                EventKey = "BufferOverflow",
+                                EventTags = _options.DescriptorTags,
+                                EventMessage = "Packet Queue grown too large - flushing all queues."
+                            });
 
                             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
                             FlushHistoricalBufferToFile();
@@ -601,20 +607,38 @@ namespace TsAnalyser
 
         private static void currentMetric_DiscontinuityDetected(object sender, TransportStreamEventArgs e)
         {
-            LogMessage($"Discontinuity on TS PID {e.TsPid}");
-
+            LogMessage(new LogRecord()
+            {
+                EventCategory = "Info",
+                EventKey = "Discontinuity",
+                EventTags = _options.DescriptorTags,
+                EventMessage = $"Discontinuity on TS PID {e.TsPid}"
+            });
+            
             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
             FlushHistoricalBufferToFile();
         }
 
         private static void currentMetric_TransportErrorIndicatorDetected(object sender, TransportStreamEventArgs e)
         {
-            LogMessage($"Transport Error Indicator on TS PID {e.TsPid}");
+            LogMessage(new LogRecord()
+            {
+                EventCategory = "Info",
+                EventKey = "TransportError",
+                EventTags = _options.DescriptorTags,
+                EventMessage = "$Transport Error Indicator on TS PID {e.TsPid}"
+            });
         }
 
         private static void RtpMetric_SequenceDiscontinuityDetected(object sender, EventArgs e)
         {
-            LogMessage("Discontinuity in RTP sequence.");
+            LogMessage(new LogRecord()
+            {
+                EventCategory = "Warn",
+                EventKey = "RtpSkip",
+                EventTags = _options.DescriptorTags,
+                EventMessage = "Discontinuity in RTP sequence."
+            });
 
             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
             FlushHistoricalBufferToFile();
@@ -622,12 +646,25 @@ namespace TsAnalyser
 
         private static void NetworkMetric_BufferOverflow(object sender, EventArgs e)
         {
-            LogMessage("Network buffer > 99% - probably loss of data from overflow.");
+            LogMessage(new LogRecord()
+            {
+                EventCategory = "Error",
+                EventKey = "NetworkBuffer",
+                EventTags = _options.DescriptorTags,
+                EventMessage = "Network buffer > 99% - probably loss of data from overflow."
+            });
         }
 
         private static void _networkMetric_ExcessiveIat(object sender, IatEventArgs args)
         {
-            LogMessage($"Excessive Inter-Packet Arrival Time (IAT) - max {args.MaxIat}, detected {args.MeasuredIat}.");
+            LogMessage(new LogRecord()
+            {
+                EventCategory = "Warn",
+                EventKey = "ExcessiveIAT",
+                EventTags = _options.DescriptorTags,
+                EventMessage = $"Excessive Inter-Packet Arrival Time (IAT) - max {args.MaxIat}, detected {args.MeasuredIat}."
+            });
+            
         }
 
         private static void PrintToConsole(string message, params object[] arguments)
@@ -644,10 +681,13 @@ namespace TsAnalyser
                 EventCategory = "Info",
                 EventKey = "GenericEvent",
                 EventTags = _options.DescriptorTags,
-                ProductName = "TSAnalyser",
                 EventMessage = message
             };
+            LogMessage(logRecord);
+        }
 
+        private static void LogMessage(LogRecord logRecord)
+        {
             var formattedMsg = JsonConvert.SerializeObject(logRecord);
             ThreadPool.QueueUserWorkItem(WriteToFile, formattedMsg);
         }
@@ -718,7 +758,14 @@ namespace TsAnalyser
                     {
                         if (HistoricalBuffer.Count > (HistoricaBufferSize - 10))
                         {
-                            LogMessage("Packet rate is too high for historical buffer size - clipped error stream");
+                            LogMessage(new LogRecord()
+                            {
+                                EventCategory = "Error",
+                                EventKey = "Rate",
+                                EventTags = _options.DescriptorTags,
+                                EventMessage = "Packet rate is too high for historical buffer size - clipped error stream"
+                            });
+                            
                             _historicalBufferFlushing = false;
                             return;
                         }
@@ -742,11 +789,25 @@ namespace TsAnalyser
                 }
                 catch (Exception)
                 {
-                    LogMessage("Error writing error buffer to file...");
+                    LogMessage(new LogRecord()
+                    {
+                        EventCategory = "Error",
+                        EventKey = "GenericEvent",
+                        EventTags = _options.DescriptorTags,
+                        EventMessage = "Error writing error buffer to file..."
+                    });
+
                     _historicalBufferFlushing = false;
                 }
 
-                LogMessage("Finished flushing recent data into file.");
+                LogMessage(new LogRecord()
+                {
+                    EventCategory = "Info",
+                    EventKey = "GenericEvent",
+                    EventTags = _options.DescriptorTags,
+                    EventMessage = "Finished flushing recent data into file."
+                });
+
                 _historicalBufferFlushing = false;
                 Console.Clear();
             }
@@ -788,7 +849,6 @@ namespace TsAnalyser
                     EventCategory = "Info",
                     EventKey = "Metric",
                     EventTags = _options.DescriptorTags,
-                    ProductName = "TSAnalyser",
                     Net = _networkMetric
                 };
 
@@ -881,7 +941,14 @@ namespace TsAnalyser
 
                 Console.ReadLine();
 
-                LogMessage(msg);
+                LogMessage(new LogRecord()
+                {
+                    EventCategory = "Error",
+                    EventKey = "GenericEvent",
+                    EventTags = _options.DescriptorTags,
+                    EventMessage = msg
+                });
+                
             }
         }
 
@@ -929,7 +996,14 @@ namespace TsAnalyser
 
         private static void _tsDecoder_TableChangeDetected(object sender, TableChangedEventArgs e)
         {
-            LogMessage("Table Change: " + e.Message);
+            LogMessage(new LogRecord()
+            {
+                EventCategory = "Info",
+                EventKey = "TableChange",
+                EventTags = _options.DescriptorTags,
+                EventMessage = ("Table Change: " + e.Message)
+            });
+
             Console.Clear();
         }
 
