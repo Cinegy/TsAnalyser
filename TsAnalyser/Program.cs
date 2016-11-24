@@ -576,7 +576,6 @@ namespace TsAnalyser
                     {
                         currentPidMetric = new PidMetric { Pid = tsPacket.Pid };
                         currentPidMetric.DiscontinuityDetected += currentMetric_DiscontinuityDetected;
-                        currentPidMetric.TransportErrorIndicatorDetected += currentMetric_TransportErrorIndicatorDetected;
                         _pidMetrics.Add(currentPidMetric);
                     }
 
@@ -607,38 +606,33 @@ namespace TsAnalyser
 
         private static void currentMetric_DiscontinuityDetected(object sender, TransportStreamEventArgs e)
         {
-            LogMessage(new LogRecord()
+            if (_options.VerboseLogging)
             {
-                EventCategory = "Info",
-                EventKey = "Discontinuity",
-                EventTags = _options.DescriptorTags,
-                EventMessage = $"Discontinuity on TS PID {e.TsPid}"
-            });
-            
+                LogMessage(new LogRecord()
+                {
+                    EventCategory = "Info",
+                    EventKey = "Discontinuity",
+                    EventTags = _options.DescriptorTags,
+                    EventMessage = $"Discontinuity on TS PID {e.TsPid}"
+                });
+            }
+
             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
             FlushHistoricalBufferToFile();
         }
-
-        private static void currentMetric_TransportErrorIndicatorDetected(object sender, TransportStreamEventArgs e)
-        {
-            LogMessage(new LogRecord()
-            {
-                EventCategory = "Info",
-                EventKey = "TransportError",
-                EventTags = _options.DescriptorTags,
-                EventMessage = "$Transport Error Indicator on TS PID {e.TsPid}"
-            });
-        }
-
+        
         private static void RtpMetric_SequenceDiscontinuityDetected(object sender, EventArgs e)
         {
-            LogMessage(new LogRecord()
+            if (_options.VerboseLogging)
             {
-                EventCategory = "Warn",
-                EventKey = "RtpSkip",
-                EventTags = _options.DescriptorTags,
-                EventMessage = "Discontinuity in RTP sequence."
-            });
+                LogMessage(new LogRecord()
+                {
+                    EventCategory = "Warn",
+                    EventKey = "RtpSkip",
+                    EventTags = _options.DescriptorTags,
+                    EventMessage = "Discontinuity in RTP sequence."
+                });
+            }
 
             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
             FlushHistoricalBufferToFile();
@@ -653,18 +647,6 @@ namespace TsAnalyser
                 EventTags = _options.DescriptorTags,
                 EventMessage = "Network buffer > 99% - probably loss of data from overflow."
             });
-        }
-
-        private static void _networkMetric_ExcessiveIat(object sender, IatEventArgs args)
-        {
-            LogMessage(new LogRecord()
-            {
-                EventCategory = "Warn",
-                EventKey = "ExcessiveIAT",
-                EventTags = _options.DescriptorTags,
-                EventMessage = $"Excessive Inter-Packet Arrival Time (IAT) - max {args.MaxIat}, detected {args.MeasuredIat}."
-            });
-            
         }
 
         private static void PrintToConsole(string message, params object[] arguments)
@@ -973,7 +955,6 @@ namespace TsAnalyser
 
                     _rtpMetric.SequenceDiscontinuityDetected += RtpMetric_SequenceDiscontinuityDetected;
                     _networkMetric.BufferOverflow += NetworkMetric_BufferOverflow;
-                    _networkMetric.ExcessiveIat += _networkMetric_ExcessiveIat;
                     _networkMetric.UdpClient = UdpClient;
                 }
 

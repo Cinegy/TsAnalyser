@@ -41,6 +41,10 @@ namespace TsAnalyser
         HelpText = "Record time slice metric data to.")]
         public bool TimeSeriesLogging { get; set; }
 
+        [Option('v', "verboselogging", Required = false,
+        HelpText = "Creates event logs for all discontinuities and skips.")]
+        public bool VerboseLogging { get; set; }
+
     }
     
     // Define a class to receive parsed values

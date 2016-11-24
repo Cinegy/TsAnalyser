@@ -276,11 +276,6 @@ namespace TsAnalyser.Metrics
 
                 TimeBetweenLastPacket = timeBetweenLastPacket;
 
-                if ((MaxIat > 0) && (TimeBetweenLastPacket > MaxIat))
-                {
-                    OnExcessiveIat(timeBetweenLastPacket);
-                }
-
                 _lastPacketTime = _currentPacketTime;
 
                 if (TotalPackets == 1)
@@ -370,24 +365,6 @@ namespace TsAnalyser.Metrics
             QueryPerformanceCounter(out _lastPacketTime);
         }
     
-        public delegate void IatEventHandler(object sender, IatEventArgs args);
-
-        public event IatEventHandler ExcessiveIat;
-
-        protected virtual void OnExcessiveIat(long measuredIat)
-        {
-            var handler = ExcessiveIat;
-
-            var args = new IatEventArgs()
-            {
-                MaxIat = MaxIat,
-                MeasuredIat = measuredIat
-            };
-
-            handler?.Invoke(this, args);
-
-        }
-        
         public event  EventHandler BufferOverflow;
 
         protected virtual void OnBufferOverflow()
@@ -399,9 +376,4 @@ namespace TsAnalyser.Metrics
         }
     }
 
-    public class IatEventArgs : EventArgs
-    {
-        public int MaxIat { get; set; }
-        public long MeasuredIat { get; set; }
-    }
 }

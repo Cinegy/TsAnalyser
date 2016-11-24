@@ -15,6 +15,7 @@ namespace TsAnalyser.Metrics
 
         private int _periodPacketCount = 0;
         private int _periodCcErrorCount = 0;
+        private int _periodTeiCount = 0;
 
         internal override void ResetPeriodTimerCallback(object o)
         {
@@ -25,6 +26,9 @@ namespace TsAnalyser.Metrics
 
                 PeriodCcErrorCount = _periodCcErrorCount;
                 _periodCcErrorCount = 0;
+
+                PeriodTeiCount = _periodTeiCount;
+                _periodTeiCount = 0;
                 
                 base.ResetPeriodTimerCallback(o);
             }
@@ -38,6 +42,11 @@ namespace TsAnalyser.Metrics
         
         [DataMember]
         public int PeriodPacketCount { get; private set; }
+
+        public long TeiCount { get; private set; }
+
+        [DataMember]
+        public int PeriodTeiCount { get; private set; }
 
         [DataMember]
         public long CcErrorCount { get; private set; }
@@ -56,7 +65,8 @@ namespace TsAnalyser.Metrics
 
                 if (newPacket.TransportErrorIndicator)
                 {
-                    OnTransportErrorIndicatorDetected(newPacket.Pid);
+                    TeiCount++;
+                    _periodTeiCount++;
                 }
                 else
                 {
@@ -125,10 +135,7 @@ namespace TsAnalyser.Metrics
 
         // Continuity Counter Error has been detected.
         public event DiscontinuityDetectedEventHandler DiscontinuityDetected;
-
-        // Transport Error Indicator has been detected inside packet.
-        public event TransportErrorIndicatorDetectedEventHandler TransportErrorIndicatorDetected;
-
+        
         private void OnDiscontinuityDetected(int tsPid)
         {
             var handler = DiscontinuityDetected;
@@ -136,13 +143,6 @@ namespace TsAnalyser.Metrics
             var args = new TransportStreamEventArgs { TsPid = tsPid };
             handler(this, args);
         }
-
-        private void OnTransportErrorIndicatorDetected(int tsPid)
-        {
-            var handler = TransportErrorIndicatorDetected;
-            if (handler == null) return;
-            var args = new TransportStreamEventArgs { TsPid = tsPid };
-            handler(this, args);
-        }
+        
     }
 }
