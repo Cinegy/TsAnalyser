@@ -546,7 +546,11 @@ namespace TsAnalyser
 
                             var tsPackets = TsPacketFactory.GetTsPacketsFromData(data.DataPayload);
 
-                            if (tsPackets == null) break;
+                            if (tsPackets == null)
+                            {
+                                LogMessage(new LogRecord() { EventCategory = "Info", EventKey = "NullPackets", EventMessage = "Packet recieved with no detected TS packets", EventTags = _options.DescriptorTags });
+                                continue;
+                            }
 
                             AnalysePackets(tsPackets);
                         }

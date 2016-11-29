@@ -57,7 +57,7 @@ namespace TsDecoder.TransportStream
                         ContinuityCounter = (short)(data[start + 3] & 0xF)
                     };
 
-                    if (tsPacket.ContainsPayload && !tsPacket.TransportErrorIndicator)
+                    if (tsPacket.ContainsPayload && !tsPacket.TransportErrorIndicator && (tsPacket.Pid != 0x1fff))
                     {
                         var payloadOffs = start + 4;
                         var payloadSize = TsPacketSize - 4;
@@ -67,7 +67,10 @@ namespace TsDecoder.TransportStream
                             var adaptationFieldSize = 1 + data[payloadOffs];
 
                             if (adaptationFieldSize >= payloadSize)
-                                throw new Exception("adaptationFieldSize >= payloadSize");
+                            {
+                                Debug.WriteLine("TS packet data adaptationFieldSize >= payloadSize");
+                                return null;
+                            }
 
                             //todo: actually read adaptationfield here
 
