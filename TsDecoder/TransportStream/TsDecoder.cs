@@ -170,7 +170,7 @@ namespace TsDecoder.TransportStream
             {
                 var name = GetServiceDescriptorForProgramNumber(ProgramMapTables.FirstOrDefault()?.ProgramNumber);
                 var message =
-                    $"SDT {e.TsPid} Refreshed: {name.ServiceName} - {name.ServiceProviderName} (Version {ServiceDescriptionTable.VersionNumber}, Section {ServiceDescriptionTable.SectionNumber})";
+                    $"SDT {e.TsPid} Refreshed: {name?.ServiceName} - {name?.ServiceProviderName} (Version {ServiceDescriptionTable?.VersionNumber}, Section {ServiceDescriptionTable?.SectionNumber})";
 
                 OnTableChangeDetected(new TableChangedEventArgs() { Message = message, TablePid = e.TsPid });
             }

@@ -15,6 +15,7 @@
 
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -22,6 +23,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime;
 using System.ServiceModel;
 using System.ServiceModel.Description;
 using System.ServiceModel.Web;
@@ -58,9 +60,8 @@ namespace TsAnalyser
         private static StreamWriter _logFileStream;
         private static readonly object HistoricalFileLock = new object();
         private static bool _historicalBufferFlushing;
-        private static Dictionary<string,DateTime> _logFloodPreventionDictionary = new Dictionary<string, DateTime>();
 
-        private static readonly Queue<DataPacket> PacketQueue = new Queue<DataPacket>(3000);
+        private static ConcurrentQueue<DataPacket> _packetQueue = new ConcurrentQueue<DataPacket>();
         private static readonly Queue<DataPacket> HistoricalBuffer = new Queue<DataPacket>(HistoricaBufferSize);
         private static NetworkMetric _networkMetric;
         private static RtpMetric _rtpMetric = new RtpMetric();
@@ -168,6 +169,8 @@ namespace TsAnalyser
             }
             _options = opts;
 
+            GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+
             WorkLoop();
 
             return 0;
@@ -215,7 +218,7 @@ namespace TsAnalyser
                 var streamOptions = _options as StreamOptions;
                 if (streamOptions != null)
                 {
-                 
+
                     StartListeningToNetwork(streamOptions.MulticastAddress, streamOptions.MulticastGroup, streamOptions.AdapterAddress);
                 }
             }
@@ -247,13 +250,12 @@ namespace TsAnalyser
                     ((StreamOptions)_options).MulticastGroup, runningTime);
 
                 PrintToConsole(
-                    "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/{2}\t\t\nTotal Data (MB): {3}\t\tPackets per sec:{4}",
-                    _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, PacketQueue.Count,
+                    "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/(Peak: {2:0.00}%)\t\t\nTotal Data (MB): {3}\t\tPackets per sec:{4}",
+                    _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, _networkMetric.PeriodMaxNetworkBufferUsage,
                     _networkMetric.TotalData / 1048576,
                     _networkMetric.PacketsPerSecond);
-                PrintToConsole("Time Between Packets (ms): {0} \tShortest/Longest: {1}/{2}",
-                    _networkMetric.TimeBetweenLastPacket, _networkMetric.ShortestTimeBetweenPackets,
-                    _networkMetric.LongestTimeBetweenPackets);
+                PrintToConsole("Period Max Packet Jitter (ms): {0}\t\t",
+                    _networkMetric.PeriodLongestTimeBetweenPackets);
 
                 if (_historicalBufferFlushing)
                 {
@@ -472,44 +474,8 @@ namespace TsAnalyser
                         DataPayload = data,
                         Timestamp = NetworkMetric.AccurateCurrentTime()
                     };
-
-                    lock (PacketQueue)
-                    {
-                        PacketQueue.Enqueue(dataPkt);
-                        if (PacketQueue.Count > HistoricaBufferSize)
-                        {
-                            LogMessage(new LogRecord()
-                            {
-                                EventCategory = "Error",
-                                EventKey = "BufferOverflow",
-                                EventTags = _options.DescriptorTags,
-                                EventMessage = "Packet Queue grown too large - flushing all queues."
-                            });
-
-                            //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
-                            FlushHistoricalBufferToFile();
-
-                            if (((StreamOptions)_options).SaveHistoricalData)
-                            {
-                                LogMessage("Disabling historical data buffer after queue overflow - possibly resource constraints.");
-
-                                ((StreamOptions)_options).SaveHistoricalData = false;
-                            }
-
-                            PacketQueue.Clear();
-                        }
-                    }
-
-                    if (!((StreamOptions)_options).SaveHistoricalData) continue;
-
-                    lock (HistoricalBuffer)
-                    {
-                        HistoricalBuffer.Enqueue(dataPkt);
-                        if (HistoricalBuffer.Count >= HistoricaBufferSize)
-                        {
-                            HistoricalBuffer.Dequeue();
-                        }
-                    }
+                    
+                    _packetQueue.Enqueue(dataPkt);
                 }
                 else
                 {
@@ -523,21 +489,60 @@ namespace TsAnalyser
         {
             while (_pendingExit != true)
             {
-                if (PacketQueue.Count > 0)
+                if (_packetQueue.Count > 0)
                 {
                     DataPacket data;
-                    lock (PacketQueue)
+
+                    var dequeued = _packetQueue.TryDequeue(out data);
+
+                    if (!dequeued)
                     {
-                        data = PacketQueue.Dequeue();
+                        Thread.Yield();
+                        continue;
                     }
 
                     if (data?.DataPayload == null) continue;
+
+                    if (_packetQueue.Count > HistoricaBufferSize)
+                    {
+                        LogMessage(new LogRecord()
+                        {
+                            EventCategory = "Error",
+                            EventKey = "BufferOverflow",
+                            EventTags = _options.DescriptorTags,
+                            EventMessage = "Packet Queue grown too large - flushing all queues."
+                        });
+
+                        //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
+                        FlushHistoricalBufferToFile();
+
+                        if (((StreamOptions)_options).SaveHistoricalData)
+                        {
+                            LogMessage("Disabling historical data buffer after queue overflow - possibly resource constraints.");
+
+                            ((StreamOptions)_options).SaveHistoricalData = false;
+                        }
+
+                        _packetQueue = new ConcurrentQueue<DataPacket>();
+                    }
+
+                    if (((StreamOptions) _options).SaveHistoricalData)
+                    {
+                        lock (HistoricalBuffer)
+                        {
+                            HistoricalBuffer.Enqueue(data);
+                            if (HistoricalBuffer.Count >= HistoricaBufferSize)
+                            {
+                                HistoricalBuffer.Dequeue();
+                            }
+                        }
+                    }
 
                     try
                     {
                         lock (_networkMetric)
                         {
-                            _networkMetric.AddPacket(data.DataPayload, data.Timestamp, PacketQueue.Count);
+                            _networkMetric.AddPacket(data.DataPayload, data.Timestamp, _packetQueue.Count);
 
                             if (!((StreamOptions)_options).NoRtpHeaders)
                             {
@@ -624,7 +629,7 @@ namespace TsAnalyser
             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
             FlushHistoricalBufferToFile();
         }
-        
+
         private static void RtpMetric_SequenceDiscontinuityDetected(object sender, EventArgs e)
         {
             if (_options.VerboseLogging)
@@ -751,7 +756,7 @@ namespace TsAnalyser
                                 EventTags = _options.DescriptorTags,
                                 EventMessage = "Packet rate is too high for historical buffer size - clipped error stream"
                             });
-                            
+
                             _historicalBufferFlushing = false;
                             return;
                         }
@@ -827,7 +832,7 @@ namespace TsAnalyser
         private static void UpdateSeriesDataTimerCallback(object o)
         {
             if (!_options.TimeSeriesLogging) return;
-            
+
             try
             {
                 var tsMetricLogRecord = new TsMetricLogRecord()
@@ -856,7 +861,7 @@ namespace TsAnalyser
                 tsMetricLogRecord.Ts = tsmetric;
 
                 var formattedMsg = JsonConvert.SerializeObject(tsMetricLogRecord);
-                
+
                 WriteToFile(formattedMsg);
             }
             catch (Exception)
@@ -935,7 +940,7 @@ namespace TsAnalyser
                     EventTags = _options.DescriptorTags,
                     EventMessage = msg
                 });
-                
+
             }
         }
 
