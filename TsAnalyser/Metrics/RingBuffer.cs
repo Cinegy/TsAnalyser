@@ -81,7 +81,7 @@ namespace TsAnalyser.Metrics
                         return 0;
                     }
                 }
-                Thread.Yield();
+                Thread.Sleep(0);
             }
         }
 
