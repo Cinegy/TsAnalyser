@@ -62,6 +62,7 @@
   <ItemGroup>
     <Compile Include="Logging\LogRecord.cs" />
     <Compile Include="Logging\TsMetricLogRecord.cs" />
+    <Compile Include="Metrics\RingBuffer.cs" />
     <Compile Include="Metrics\DataPacket.cs" />
     <Compile Include="Metrics\Metric.cs" />
     <Compile Include="Metrics\TsMetric.cs" />

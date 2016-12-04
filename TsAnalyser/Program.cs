@@ -62,6 +62,7 @@ namespace TsAnalyser
         private static bool _historicalBufferFlushing;
 
         private static ConcurrentQueue<DataPacket> _packetQueue = new ConcurrentQueue<DataPacket>();
+        private static RingBuffer _ringBuffer = new RingBuffer();
         private static readonly Queue<DataPacket> HistoricalBuffer = new Queue<DataPacket>(HistoricaBufferSize);
         private static NetworkMetric _networkMetric;
         private static RtpMetric _rtpMetric = new RtpMetric();
@@ -469,13 +470,7 @@ namespace TsAnalyser
 
                 if (_warmedUp)
                 {
-                    var dataPkt = new DataPacket
-                    {
-                        DataPayload = data,
-                        Timestamp = NetworkMetric.AccurateCurrentTime()
-                    };
-                    
-                    _packetQueue.Enqueue(dataPkt);
+                    _ringBuffer.Add(ref data);
                 }
                 else
                 {
@@ -487,87 +482,84 @@ namespace TsAnalyser
 
         private static void ProcessQueueWorkerThread()
         {
+            var dataBuffer = new byte[12 + (188 * 7)];
+
             while (_pendingExit != true)
             {
-                if (_packetQueue.Count > 0)
+                int dataSize;
+                long timestamp;
+                var capacity = _ringBuffer.Remove(ref dataBuffer, out dataSize, out timestamp);
+
+                if (capacity > 0)
                 {
-                    DataPacket data;
+                    dataBuffer = new byte[capacity];
+                    continue;
+                }
 
-                    var dequeued = _packetQueue.TryDequeue(out data);
+                if (dataBuffer == null) continue;
 
-                    if (!dequeued)
+                //TODO: Reimplement support for historical buffer dumping
+
+                //if (_packetQueue.Count > HistoricaBufferSize)
+                //{
+                //    LogMessage(new LogRecord()
+                //    {
+                //        EventCategory = "Error",
+                //        EventKey = "BufferOverflow",
+                //        EventTags = _options.DescriptorTags,
+                //        EventMessage = "Packet Queue grown too large - flushing all queues."
+                //    });
+
+                //    //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
+                //    FlushHistoricalBufferToFile();
+
+                //    if (((StreamOptions)_options).SaveHistoricalData)
+                //    {
+                //        LogMessage("Disabling historical data buffer after queue overflow - possibly resource constraints.");
+
+                //        ((StreamOptions)_options).SaveHistoricalData = false;
+                //    }
+
+                //    _packetQueue = new ConcurrentQueue<DataPacket>();
+                //}
+
+                //if (((StreamOptions) _options).SaveHistoricalData)
+                //{
+                //    lock (HistoricalBuffer)
+                //    {
+                //        HistoricalBuffer.Enqueue(data);
+                //        if (HistoricalBuffer.Count >= HistoricaBufferSize)
+                //        {
+                //            HistoricalBuffer.Dequeue();
+                //        }
+                //    }
+                //}
+
+                try
+                {
+                    lock (_networkMetric)
                     {
-                        Thread.Yield();
-                        continue;
-                    }
+                        _networkMetric.AddPacket(dataBuffer, timestamp, _packetQueue.Count);
 
-                    if (data?.DataPayload == null) continue;
-
-                    if (_packetQueue.Count > HistoricaBufferSize)
-                    {
-                        LogMessage(new LogRecord()
+                        if (!((StreamOptions)_options).NoRtpHeaders)
                         {
-                            EventCategory = "Error",
-                            EventKey = "BufferOverflow",
-                            EventTags = _options.DescriptorTags,
-                            EventMessage = "Packet Queue grown too large - flushing all queues."
-                        });
-
-                        //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
-                        FlushHistoricalBufferToFile();
-
-                        if (((StreamOptions)_options).SaveHistoricalData)
-                        {
-                            LogMessage("Disabling historical data buffer after queue overflow - possibly resource constraints.");
-
-                            ((StreamOptions)_options).SaveHistoricalData = false;
+                            _rtpMetric.AddPacket(dataBuffer);
                         }
 
-                        _packetQueue = new ConcurrentQueue<DataPacket>();
-                    }
+                        var tsPackets = TsPacketFactory.GetTsPacketsFromData(dataBuffer);
 
-                    if (((StreamOptions) _options).SaveHistoricalData)
-                    {
-                        lock (HistoricalBuffer)
+                        if (tsPackets == null)
                         {
-                            HistoricalBuffer.Enqueue(data);
-                            if (HistoricalBuffer.Count >= HistoricaBufferSize)
-                            {
-                                HistoricalBuffer.Dequeue();
-                            }
+                            LogMessage(new LogRecord() { EventCategory = "Info", EventKey = "NullPackets", EventMessage = "Packet recieved with no detected TS packets", EventTags = _options.DescriptorTags });
+                            continue;
                         }
-                    }
 
-                    try
-                    {
-                        lock (_networkMetric)
-                        {
-                            _networkMetric.AddPacket(data.DataPayload, data.Timestamp, _packetQueue.Count);
-
-                            if (!((StreamOptions)_options).NoRtpHeaders)
-                            {
-                                _rtpMetric.AddPacket(data.DataPayload);
-                            }
-
-                            var tsPackets = TsPacketFactory.GetTsPacketsFromData(data.DataPayload);
-
-                            if (tsPackets == null)
-                            {
-                                LogMessage(new LogRecord() { EventCategory = "Info", EventKey = "NullPackets", EventMessage = "Packet recieved with no detected TS packets", EventTags = _options.DescriptorTags });
-                                continue;
-                            }
-
-                            AnalysePackets(tsPackets);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        LogMessage($@"Unhandled exception within network receiver: {ex.Message}");
+                        AnalysePackets(tsPackets);
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    Thread.Sleep(1);
+                    LogMessage($@"Unhandled exception within network receiver: {ex.Message}");
                 }
             }
             LogMessage("Stopping analysis thread due to exit request.");
