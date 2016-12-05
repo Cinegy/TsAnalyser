@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 
@@ -16,11 +17,13 @@ namespace TsAnalyser.Metrics
         private const int PacketSize = 1500;
         private readonly object _lockObj = new object();
 
+        private long TimerFreq { get; } = Stopwatch.Frequency/1000;
+
         public RingBuffer()
         {
             ResetBuffers();
         }
-
+        
         private void ResetBuffers()
         {
             lock (_lockObj)
@@ -50,7 +53,7 @@ namespace TsAnalyser.Metrics
                     //good data size
                     Buffer.BlockCopy(data, 0, _buffer[_lastAddPos], 0, data.Length);
                     _dataLength[_lastAddPos] = data.Length;
-                    _addTimestamp[_lastAddPos++] = DateTime.UtcNow.Ticks;
+                    _addTimestamp[_lastAddPos++] = Stopwatch.GetTimestamp() / TimerFreq;
                 }
                 else
                 {

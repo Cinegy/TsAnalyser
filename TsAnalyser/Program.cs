@@ -60,9 +60,8 @@ namespace TsAnalyser
         private static StreamWriter _logFileStream;
         private static readonly object HistoricalFileLock = new object();
         private static bool _historicalBufferFlushing;
-
-        private static ConcurrentQueue<DataPacket> _packetQueue = new ConcurrentQueue<DataPacket>();
-        private static RingBuffer _ringBuffer = new RingBuffer();
+        
+        private static readonly RingBuffer RingBuffer = new RingBuffer();
         private static readonly Queue<DataPacket> HistoricalBuffer = new Queue<DataPacket>(HistoricaBufferSize);
         private static NetworkMetric _networkMetric;
         private static RtpMetric _rtpMetric = new RtpMetric();
@@ -470,7 +469,7 @@ namespace TsAnalyser
 
                 if (_warmedUp)
                 {
-                    _ringBuffer.Add(ref data);
+                    RingBuffer.Add(ref data);
                 }
                 else
                 {
@@ -488,7 +487,7 @@ namespace TsAnalyser
             {
                 int dataSize;
                 long timestamp;
-                var capacity = _ringBuffer.Remove(ref dataBuffer, out dataSize, out timestamp);
+                var capacity = RingBuffer.Remove(ref dataBuffer, out dataSize, out timestamp);
 
                 if (capacity > 0)
                 {
@@ -539,7 +538,8 @@ namespace TsAnalyser
                 {
                     lock (_networkMetric)
                     {
-                        _networkMetric.AddPacket(dataBuffer, timestamp, _packetQueue.Count);
+                        //TODO: Inject ringbuffer delta below (after removing queue)
+                        _networkMetric.AddPacket(dataBuffer, timestamp, 0);
 
                         if (!((StreamOptions)_options).NoRtpHeaders)
                         {

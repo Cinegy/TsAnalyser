@@ -254,7 +254,7 @@ namespace TsAnalyser.Metrics
         [DllImport(Lib)]
         private static extern bool QueryPerformanceFrequency(out long lpFrequency);
 
-        public void AddPacket(byte[] data, long recvTime, int currentQueueSize)
+        public void AddPacket(byte[] data, long recvTimeMs, int currentQueueSize)
         {
             lock (this)
             {
@@ -263,17 +263,16 @@ namespace TsAnalyser.Metrics
                     RegisterFirstPacket();
                 }
 
-                _currentPacketTime = recvTime;
                 CurrentPacketQueue = currentQueueSize;
 
                 if (MaxPacketQueue < currentQueueSize) MaxPacketQueue = currentQueueSize;
 
                 if (_periodMaxPacketQueue < currentQueueSize) _periodMaxPacketQueue = currentQueueSize;
 
-                var timeBetweenLastPacket = (_currentPacketTime - _lastPacketTime)*1000;
-
-                timeBetweenLastPacket = timeBetweenLastPacket/_timerFreq;
-
+                _currentPacketTime = recvTimeMs;
+                
+                var timeBetweenLastPacket = (_currentPacketTime - _lastPacketTime);
+               
                 TimeBetweenLastPacket = timeBetweenLastPacket;
 
                 _lastPacketTime = _currentPacketTime;
