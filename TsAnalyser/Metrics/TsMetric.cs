@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace TsAnalyser.Metrics
 {
-    internal class TsMetric : Metric
+    internal class TsMetric 
     {
         [DataMember]
         public int PidCount { get; set; }

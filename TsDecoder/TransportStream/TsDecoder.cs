@@ -119,15 +119,31 @@ namespace TsDecoder.TransportStream
                 return;
             }
 
-            if (!ProgramAssociationTable.Pids.Contains(tsPacket.Pid)) return;
+            var contains = false;
+            foreach (var pid in ProgramAssociationTable.Pids)
+            {
+                if (!Equals(pid, tsPacket.Pid)) continue;
+                contains = true;
+                break;
+            }
 
-            var selectedPmt = _pmtFactories?.FirstOrDefault(t => t.TablePid == tsPacket.Pid);
+            if (!contains) return;
+
+            ProgramMapTableFactory selectedPmt = null;
+            foreach (var t in _pmtFactories)
+            {
+                if (t.TablePid != tsPacket.Pid) continue;
+                selectedPmt = t;
+                break;
+            }
+
             if (selectedPmt == null)
             {
                 selectedPmt = new ProgramMapTableFactory();
                 selectedPmt.TableChangeDetected += _pmtFactory_TableChangeDetected;
                 _pmtFactories?.Add(selectedPmt);
             }
+
             selectedPmt.AddPacket(tsPacket);
         }
         

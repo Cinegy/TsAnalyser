@@ -571,7 +571,13 @@ namespace TsAnalyser
             {
                 foreach (var tsPacket in tsPackets)
                 {
-                    var currentPidMetric = _pidMetrics.FirstOrDefault(pidMetric => pidMetric.Pid == tsPacket.Pid);
+                    PidMetric currentPidMetric = null;
+                    foreach (var pidMetric in _pidMetrics)
+                    {
+                        if (pidMetric.Pid != tsPacket.Pid) continue;
+                        currentPidMetric = pidMetric;
+                        break;
+                    }
 
                     if (currentPidMetric == null)
                     {
