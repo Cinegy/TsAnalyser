@@ -63,6 +63,7 @@ namespace TsAnalyser
         
         private static readonly RingBuffer RingBuffer = new RingBuffer();
         private static readonly Queue<DataPacket> HistoricalBuffer = new Queue<DataPacket>(HistoricaBufferSize);
+        private static ulong _lastPcr = 0;
         private static NetworkMetric _networkMetric;
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
@@ -280,6 +281,9 @@ namespace TsAnalyser
 
             lock (_pidMetrics)
             {
+                var span = TsPacketFactory.PcrToTimespan(_lastPcr);
+                PrintToConsole(_lastPcr > 0 ? $"\nPCR Value: {span}\n----------------" : "");
+                
                 PrintToConsole(_pidMetrics.Count < 10
                     ? $"\nPID Details - Unique PIDs: {_pidMetrics.Count}\n----------------"
                     : $"\nPID Details - Unique PIDs: {_pidMetrics.Count}, (10 shown by packet count)\n----------------");
@@ -571,6 +575,14 @@ namespace TsAnalyser
             {
                 foreach (var tsPacket in tsPackets)
                 {
+                    if (tsPacket.AdaptationFieldExists)
+                    {
+                        if (tsPacket.AdaptationField.PcrFlag)
+                        {
+                            _lastPcr = tsPacket.AdaptationField.Pcr;
+                        }
+                    }
+
                     PidMetric currentPidMetric = null;
                     foreach (var pidMetric in _pidMetrics)
                     {

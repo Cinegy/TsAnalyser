@@ -25,6 +25,21 @@ namespace TsDecoder.TransportStream
         public short ContinuityCounter;
         public PesHdr PesHeader;
         public byte[] Payload;
+        public AdaptationField AdaptationField;
+    }
+
+    public struct AdaptationField
+    {
+        public int FieldSize;
+        public bool DiscontinuityIndicator;
+        public bool RandomAccessIndicator;
+        public bool ElementaryStreamPriorityIndicator;
+        public bool PcrFlag;
+        public bool OpcrFlag;
+        public bool SplicingPointFlag;
+        public bool TransportPrivateDataFlag;
+        public bool AdaptationFieldExtensionFlag;
+        public ulong Pcr;
     }
 
     public static class TsPacketFactory
@@ -64,18 +79,38 @@ namespace TsDecoder.TransportStream
 
                         if (tsPacket.AdaptationFieldExists)
                         {
-                            var adaptationFieldSize = 1 + data[payloadOffs];
+                            tsPacket.AdaptationField = new AdaptationField()
+                            {
+                                FieldSize = 1 + data[start + 4],
+                                PcrFlag = (data[start + 5] & 0x10) !=0
+                            };
+                        
 
-                            if (adaptationFieldSize >= payloadSize)
+                        if (tsPacket.AdaptationField.FieldSize >= payloadSize)
                             {
                                 Debug.WriteLine("TS packet data adaptationFieldSize >= payloadSize");
                                 return null;
                             }
+                        
 
-                            //todo: actually read adaptationfield here
+                            if (tsPacket.AdaptationField.PcrFlag)
+                            {
+                                //Packet has PCR
+                                uint iTmp;
 
-                            payloadSize -= adaptationFieldSize;
-                            payloadOffs += adaptationFieldSize;
+                                tsPacket.AdaptationField.Pcr = (ulong)((data[start + 6] << 24) + (data[start + 7] << 16) + (data[start + 8] << 8) + data[start + 9]);
+                                tsPacket.AdaptationField.Pcr <<= 1;
+                                if ((data[start + 10] & 0x80) == 1)
+                                {
+                                    tsPacket.AdaptationField.Pcr |= 1;
+                                }
+                                tsPacket.AdaptationField.Pcr /= 300;
+                                iTmp = (uint)((data[start + 10] & 1) << 8) + data[start + 11];
+                                tsPacket.AdaptationField.Pcr += iTmp;
+                            }
+
+                            payloadSize -= tsPacket.AdaptationField.FieldSize;
+                            payloadOffs += tsPacket.AdaptationField.FieldSize;
                         }
 
                         if (tsPacket.PayloadUnitStartIndicator)
@@ -149,6 +184,21 @@ namespace TsDecoder.TransportStream
             }
 
             return null;
+        }
+
+        public static TimeSpan PcrToTimespan(ulong pcr)
+        {
+            var day = (int)(pcr / 2332800000000L);
+            var r = pcr % 2332800000000L;
+            var hour = (int)(r / (97200000000L));
+            r = r % (97200000000L);
+            var minute = (int)(r / (1620000000L));
+            r = r % (1620000000L);
+            var second = (int)(r / (27000000L));
+            r = r % (27000000L);
+            var millis = (int)(r / 27000);
+
+            return new TimeSpan(day,hour,minute,second, millis);
         }
 
         private static long Get_TimeStamp(int code, IList<byte> data, int offs)
