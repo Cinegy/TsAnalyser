@@ -281,7 +281,7 @@ namespace TsAnalyser
 
             lock (_pidMetrics)
             {
-                var span = TsPacketFactory.PcrToTimespan(_lastPcr);
+                var span = new TimeSpan((long)(_lastPcr/2.7));
                 PrintToConsole(_lastPcr > 0 ? $"\nPCR Value: {span}\n----------------" : "");
                 
                 PrintToConsole(_pidMetrics.Count < 10

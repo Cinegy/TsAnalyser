@@ -96,17 +96,23 @@ namespace TsDecoder.TransportStream
                             if (tsPacket.AdaptationField.PcrFlag)
                             {
                                 //Packet has PCR
-                                uint iTmp;
 
-                                tsPacket.AdaptationField.Pcr = (ulong)((data[start + 6] << 24) + (data[start + 7] << 16) + (data[start + 8] << 8) + data[start + 9]);
+                                var a = (uint)data[start + 6];
+                                var b = (uint)(data[start + 7]);
+                                var c = (uint)(data[start + 8]);
+                                var d = (uint)(data[start + 9]);
+
+                                var shifted = (a << 24);
+
+                                tsPacket.AdaptationField.Pcr = (ulong)(((uint)(data[start + 6]) << 24) + ((uint)(data[start + 7] << 16)) + ((uint)(data[start + 8] << 8)) + ((uint)data[start + 9]));
                                 tsPacket.AdaptationField.Pcr <<= 1;
                                 if ((data[start + 10] & 0x80) == 1)
                                 {
                                     tsPacket.AdaptationField.Pcr |= 1;
                                 }
-                                tsPacket.AdaptationField.Pcr /= 300;
-                                iTmp = (uint)((data[start + 10] & 1) << 8) + data[start + 11];
-                                tsPacket.AdaptationField.Pcr += iTmp;
+                                tsPacket.AdaptationField.Pcr *= 300;
+                                var iLow = (uint)((data[start + 10] & 1) << 8) + data[start + 11];
+                                tsPacket.AdaptationField.Pcr += iLow;
                             }
 
                             payloadSize -= tsPacket.AdaptationField.FieldSize;
@@ -143,6 +149,12 @@ namespace TsDecoder.TransportStream
                                         break;
                                     case 1:
                                         throw new Exception("PES Syntax error: pts_dts_flag = 1");
+                                }
+
+                                if (tsPacket.AdaptationField.PcrFlag && ptsDtsFlag > 1)
+                                {
+                                    var ts = new TimeSpan((long)(((long)tsPacket.AdaptationField.Pcr - tsPacket.PesHeader.Pts * 300)/2.7));
+                                    Debug.WriteLine($"PCR: {tsPacket.AdaptationField.Pcr}, PTS: {tsPacket.PesHeader.Pts}, Delta = {ts}");
                                 }
 
                                 var pesLength = 9 + data[payloadOffs + 8];
