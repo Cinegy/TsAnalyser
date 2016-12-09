@@ -72,7 +72,8 @@ namespace TsDecoder.TransportStream
                         ContinuityCounter = (short)(data[start + 3] & 0xF)
                     };
 
-                    if (!tsPacket.TransportErrorIndicator && (tsPacket.Pid != 0x1fff))
+                    //skip packets with error indicators or on the null PID
+                    if (!tsPacket.TransportErrorIndicator && (tsPacket.Pid != (short)PidType.NullPid))
                     {
                         var payloadOffs = start + 4;
                         var payloadSize = TsPacketSize - 4;
@@ -85,10 +86,11 @@ namespace TsDecoder.TransportStream
                                 PcrFlag = (data[start + 5] & 0x10) !=0
                             };
                         
-
                             if (tsPacket.AdaptationField.FieldSize > payloadSize)
                             {
-                                Debug.WriteLine("TS packet data adaptationFieldSize > payloadSize");
+                                #if DEBUG
+                                    Debug.WriteLine("TS packet data adaptationFieldSize > payloadSize");
+                                #endif
                                 return null;
                             }
 
@@ -142,11 +144,11 @@ namespace TsDecoder.TransportStream
                                         throw new Exception("PES Syntax error: pts_dts_flag = 1");
                                 }
 
-                                if (tsPacket.AdaptationField.PcrFlag && ptsDtsFlag > 1)
-                                {
-                                    var ts = new TimeSpan((long)(((long)tsPacket.AdaptationField.Pcr - tsPacket.PesHeader.Pts * 300)/2.7));
-                                    Debug.WriteLine($"PCR: {tsPacket.AdaptationField.Pcr}, PTS: {tsPacket.PesHeader.Pts}, Delta = {ts}");
-                                }
+                                //if (tsPacket.AdaptationField.PcrFlag && ptsDtsFlag > 1)
+                                //{
+                                //    var ts = new TimeSpan((long)(((long)tsPacket.AdaptationField.Pcr - tsPacket.PesHeader.Pts * 300)/2.7));
+                                //    Debug.WriteLine($"PCR: {tsPacket.AdaptationField.Pcr}, PTS: {tsPacket.PesHeader.Pts}, Delta = {ts}");
+                                //}
 
                                 var pesLength = 9 + data[payloadOffs + 8];
                                 tsPacket.PesHeader.Payload = new byte[pesLength];
@@ -184,22 +186,7 @@ namespace TsDecoder.TransportStream
 
             return null;
         }
-
-        public static TimeSpan PcrToTimespan(ulong pcr)
-        {
-            var day = (int)(pcr / 2332800000000L);
-            var r = pcr % 2332800000000L;
-            var hour = (int)(r / (97200000000L));
-            r = r % (97200000000L);
-            var minute = (int)(r / (1620000000L));
-            r = r % (1620000000L);
-            var second = (int)(r / (27000000L));
-            r = r % (27000000L);
-            var millis = (int)(r / 27000);
-
-            return new TimeSpan(day,hour,minute,second, millis);
-        }
-
+        
         private static long Get_TimeStamp(int code, IList<byte> data, int offs)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));

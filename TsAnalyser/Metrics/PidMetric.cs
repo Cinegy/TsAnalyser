@@ -19,6 +19,10 @@ namespace TsAnalyser.Metrics
         private bool _hasPcr = false;
         private ulong _lastPcr = 0;
         private ulong _periodLargestPcrDelta;
+        private int _periodLargestPcrDrift;
+
+        private ulong _referencePcr;
+        private ulong _referenceTime;
 
         internal override void ResetPeriodTimerCallback(object o)
         {
@@ -33,10 +37,14 @@ namespace TsAnalyser.Metrics
                 PeriodTeiCount = _periodTeiCount;
                 _periodTeiCount = 0;
 
-                PeriodLargestPcrDelta = (int)TsPacketFactory.PcrToTimespan(_periodLargestPcrDelta).TotalMilliseconds;
+                PeriodLargestPcrDelta = (int)new TimeSpan((long)(_periodLargestPcrDelta / 2.7)).TotalMilliseconds;
 
                 _periodLargestPcrDelta = 0;
-                
+
+                PeriodLargestPcrDrift = _periodLargestPcrDrift;
+                _periodLargestPcrDrift = 0;
+
+
                 base.ResetPeriodTimerCallback(o);
             }
         }
@@ -66,6 +74,10 @@ namespace TsAnalyser.Metrics
 
         [DataMember]
         public int PeriodLargestPcrDelta { get; private set; }
+
+
+        [DataMember]
+        public int PeriodLargestPcrDrift { get; private set; }
 
         private int LastCc { get; set; }
         
@@ -102,43 +114,27 @@ namespace TsAnalyser.Metrics
             if (!tsPacket.AdaptationFieldExists) return;
             if (!tsPacket.AdaptationField.PcrFlag) return;
 
-            //tsPacket.AdaptationField = new AdaptationField()
-            //{
-            //    FieldSize = 1 + tsPacket.Payload[4],
-            //    PcrFlag = (tsPacket.Payload[5] & 0x10) != 0
-            //};
-
-            //if (tsPacket.AdaptationField.FieldSize >= tsPacket.Payload.Length)
-            //{
-            //    Debug.WriteLine("TS packet data adaptationFieldSize >= payloadSize");
-            //    return;
-            //}
-
-            //if (tsPacket.AdaptationField.PcrFlag)
-            //{
-            //    _hasPcr = true;
-
-            //    //Packet has PCR
-            //    tsPacket.AdaptationField.Pcr = (((uint)(tsPacket.Payload[6]) << 24) + ((uint)(tsPacket.Payload[7] << 16)) + ((uint)(tsPacket.Payload[8] << 8)) + (tsPacket.Payload[9]));
-            //    tsPacket.AdaptationField.Pcr <<= 1;
-            //    if ((tsPacket.Payload[10] & 0x80) == 1)
-            //    {
-            //        tsPacket.AdaptationField.Pcr |= 1;
-            //    }
-            //    tsPacket.AdaptationField.Pcr *= 300;
-            //    var iLow = (uint)((tsPacket.Payload[10] & 1) << 8) + tsPacket.Payload[11];
-            //    tsPacket.AdaptationField.Pcr += iLow;
-            //}
-
             if (_lastPcr != 0)
             {
                 var latestDelta = tsPacket.AdaptationField.Pcr - _lastPcr;
                 if (latestDelta > _periodLargestPcrDelta) _periodLargestPcrDelta = latestDelta;
+
+                var elapsedPcr = (long)(tsPacket.AdaptationField.Pcr - _referencePcr);
+                var elapsedClock = (long)((DateTime.UtcNow.Ticks * 2.7) - _referenceTime);
+                var drift = (int)(elapsedClock - elapsedPcr) / 27000;
+                if (drift > _periodLargestPcrDrift)
+                {
+                    _periodLargestPcrDrift = drift;
+                }
+            }
+            else
+            {
+                //first PCR value - set up reference values
+                _referencePcr = tsPacket.AdaptationField.Pcr;
+                _referenceTime = (ulong)(DateTime.UtcNow.Ticks*2.7);
             }
 
             _lastPcr = tsPacket.AdaptationField.Pcr;
-            
-
         }
 
         private void CheckCcContinuity(TsPacket newPacket)

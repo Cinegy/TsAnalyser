@@ -23,5 +23,8 @@ namespace TsAnalyser.Metrics
 
         [DataMember]
         public int LongestPcrDelta { get; set; }
+
+        [DataMember]
+        public int LargestPcrDrift { get; set; }
     }
 }

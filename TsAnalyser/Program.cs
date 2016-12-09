@@ -871,6 +871,12 @@ namespace TsAnalyser
                     {
                         tsmetric.LongestPcrDelta += pidMetric.PeriodLargestPcrDelta;
                     }
+
+                    if (tsmetric.LargestPcrDrift < pidMetric.PeriodLargestPcrDrift)
+                    {
+                        tsmetric.LargestPcrDrift += pidMetric.PeriodLargestPcrDrift;
+                    }
+
                 }
 
                 tsMetricLogRecord.Ts = tsmetric;
