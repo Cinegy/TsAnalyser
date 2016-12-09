@@ -59,6 +59,7 @@
     <Compile Include="TransportStream\TransportStreamEventArgs.cs" />
     <Compile Include="TransportStream\TsDecoder.cs" />
     <Compile Include="TransportStream\TsPacket.cs" />
+    <Compile Include="TransportStream\TsPacketFactory.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Readme.md" />

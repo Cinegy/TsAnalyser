@@ -113,9 +113,21 @@ namespace TsAnalyser.Metrics
         {
             if (!tsPacket.AdaptationFieldExists) return;
             if (!tsPacket.AdaptationField.PcrFlag) return;
+            if (tsPacket.AdaptationField.FieldSize < 1) return;
 
+            if (tsPacket.AdaptationField.DiscontinuityIndicator)
+            {
+                Debug.WriteLine("Adaptation field discont indicator");
+                return;
+            }
+            
             if (_lastPcr != 0)
             {
+                //if (tsPacket.AdaptationField.Pcr == 0)
+                //{
+                //    Debug.WriteLine("Why is this zero?");
+                //}
+
                 var latestDelta = tsPacket.AdaptationField.Pcr - _lastPcr;
                 if (latestDelta > _periodLargestPcrDelta) _periodLargestPcrDelta = latestDelta;
 
@@ -126,6 +138,11 @@ namespace TsAnalyser.Metrics
                 {
                     _periodLargestPcrDrift = drift;
                 }
+
+                //if (drift > 1000 || drift < -1000)
+                //{
+                //    Debug.WriteLine($"Stupid drift value on pid {tsPacket.Pid}: {drift}");
+                //}
             }
             else
             {
@@ -170,7 +187,7 @@ namespace TsAnalyser.Metrics
                     {
                         CcErrorCount++;
                         _periodCcErrorCount++;
-                        OnDiscontinuityDetected(newPacket.Pid);
+                        OnDiscontinuityDetected(newPacket);
                         return;
                     }
                 }
@@ -179,7 +196,7 @@ namespace TsAnalyser.Metrics
 
                 CcErrorCount++;
                 _periodCcErrorCount++;
-                OnDiscontinuityDetected(newPacket.Pid);
+                OnDiscontinuityDetected(newPacket);
             }
             catch (Exception ex)
             {
@@ -190,11 +207,15 @@ namespace TsAnalyser.Metrics
         // Continuity Counter Error has been detected.
         public event DiscontinuityDetectedEventHandler DiscontinuityDetected;
         
-        private void OnDiscontinuityDetected(int tsPid)
+        private void OnDiscontinuityDetected(TsPacket tsPacket)
         {
+            //reset reference PCR values used for drift check - set up reference values
+            _referencePcr = tsPacket.AdaptationField.Pcr;
+            _referenceTime = (ulong)(DateTime.UtcNow.Ticks * 2.7);
+
             var handler = DiscontinuityDetected;
             if (handler == null) return;
-            var args = new TransportStreamEventArgs { TsPid = tsPid };
+            var args = new TransportStreamEventArgs { TsPid = tsPacket.Pid };
             handler(this, args);
         }
         
