@@ -72,7 +72,7 @@ namespace TsDecoder.TransportStream
                         ContinuityCounter = (short)(data[start + 3] & 0xF)
                     };
 
-                    if (tsPacket.ContainsPayload && !tsPacket.TransportErrorIndicator && (tsPacket.Pid != 0x1fff))
+                    if (!tsPacket.TransportErrorIndicator && (tsPacket.Pid != 0x1fff))
                     {
                         var payloadOffs = start + 4;
                         var payloadSize = TsPacketSize - 4;
@@ -86,25 +86,16 @@ namespace TsDecoder.TransportStream
                             };
                         
 
-                        if (tsPacket.AdaptationField.FieldSize >= payloadSize)
+                            if (tsPacket.AdaptationField.FieldSize > payloadSize)
                             {
-                                Debug.WriteLine("TS packet data adaptationFieldSize >= payloadSize");
+                                Debug.WriteLine("TS packet data adaptationFieldSize > payloadSize");
                                 return null;
                             }
-                        
 
                             if (tsPacket.AdaptationField.PcrFlag)
                             {
                                 //Packet has PCR
-
-                                var a = (uint)data[start + 6];
-                                var b = (uint)(data[start + 7]);
-                                var c = (uint)(data[start + 8]);
-                                var d = (uint)(data[start + 9]);
-
-                                var shifted = (a << 24);
-
-                                tsPacket.AdaptationField.Pcr = (ulong)(((uint)(data[start + 6]) << 24) + ((uint)(data[start + 7] << 16)) + ((uint)(data[start + 8] << 8)) + ((uint)data[start + 9]));
+                                tsPacket.AdaptationField.Pcr = (((uint)(data[start + 6]) << 24) + ((uint)(data[start + 7] << 16)) + ((uint)(data[start + 8] << 8)) + (data[start + 9]));
                                 tsPacket.AdaptationField.Pcr <<= 1;
                                 if ((data[start + 10] & 0x80) == 1)
                                 {
@@ -119,7 +110,7 @@ namespace TsDecoder.TransportStream
                             payloadOffs += tsPacket.AdaptationField.FieldSize;
                         }
 
-                        if (tsPacket.PayloadUnitStartIndicator)
+                        if (tsPacket.ContainsPayload && tsPacket.PayloadUnitStartIndicator)
                         {
                             if (payloadOffs > (data.Length - 2) || data[payloadOffs] != 0 || data[payloadOffs + 1] != 0 || data[payloadOffs + 2] != 1)
                             {
@@ -166,11 +157,7 @@ namespace TsDecoder.TransportStream
                             }
                         }
 
-                        if (payloadSize < 1)
-                        {
-                            tsPacket.TransportErrorIndicator = true;
-                        }
-                        else
+                        if (payloadSize > 1)
                         {
                             tsPacket.Payload = new byte[payloadSize];
                             Buffer.BlockCopy(data, payloadOffs, tsPacket.Payload, 0, payloadSize);

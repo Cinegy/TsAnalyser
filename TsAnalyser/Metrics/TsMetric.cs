@@ -20,5 +20,8 @@ namespace TsAnalyser.Metrics
 
         [DataMember]
         public int TeiErrors { get; set; }
+
+        [DataMember]
+        public int LongestPcrDelta { get; set; }
     }
 }

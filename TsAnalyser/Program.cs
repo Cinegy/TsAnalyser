@@ -233,7 +233,7 @@ namespace TsAnalyser
                     PrintConsoleFeedback();
                 }
 
-                Thread.Sleep(20);
+               Thread.Sleep(20);
             }
 
             LogMessage("Logging stopped.");
@@ -255,6 +255,7 @@ namespace TsAnalyser
                     _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, _networkMetric.PeriodMaxNetworkBufferUsage,
                     _networkMetric.TotalData / 1048576,
                     _networkMetric.PacketsPerSecond);
+
                 PrintToConsole("Period Max Packet Jitter (ms): {0}\t\t",
                     _networkMetric.PeriodLongestTimeBetweenPackets);
 
@@ -282,7 +283,7 @@ namespace TsAnalyser
             lock (_pidMetrics)
             {
                 var span = new TimeSpan((long)(_lastPcr/2.7));
-                PrintToConsole(_lastPcr > 0 ? $"\nPCR Value: {span}\n----------------" : "");
+                PrintToConsole(_lastPcr > 0 ? $"\nPCR Value: {span}\n----------------" : "\n\n");
                 
                 PrintToConsole(_pidMetrics.Count < 10
                     ? $"\nPID Details - Unique PIDs: {_pidMetrics.Count}\n----------------"
@@ -866,6 +867,10 @@ namespace TsAnalyser
                     tsmetric.PidPackets += pidMetric.PeriodPacketCount;
                     tsmetric.PidCcErrors += pidMetric.PeriodCcErrorCount;
                     tsmetric.TeiErrors += pidMetric.PeriodTeiCount;
+                    if (tsmetric.LongestPcrDelta < pidMetric.PeriodLargestPcrDelta)
+                    {
+                        tsmetric.LongestPcrDelta += pidMetric.PeriodLargestPcrDelta;
+                    }
                 }
 
                 tsMetricLogRecord.Ts = tsmetric;

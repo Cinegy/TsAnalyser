@@ -17,6 +17,7 @@ namespace TsDecoder.TransportStream
         private ProgramAssociationTableFactory _patFactory;
         private ServiceDescriptionTableFactory _sdtFactory;
         private List<ProgramMapTableFactory> _pmtFactories;
+        
 
 
         public delegate void TableChangeEventHandler(object sender, TableChangedEventArgs args);
@@ -119,6 +120,8 @@ namespace TsDecoder.TransportStream
                 return;
             }
 
+           // CheckPcr(tsPacket);
+
             var contains = false;
             foreach (var pid in ProgramAssociationTable.Pids)
             {
@@ -146,7 +149,8 @@ namespace TsDecoder.TransportStream
 
             selectedPmt.AddPacket(tsPacket);
         }
-        
+
+     
         private void SetupFactories()
         {
             _patFactory = new ProgramAssociationTableFactory();
