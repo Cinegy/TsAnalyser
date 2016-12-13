@@ -20,6 +20,9 @@ namespace TsAnalyser.Metrics
         private ulong _lastPcr = 0;
         private ulong _periodLargestPcrDelta;
         private int _periodLargestPcrDrift;
+        private int _periodLowestPcrDrift;
+        private int _largePcrDriftCount = 0;
+        private const int PcrDriftLimit = 1000;
 
         private ulong _referencePcr;
         private ulong _referenceTime;
@@ -43,6 +46,9 @@ namespace TsAnalyser.Metrics
 
                 PeriodLargestPcrDrift = _periodLargestPcrDrift;
                 _periodLargestPcrDrift = 0;
+
+                PeriodLowestPcrDrift = _periodLowestPcrDrift;
+                _periodLowestPcrDrift = 0;
 
 
                 base.ResetPeriodTimerCallback(o);
@@ -74,10 +80,12 @@ namespace TsAnalyser.Metrics
 
         [DataMember]
         public int PeriodLargestPcrDelta { get; private set; }
-
-
+        
         [DataMember]
         public int PeriodLargestPcrDrift { get; private set; }
+
+        [DataMember]
+        public int PeriodLowestPcrDrift { get; private set; }
 
         private int LastCc { get; set; }
         
@@ -123,32 +131,48 @@ namespace TsAnalyser.Metrics
             
             if (_lastPcr != 0)
             {
-                //if (tsPacket.AdaptationField.Pcr == 0)
-                //{
-                //    Debug.WriteLine("Why is this zero?");
-                //}
-
                 var latestDelta = tsPacket.AdaptationField.Pcr - _lastPcr;
                 if (latestDelta > _periodLargestPcrDelta) _periodLargestPcrDelta = latestDelta;
 
                 var elapsedPcr = (long)(tsPacket.AdaptationField.Pcr - _referencePcr);
                 var elapsedClock = (long)((DateTime.UtcNow.Ticks * 2.7) - _referenceTime);
                 var drift = (int)(elapsedClock - elapsedPcr) / 27000;
+
                 if (drift > _periodLargestPcrDrift)
                 {
                     _periodLargestPcrDrift = drift;
+                    Debug.Print("Highest drift:" + _periodLargestPcrDrift);
                 }
 
-                //if (drift > 1000 || drift < -1000)
-                //{
-                //    Debug.WriteLine($"Stupid drift value on pid {tsPacket.Pid}: {drift}");
-                //}
+                if (drift > PcrDriftLimit)
+                {
+                    _largePcrDriftCount++;
+                }
+
+                drift = (int)(elapsedPcr - elapsedClock) / 27000;
+                if (drift > _periodLowestPcrDrift)
+                {
+                    _periodLowestPcrDrift = drift;
+                    Debug.Print("Lowest drift:" + _periodLowestPcrDrift);
+                }
+
+                if (drift > PcrDriftLimit)
+                {
+                    _largePcrDriftCount++;
+                }
             }
             else
             {
                 //first PCR value - set up reference values
                 _referencePcr = tsPacket.AdaptationField.Pcr;
                 _referenceTime = (ulong)(DateTime.UtcNow.Ticks*2.7);
+            }
+
+            if (_largePcrDriftCount > 5)
+            {
+                //exceeded PCR drift ceiling - reset clocks
+                _referencePcr = tsPacket.AdaptationField.Pcr;
+                _referenceTime = (ulong)(DateTime.UtcNow.Ticks * 2.7);
             }
 
             _lastPcr = tsPacket.AdaptationField.Pcr;

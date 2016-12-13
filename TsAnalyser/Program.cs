@@ -867,16 +867,21 @@ namespace TsAnalyser
                     tsmetric.PidPackets += pidMetric.PeriodPacketCount;
                     tsmetric.PidCcErrors += pidMetric.PeriodCcErrorCount;
                     tsmetric.TeiErrors += pidMetric.PeriodTeiCount;
+
                     if (tsmetric.LongestPcrDelta < pidMetric.PeriodLargestPcrDelta)
                     {
-                        tsmetric.LongestPcrDelta += pidMetric.PeriodLargestPcrDelta;
+                        tsmetric.LongestPcrDelta = pidMetric.PeriodLargestPcrDelta;
                     }
 
                     if (tsmetric.LargestPcrDrift < pidMetric.PeriodLargestPcrDrift)
                     {
-                        tsmetric.LargestPcrDrift += pidMetric.PeriodLargestPcrDrift;
+                        tsmetric.LargestPcrDrift = pidMetric.PeriodLargestPcrDrift;
                     }
 
+                    if (tsmetric.LowestPcrDrift < pidMetric.PeriodLowestPcrDrift)
+                    {
+                        tsmetric.LowestPcrDrift = pidMetric.PeriodLowestPcrDrift;
+                    }
                 }
 
                 tsMetricLogRecord.Ts = tsmetric;

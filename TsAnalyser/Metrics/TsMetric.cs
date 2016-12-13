@@ -26,5 +26,8 @@ namespace TsAnalyser.Metrics
 
         [DataMember]
         public int LargestPcrDrift { get; set; }
+
+        [DataMember]
+        public int LowestPcrDrift { get; set; }
     }
 }

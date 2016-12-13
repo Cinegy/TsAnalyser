@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
 using System.Runtime.CompilerServices;
 
 namespace TsDecoder.TransportStream
@@ -10,7 +11,6 @@ namespace TsDecoder.TransportStream
         private const byte SyncByte = 0x47;
         private const int TsPacketSize = 188;
         private static ulong _lastPcr;
-        private static int _lastSignificantPcrBit;
 
         public static TsPacket[] GetTsPacketsFromData(byte[] data)
         {
@@ -65,13 +65,7 @@ namespace TsDecoder.TransportStream
 #endif
                                 return null;
                             }
-
-                            if (tsPacket.AdaptationField.PcrFlag && tsPacket.AdaptationField.FieldSize == 0)
-                            {
-                                Debug.WriteLine("Really odd packet - pcr flag set, but adaptation field size is zero...");
-                            }
-
-
+                            
                             if (tsPacket.AdaptationField.PcrFlag && tsPacket.AdaptationField.FieldSize > 0)
                             {
                                 //Packet has PCR
