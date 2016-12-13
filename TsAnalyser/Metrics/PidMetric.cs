@@ -22,7 +22,7 @@ namespace TsAnalyser.Metrics
         private int _periodLargestPcrDrift;
         private int _periodLowestPcrDrift;
         private int _largePcrDriftCount = 0;
-        private const int PcrDriftLimit = 1000;
+        private const int PcrDriftLimit = 100;
 
         private ulong _referencePcr;
         private ulong _referenceTime;
