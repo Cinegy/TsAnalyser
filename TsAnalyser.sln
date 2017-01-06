@@ -3,12 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TsAnalyser", "TsAnalyser\TsAnalyser.csproj", "{4583A25C-D61A-44A3-B839-A55B091F6187}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TsAnalyser", "TsAnalyser.csproj", "{4583A25C-D61A-44A3-B839-A55B091F6187}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TsDecoder", "TsDecoder\TsDecoder.csproj", "{838E853D-214B-406F-843D-A76A1FE42C6C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TtxDecoder", "TtxDecoder\TtxDecoder.csproj", "{77B7A456-9C1B-49D8-93F3-58966473232D}"
-EndProject
+
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

@@ -34,8 +34,8 @@ using Newtonsoft.Json;
 using TsAnalyser.Logging;
 using TsAnalyser.Metrics;
 using TsAnalyser.Service;
-using TsDecoder.TransportStream;
-using TtxDecoder.Teletext;
+using Cinegy.TsDecoder.TransportStream;
+using Cinegy.TtxDecoder.Teletext;
 using static System.String;
 
 namespace TsAnalyser
@@ -67,7 +67,7 @@ namespace TsAnalyser
         private static NetworkMetric _networkMetric;
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
-        private static TsDecoder.TransportStream.TsDecoder _tsDecoder;
+        private static TsDecoder _tsDecoder;
         private static TeleTextDecoder _ttxDecoder;
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
@@ -998,7 +998,7 @@ namespace TsAnalyser
 
                 if (!_options.SkipDecodeTransportStream)
                 {
-                    _tsDecoder = new TsDecoder.TransportStream.TsDecoder();
+                    _tsDecoder = new TsDecoder();
                     _tsDecoder.TableChangeDetected += _tsDecoder_TableChangeDetected;
                 }
 

@@ -8,10 +8,9 @@ using System.Reflection;
 using System.ServiceModel;
 using System.ServiceModel.Web;
 using System.Text;
+using Cinegy.TsDecoder.Tables;
 using Newtonsoft.Json;
 using TsAnalyser.Metrics;
-using TsDecoder.Tables;
-using TsDecoder.TransportStream;
 
 namespace TsAnalyser.Service
 {
