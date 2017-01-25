@@ -15,7 +15,6 @@
 
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -63,7 +62,7 @@ namespace TsAnalyser
         
         private static readonly RingBuffer RingBuffer = new RingBuffer();
         private static readonly Queue<DataPacket> HistoricalBuffer = new Queue<DataPacket>(HistoricaBufferSize);
-        private static ulong _lastPcr = 0;
+        private static ulong _lastPcr;
         private static NetworkMetric _networkMetric;
         private static RtpMetric _rtpMetric = new RtpMetric();
         private static List<PidMetric> _pidMetrics = new List<PidMetric>();
@@ -72,6 +71,7 @@ namespace TsAnalyser
 
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
+        // ReSharper disable once NotAccessedField.Local
         private static Timer _periodicDataTimer;
 
         static int Main(string[] args)
@@ -440,12 +440,13 @@ namespace TsAnalyser
         private static void FileStreamWorkerThread(Stream stream)
         {
             var data = new byte[188];
+            var factory = new TsPacketFactory();
 
             while (stream?.Read(data, 0, 188) > 0)
             {
                 try
                 {
-                    var tsPackets = TsPacketFactory.GetTsPacketsFromData(data);
+                    var tsPackets = factory.GetTsPacketsFromData(data);
 
                     if (tsPackets == null) break;
 
@@ -487,6 +488,7 @@ namespace TsAnalyser
         private static void ProcessQueueWorkerThread()
         {
             var dataBuffer = new byte[12 + (188 * 7)];
+            var factory = new TsPacketFactory();
 
             while (_pendingExit != true)
             {
@@ -551,7 +553,7 @@ namespace TsAnalyser
                             _rtpMetric.AddPacket(dataBuffer);
                         }
 
-                        var tsPackets = TsPacketFactory.GetTsPacketsFromData(dataBuffer);
+                        var tsPackets = factory.GetTsPacketsFromData(dataBuffer);
 
                         if (tsPackets == null)
                         {

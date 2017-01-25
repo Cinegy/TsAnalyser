@@ -38,12 +38,12 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Cinegy.TsDecoder">
-      <HintPath>packages\Cinegy.TsDecoder.1.0.19\lib\net452\Cinegy.TsDecoder.dll</HintPath>
+    <Reference Include="Cinegy.TsDecoder, Version=1.0.31.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\Cinegy.TsDecoder.1.0.31\lib\net452\Cinegy.TsDecoder.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Cinegy.TtxDecoder">
-      <HintPath>packages\Cinegy.TtxDecoder.1.0.3\lib\net452\Cinegy.TtxDecoder.dll</HintPath>
+    <Reference Include="Cinegy.TtxDecoder, Version=1.0.14.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\Cinegy.TtxDecoder.1.0.14\lib\net452\Cinegy.TtxDecoder.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="CommandLine, Version=2.0.275.0, Culture=neutral, PublicKeyToken=de6f01bd326f8c32, processorArchitecture=MSIL">
