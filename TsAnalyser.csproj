@@ -38,8 +38,9 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Cinegy.Telemetry">
-      <HintPath>..\Cinegy.Telemetry\Cinegy.Telemetry\Cinegy.Telemetry\bin\Debug\Cinegy.Telemetry.dll</HintPath>
+    <Reference Include="Cinegy.Telemetry, Version=1.0.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\Cinegy.Telemetry.1.0.2\lib\net452\Cinegy.Telemetry.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="Cinegy.TsDecoder, Version=1.0.31.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\Cinegy.TsDecoder.1.0.31\lib\net452\Cinegy.TsDecoder.dll</HintPath>
@@ -53,12 +54,20 @@
       <HintPath>packages\CommandLineParser.2.1.1-beta\lib\net45\CommandLine.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Elasticsearch.Net, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
+      <HintPath>packages\Elasticsearch.Net.2.3.1\lib\net45\Elasticsearch.Net.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
       <HintPath>packages\NLog.4.2.3\lib\net45\NLog.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="NLog.Targets.ElasticSearch, Version=2.1.6.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\NLog.Targets.ElasticSearch.2.1.6\lib\net45\NLog.Targets.ElasticSearch.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
