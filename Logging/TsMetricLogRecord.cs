@@ -8,9 +8,8 @@ using TsAnalyser.Metrics;
 
 namespace TsAnalyser.Logging
 {
-
     [DataContract]
-    internal class TsMetricLogRecord : LogRecord
+    internal class TsMetricLogRecord
     {
         [DataMember]
         public NetworkMetric Net { get; set; }
