@@ -16,7 +16,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -27,13 +26,11 @@ using System.Text;
 using System.Threading;
 using Cinegy.Telemetry;
 using CommandLine;
-using Newtonsoft.Json;
 using TsAnalyser.Logging;
 using TsAnalyser.Metrics;
 using Cinegy.TsDecoder.TransportStream;
 using Cinegy.TtxDecoder.Teletext;
 using NLog;
-using NLog.Fluent;
 using static System.String;
 
 namespace TsAnalyser
@@ -54,8 +51,7 @@ namespace TsAnalyser
         private static DateTime _startTime = DateTime.UtcNow;
         private static bool _pendingExit;
         private static readonly UdpClient UdpClient = new UdpClient { ExclusiveAddressUse = false };
-        private static readonly object LogfileWriteLock = new object();
-        private static StreamWriter _logFileStream;
+
         private static readonly object HistoricalFileLock = new object();
         private static bool _historicalBufferFlushing;
         
@@ -204,7 +200,6 @@ namespace TsAnalyser
                 {
                     StartStreamingFile(filePath);
                 }
-
 
                 var streamOptions = _options as StreamOptions;
                 if (streamOptions != null)
@@ -620,16 +615,12 @@ namespace TsAnalyser
         {
             if (_options.VerboseLogging)
             {
-                //FIX
-
-                /*
-                LogMessage(new LogRecord()
+                Logger.Log(new TelemetryLogEventInfo()
                 {
-                    EventCategory = "Info",
-                    EventKey = "Discontinuity",
-                    EventTags = _options.DescriptorTags,
-                    EventMessage = $"Discontinuity on TS PID {e.TsPid}"
-                });*/
+                    Message = "Discontinuity on TS PID {e.TsPid}",
+                    Level = LogLevel.Info,
+                    Key = "Discontinuity"
+                });
             }
 
             //this event shall trigger the current historical buffer to write to a TS (if the historical buffer is full)
@@ -799,31 +790,6 @@ namespace TsAnalyser
             }
         }
 
-        private static void WriteToFile(object line)
-        {
-            lock (LogfileWriteLock)
-            {
-                try
-                {
-                    if (_logFileStream == null || _logFileStream.BaseStream.CanWrite != true)
-                    {
-                        if (IsNullOrWhiteSpace(_options.LogFile)) return;
-
-                        var fs = new FileStream(_options.LogFile, FileMode.Append, FileAccess.Write);
-
-                        _logFileStream = new StreamWriter(fs) { AutoFlush = true };
-                    }
-                    _logFileStream.WriteLine(line);
-                }
-                catch (Exception)
-                {
-                    Debug.WriteLine("Concurrency error writing to log file...");
-                    _logFileStream?.Close();
-                    _logFileStream?.Dispose();
-                }
-            }
-        }
-
         private static void UpdateSeriesDataTimerCallback(object o)
         {
             try
@@ -877,9 +843,7 @@ namespace TsAnalyser
             }
             catch (Exception)
             {
-                Debug.WriteLine("Concurrency error writing to log file...");
-                _logFileStream?.Close();
-                _logFileStream?.Dispose();
+                Logger.Error("Problem generating time-slice log record");
             }
 
         }

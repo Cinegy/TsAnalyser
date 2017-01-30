@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.Serialization;
-using System.Threading;
 using Cinegy.TsDecoder.TransportStream;
 
 namespace TsAnalyser.Metrics
