@@ -38,12 +38,12 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Cinegy.Telemetry, Version=1.0.2.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\Cinegy.Telemetry.1.0.2\lib\net452\Cinegy.Telemetry.dll</HintPath>
+    <Reference Include="Cinegy.Telemetry, Version=1.0.3.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\Cinegy.Telemetry.1.0.3\lib\net452\Cinegy.Telemetry.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Cinegy.TsDecoder, Version=1.0.31.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\Cinegy.TsDecoder.1.0.31\lib\net452\Cinegy.TsDecoder.dll</HintPath>
+    <Reference Include="Cinegy.TsDecoder, Version=1.0.34.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\Cinegy.TsDecoder.1.0.34\lib\net452\Cinegy.TsDecoder.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Cinegy.TtxDecoder, Version=1.0.14.0, Culture=neutral, processorArchitecture=MSIL">

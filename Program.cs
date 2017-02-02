@@ -489,6 +489,14 @@ namespace TsAnalyser
 
                 if (dataBuffer == null) continue;
 
+                if (dataBuffer.Length != dataSize)
+                {
+                    //need to trim down buffer
+                    var tmpArry = new byte[dataSize];
+                    Buffer.BlockCopy(dataBuffer,0,tmpArry,0,dataSize);
+                    dataBuffer = tmpArry;
+                }
+
                 //TODO: Reimplement support for historical buffer dumping
 
                 //if (_packetQueue.Count > HistoricaBufferSize)
