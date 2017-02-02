@@ -538,15 +538,24 @@ namespace TsAnalyser
                             _rtpMetric.AddPacket(dataBuffer);
                         }
 
-                        var tsPackets = factory.GetTsPacketsFromData(dataBuffer);
-
-                        if (tsPackets == null)
+                        try
                         {
-                            Logger.Log(new TelemetryLogEventInfo() {Message = "Packet recieved with no detected TS packets",Level = LogLevel.Warn, Key="Packet"});
-                            continue;
-                        }
+                            var tsPackets = factory.GetTsPacketsFromData(dataBuffer);
+
+                            if (tsPackets == null)
+                            {
+                                Logger.Log(new TelemetryLogEventInfo() {Message = "Packet recieved with no detected TS packets",Level = LogLevel.Info, Key="Packet"});
+                                continue;
+                            }
 
                         AnalysePackets(tsPackets);
+                        }
+                        catch (Exception ex)
+                        {
+                             Logger.Log(new TelemetryLogEventInfo() {Message = $"Exception processing TS packet: {ex.Message}", Key= "Packet" , Level = LogLevel.Warn});   
+                        }
+
+                        
                     }
                 }
                 catch (Exception ex)
