@@ -1,5 +1,4 @@
 ﻿using CommandLine;
-using CommandLine.Text;
 
 namespace TsAnalyser
 {
@@ -12,21 +11,13 @@ namespace TsAnalyser
         [Option('l', "logfile", Required = false,
         HelpText = "Optional file to record events to.")]
         public string LogFile { get; set; }
-        
-        [Option('w', "webservices", Required = false, Default = false,
-        HelpText = "Enable Web Services (control page available on http://localhost:8124/index.html by default).")]
-        public bool EnableWebServices { get; set; }
-
-        [Option('u', "serviceurl", Required = false, Default = "http://localhost:8124/",
-        HelpText = "Optional service URL for REST web services (must change if running multiple instances with web services enabled).")]
-        public string ServiceUrl { get; set; }
-
+    
         [Option('s', "skipdecodetransportstream", Required = false, Default = false,
         HelpText = "Optional instruction to skip decoding further TS and DVB data and metadata")]
         public bool SkipDecodeTransportStream { get; set; }
 
-        [Option('t', "teletextdecode", Required = false, Default = false,
-        HelpText = "Optional instruction to decode DVB teletext subtitles from default program (experimental)")]
+        [Option('c', "teletextdecode", Required = false, Default = false,
+        HelpText = "Optional instruction to decode DVB teletext subtitles / captions from default program")]
         public bool DecodeTeletext { get; set; }
         
         [Option('p', "programnumber", Required = false,
@@ -36,15 +27,18 @@ namespace TsAnalyser
         [Option('d', "descriptortags", Required = false, Default = "",
         HelpText = "Comma separated tag values added to all log entries for instance and machine identification")]
         public string DescriptorTags { get; set; }
-
-        [Option('e', "timeserieslogging", Required = false,
-        HelpText = "Record time slice metric data to.")]
-        public bool TimeSeriesLogging { get; set; }
-
+        
         [Option('v', "verboselogging", Required = false,
         HelpText = "Creates event logs for all discontinuities and skips.")]
         public bool VerboseLogging { get; set; }
 
+        [Option('t', "telemetry", Required = false, Default = false,
+        HelpText = "Enable telemetry to Cinegy Telemetry Server")]
+        public bool TelemetryEnabled { get; set; }
+
+        [Option('o', "organization", Required = false,
+        HelpText = "Tag all telemetry with this organization (needed to indentify and access telemetry from Cinegy Analytics portal")]
+        public string OrganizationId { get; set; }
     }
     
     // Define a class to receive parsed values
@@ -74,6 +68,10 @@ namespace TsAnalyser
         [Option('h', "savehistoricaldata", Required = false, Default = false,
         HelpText = "Optional instruction to save and then flush to disk recent TS data on stream problems.")]
         public bool SaveHistoricalData { get; set; }
+
+        [Option('e', "timeserieslogging", Required = false,
+        HelpText = "Record time slice metric data to log file.")]
+        public bool TimeSeriesLogging { get; set; }
 
     }
 

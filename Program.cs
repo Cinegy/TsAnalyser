@@ -16,25 +16,21 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime;
-using System.ServiceModel;
-using System.ServiceModel.Description;
-using System.ServiceModel.Web;
 using System.Text;
 using System.Threading;
+using Cinegy.Telemetry;
 using CommandLine;
-using Newtonsoft.Json;
 using TsAnalyser.Logging;
 using TsAnalyser.Metrics;
-using TsAnalyser.Service;
 using Cinegy.TsDecoder.TransportStream;
 using Cinegy.TtxDecoder.Teletext;
+using NLog;
 using static System.String;
 
 namespace TsAnalyser
@@ -50,13 +46,12 @@ namespace TsAnalyser
 
         private static bool _warmedUp;
 
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         private static DateTime _startTime = DateTime.UtcNow;
         private static bool _pendingExit;
-        private static ServiceHost _serviceHost;
-        private static TsAnalyserApi _tsAnalyserApi;
         private static readonly UdpClient UdpClient = new UdpClient { ExclusiveAddressUse = false };
-        private static readonly object LogfileWriteLock = new object();
-        private static StreamWriter _logFileStream;
+
         private static readonly object HistoricalFileLock = new object();
         private static bool _historicalBufferFlushing;
         
@@ -155,9 +150,12 @@ namespace TsAnalyser
         {
             Console.CancelKeyPress += Console_CancelKeyPress;
 
-            Console.WriteLine(
-                // ReSharper disable once AssignNullToNotNullAttribute
-                $"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
+            LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags,"https://telemetry.cinegy.com", opts.TelemetryEnabled);
+
+            var location = Assembly.GetExecutingAssembly().Location;
+
+            if (location != null)
+                Logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location).ToLongDateString()})");
 
             try
             {
@@ -191,19 +189,7 @@ namespace TsAnalyser
                 _receiving = true;
 
                 LogMessage($"Logging started {Assembly.GetExecutingAssembly().GetName().Version}.");
-
-                if (_options.EnableWebServices)
-                {
-                    var httpThreadStart = new ThreadStart(delegate
-                    {
-                        StartHttpService(_options.ServiceUrl);
-                    });
-
-                    var httpThread = new Thread(httpThreadStart) { Priority = ThreadPriority.Normal };
-
-                    httpThread.Start();
-                }
-
+                
                 _periodicDataTimer = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
 
                 SetupMetricsAndDecoders();
@@ -214,7 +200,6 @@ namespace TsAnalyser
                 {
                     StartStreamingFile(filePath);
                 }
-
 
                 var streamOptions = _options as StreamOptions;
                 if (streamOptions != null)
@@ -504,6 +489,14 @@ namespace TsAnalyser
 
                 if (dataBuffer == null) continue;
 
+                if (dataBuffer.Length != dataSize)
+                {
+                    //need to trim down buffer
+                    var tmpArry = new byte[dataSize];
+                    Buffer.BlockCopy(dataBuffer,0,tmpArry,0,dataSize);
+                    dataBuffer = tmpArry;
+                }
+
                 //TODO: Reimplement support for historical buffer dumping
 
                 //if (_packetQueue.Count > HistoricaBufferSize)
@@ -553,15 +546,24 @@ namespace TsAnalyser
                             _rtpMetric.AddPacket(dataBuffer);
                         }
 
-                        var tsPackets = factory.GetTsPacketsFromData(dataBuffer);
-
-                        if (tsPackets == null)
+                        try
                         {
-                            LogMessage(new LogRecord() { EventCategory = "Info", EventKey = "NullPackets", EventMessage = "Packet recieved with no detected TS packets", EventTags = _options.DescriptorTags });
-                            continue;
-                        }
+                            var tsPackets = factory.GetTsPacketsFromData(dataBuffer);
+
+                            if (tsPackets == null)
+                            {
+                                Logger.Log(new TelemetryLogEventInfo() {Message = "Packet recieved with no detected TS packets",Level = LogLevel.Info, Key="Packet"});
+                                continue;
+                            }
 
                         AnalysePackets(tsPackets);
+                        }
+                        catch (Exception ex)
+                        {
+                             Logger.Log(new TelemetryLogEventInfo() {Message = $"Exception processing TS packet: {ex.Message}", Key= "Packet" , Level = LogLevel.Warn});   
+                        }
+
+                        
                     }
                 }
                 catch (Exception ex)
@@ -630,12 +632,11 @@ namespace TsAnalyser
         {
             if (_options.VerboseLogging)
             {
-                LogMessage(new LogRecord()
+                Logger.Log(new TelemetryLogEventInfo()
                 {
-                    EventCategory = "Info",
-                    EventKey = "Discontinuity",
-                    EventTags = _options.DescriptorTags,
-                    EventMessage = $"Discontinuity on TS PID {e.TsPid}"
+                    Message = "Discontinuity on TS PID {e.TsPid}",
+                    Level = LogLevel.Info,
+                    Key = "Discontinuity"
                 });
             }
 
@@ -647,12 +648,11 @@ namespace TsAnalyser
         {
             if (_options.VerboseLogging)
             {
-                LogMessage(new LogRecord()
+                Logger.Log(new TelemetryLogEventInfo()
                 {
-                    EventCategory = "Warn",
-                    EventKey = "RtpSkip",
-                    EventTags = _options.DescriptorTags,
-                    EventMessage = "Discontinuity in RTP sequence."
+                    Message = "Discontinuity in RTP sequence",
+                    Level = LogLevel.Warn,
+                    Key = "Discontinuity"
                 });
             }
 
@@ -662,12 +662,11 @@ namespace TsAnalyser
 
         private static void NetworkMetric_BufferOverflow(object sender, EventArgs e)
         {
-            LogMessage(new LogRecord()
+            Logger.Log(new TelemetryLogEventInfo()
             {
-                EventCategory = "Error",
-                EventKey = "NetworkBuffer",
-                EventTags = _options.DescriptorTags,
-                EventMessage = "Network buffer > 99% - probably loss of data from overflow."
+                Message = "Network buffer > 99% - probably loss of data from overflow",
+                Level = LogLevel.Error,
+                Key = "Overflow"
             });
         }
 
@@ -680,20 +679,14 @@ namespace TsAnalyser
 
         private static void LogMessage(string message)
         {
-            var logRecord = new LogRecord()
+            var lei = new TelemetryLogEventInfo
             {
-                EventCategory = "Info",
-                EventKey = "GenericEvent",
-                EventTags = _options.DescriptorTags,
-                EventMessage = message
+                Level = LogLevel.Info,
+                Key = "GenericEvent",
+                Message = message
             };
-            LogMessage(logRecord);
-        }
 
-        private static void LogMessage(LogRecord logRecord)
-        {
-            var formattedMsg = JsonConvert.SerializeObject(logRecord);
-            ThreadPool.QueueUserWorkItem(WriteToFile, formattedMsg);
+            Logger.Log(lei);
         }
 
         private static void FlushHistoricalBufferToFile()
@@ -762,15 +755,14 @@ namespace TsAnalyser
                     {
                         if (HistoricalBuffer.Count > (HistoricaBufferSize - 10))
                         {
-                            LogMessage(new LogRecord()
+                            Logger.Log(new TelemetryLogEventInfo()
                             {
-                                EventCategory = "Error",
-                                EventKey = "Rate",
-                                EventTags = _options.DescriptorTags,
-                                EventMessage = "Packet rate is too high for historical buffer size - clipped error stream"
+                                Message = "Packet rate is too high for historical buffer size - clipped error stream",
+                                Level = LogLevel.Error,
+                                Key = "Rate"
                             });
-
-                            _historicalBufferFlushing = false;
+                        
+                        _historicalBufferFlushing = false;
                             return;
                         }
 
@@ -793,66 +785,34 @@ namespace TsAnalyser
                 }
                 catch (Exception)
                 {
-                    LogMessage(new LogRecord()
+                    Logger.Log(new TelemetryLogEventInfo()
                     {
-                        EventCategory = "Error",
-                        EventKey = "GenericEvent",
-                        EventTags = _options.DescriptorTags,
-                        EventMessage = "Error writing error buffer to file..."
+                        Message = "Error writing error buffer to file",
+                        Level = LogLevel.Error,
+                        Key = "IO"
                     });
 
                     _historicalBufferFlushing = false;
                 }
 
-                LogMessage(new LogRecord()
+                Logger.Log(new TelemetryLogEventInfo()
                 {
-                    EventCategory = "Info",
-                    EventKey = "GenericEvent",
-                    EventTags = _options.DescriptorTags,
-                    EventMessage = "Finished flushing recent data into file."
+                    Message = "Finished flushing recent data into file",
+                    Level = LogLevel.Info,
+                    Key = "IO"
                 });
-
+                
                 _historicalBufferFlushing = false;
                 Console.Clear();
             }
         }
 
-        private static void WriteToFile(object line)
-        {
-            lock (LogfileWriteLock)
-            {
-                try
-                {
-                    if (_logFileStream == null || _logFileStream.BaseStream.CanWrite != true)
-                    {
-                        if (IsNullOrWhiteSpace(_options.LogFile)) return;
-
-                        var fs = new FileStream(_options.LogFile, FileMode.Append, FileAccess.Write);
-
-                        _logFileStream = new StreamWriter(fs) { AutoFlush = true };
-                    }
-                    _logFileStream.WriteLine(line);
-                }
-                catch (Exception)
-                {
-                    Debug.WriteLine("Concurrency error writing to log file...");
-                    _logFileStream?.Close();
-                    _logFileStream?.Dispose();
-                }
-            }
-        }
-
         private static void UpdateSeriesDataTimerCallback(object o)
         {
-            if (!_options.TimeSeriesLogging) return;
-
             try
             {
                 var tsMetricLogRecord = new TsMetricLogRecord()
                 {
-                    EventCategory = "Info",
-                    EventKey = "Metric",
-                    EventTags = _options.DescriptorTags,
                     Net = _networkMetric
                 };
 
@@ -888,88 +848,21 @@ namespace TsAnalyser
 
                 tsMetricLogRecord.Ts = tsmetric;
 
-                var formattedMsg = JsonConvert.SerializeObject(tsMetricLogRecord);
+                LogEventInfo lei = new TelemetryLogEventInfo
+                {
+                    Key = "TSD",
+                    TelemetryObject = tsMetricLogRecord,
+                    Level = LogLevel.Info
+                };
 
-                WriteToFile(formattedMsg);
+                Logger.Log(lei);
+                
             }
             catch (Exception)
             {
-                Debug.WriteLine("Concurrency error writing to log file...");
-                _logFileStream?.Close();
-                _logFileStream?.Dispose();
+                Logger.Error("Problem generating time-slice log record");
             }
 
-        }
-
-        private static void StartHttpService(string serviceAddress)
-        {
-            var baseAddress = new Uri(serviceAddress);
-
-            _serviceHost?.Close();
-
-            _tsAnalyserApi = new TsAnalyserApi
-            {
-                NetworkMetric = _networkMetric,
-                TsMetrics = _pidMetrics,
-                RtpMetric = _rtpMetric
-            };
-
-            _tsAnalyserApi.StreamCommand += _tsAnalyserApi_StreamCommand;
-
-            _serviceHost = new ServiceHost(_tsAnalyserApi, baseAddress);
-            var webBinding = new WebHttpBinding();
-
-            var serviceEndpoint = new ServiceEndpoint(ContractDescription.GetContract(typeof(ITsAnalyserApi)))
-            {
-                Binding = webBinding,
-                Address = new EndpointAddress(baseAddress)
-            };
-
-            _serviceHost.AddServiceEndpoint(serviceEndpoint);
-
-            var webBehavior = new WebHttpBehavior
-            {
-                AutomaticFormatSelectionEnabled = true,
-                DefaultOutgoingRequestFormat = WebMessageFormat.Json,
-                HelpEnabled = true
-            };
-
-            serviceEndpoint.Behaviors.Add(webBehavior);
-
-            //TODO: Trying to disable MEX, to allow serving of index when visiting root...
-
-            //Metadata Exchange
-            //var serviceBehavior = new ServiceMetadataBehavior {HttpGetEnabled = true};
-            //_serviceHost.Description.Behaviors.AddData(serviceBehavior);
-
-            try
-            {
-                _serviceHost.Open();
-            }
-            catch (Exception ex)
-            {
-                var msg =
-                    "Failed to start local web API for player - either something is already using the requested URL, the tool is not running as local administrator, or netsh url reservations have not been made " +
-                    "to allow non-admin users to host services.\n\n" +
-                    "To make a URL reservation, permitting non-admin execution, run:\n" +
-                    "netsh http add urlacl http://+:8124/ user=BUILTIN\\Users\n\n" +
-                    "This is the details of the exception thrown:" +
-                    ex.Message +
-                    "\n\nHit enter to continue without services.\n\n";
-
-                Console.WriteLine(msg);
-
-                Console.ReadLine();
-
-                LogMessage(new LogRecord()
-                {
-                    EventCategory = "Error",
-                    EventKey = "GenericEvent",
-                    EventTags = _options.DescriptorTags,
-                    EventMessage = msg
-                });
-
-            }
         }
 
         private static void SetupMetricsAndDecoders()
@@ -1015,39 +908,14 @@ namespace TsAnalyser
 
         private static void _tsDecoder_TableChangeDetected(object sender, TableChangedEventArgs e)
         {
-            LogMessage(new LogRecord()
+            Logger.Log(new TelemetryLogEventInfo()
             {
-                EventCategory = "Info",
-                EventKey = "TableChange",
-                EventTags = _options.DescriptorTags,
-                EventMessage = ("Table Change: " + e.Message)
+                Message = "Table Change: " + e.Message,
+                Level = LogLevel.Info,
+                Key = "TableChange"
             });
-
+            
             Console.Clear();
-        }
-
-        private static void _tsAnalyserApi_StreamCommand(object sender, StreamCommandEventArgs e)
-        {
-            switch (e.Command)
-            {
-                case (StreamCommandType.ResetMetrics):
-                    SetupMetricsAndDecoders();
-
-                    _tsAnalyserApi.NetworkMetric = _networkMetric;
-                    _tsAnalyserApi.TsMetrics = _pidMetrics;
-                    _tsAnalyserApi.RtpMetric = _rtpMetric;
-                    Console.Clear();
-
-                    break;
-                case (StreamCommandType.StopStream):
-                    //todo: implement
-                    break;
-                case (StreamCommandType.StartStream):
-                    //todo: implement
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
         }
 
     }
