@@ -347,7 +347,7 @@ namespace TsAnalyser
         {
             lock (_ttxDecoder.TeletextDecodedSubtitlePage)
             {
-                PrintToConsole($"\nTeleText Subtitles - decoding from Service ID {_ttxDecoder.ProgramNumber}\n----------------");
+                PrintToConsole($"\nTeleText Subtitles - decoding from Service ID {_ttxDecoder.ProgramNumber}, PID: {_ttxDecoder.TeletextPid}\n----------------");
 
                 foreach (var page in _ttxDecoder.TeletextDecodedSubtitlePage.Keys)
                 {
