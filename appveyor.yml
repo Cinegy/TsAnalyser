@@ -1,4 +1,9 @@
-version: 1.3.{build}
+version: 2.0.{build}
+branches:
+  only:
+  - master
+  - pre-master
+image: Visual Studio 2017
 configuration: Release
 platform: Any CPU
 assembly_info:
@@ -6,7 +11,7 @@ assembly_info:
   file: '**\AssemblyInfo.*'
   assembly_version: '{version}'
   assembly_file_version: '{version}'
-  assembly_informational_version: '{version}'
+  assembly_informational_version: '{version}-alpha1'
 before_build:
 - cmd: nuget restore
 build:
@@ -14,10 +19,8 @@ build:
   verbosity: minimal
 after_build:
 - cmd: >-
-    7z a TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\bin\release\TsAnalyser.exe
+    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\TsAnalyser\bin\release\TsAnalyser.exe
+    appveyor PushArtifact TsAnalyser-%APPVEYOR_BUILD_VERSION%.zip
 
-    appveyor PushArtifact TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip
-    
-    7z a TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%-PDB.zip %APPVEYOR_BUILD_FOLDER%\bin\release
-
-    appveyor PushArtifact TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%-PDB.zip
+    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\TsAnalyser\bin\release\*.*
+    appveyor PushArtifact TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip
