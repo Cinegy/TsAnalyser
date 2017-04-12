@@ -1,8 +1,8 @@
-#Cinegy TS Analyser Tool
+# Cinegy TS Analyser Tool
 
 Use this tool to view inbound network, RTP and TS packet details. Use newly introduce powers to view into the service description tables, and even decode a teletext stream!
 
-##How easy is it?
+## How easy is it?
 
 Well, we've added everything you need into a single teeny-tiny EXE again, which just depends on .NET 4.5. And then we gave it all a nice Apache license, so you can tinker and throw the tool wherever you need to on the planet.
 
@@ -18,7 +18,7 @@ And see some realtime things displayed in your browser (great if you run the ana
 
 You can print live Teletext decoding, and you can use the tool to generate input logs for 'big data' analysis (which is very cool).
 
-##Command line arguments:
+## Command line arguments:
 
 Double click, or just run without (or with incorrect) arguments, and you'll see this:
 

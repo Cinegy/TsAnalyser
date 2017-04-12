@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "TsAnalyser": {
+      "commandName": "Project",
+      "commandLineArgs": "read -f \"C:\\Data\\OneDrive\\Temp\\BBCHD-DVBS2Mux-19thSept2016-20160919-105050.ts\""
+    }
+  }
+}

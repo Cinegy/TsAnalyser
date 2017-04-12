@@ -151,11 +151,11 @@ namespace TsAnalyser
             Console.CancelKeyPress += Console_CancelKeyPress;
 
             LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags,"https://telemetry.cinegy.com", opts.TelemetryEnabled);
-
-            var location = Assembly.GetExecutingAssembly().Location;
+            
+            var location = Assembly.GetEntryAssembly().Location;
 
             if (location != null)
-                Logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location).ToLongDateString()})");
+                Logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location).ToString()})");
 
             try
             {
@@ -188,7 +188,7 @@ namespace TsAnalyser
             {
                 _receiving = true;
 
-                LogMessage($"Logging started {Assembly.GetExecutingAssembly().GetName().Version}.");
+                LogMessage($"Logging started {Assembly.GetEntryAssembly().GetName().Version}.");
                 
                 _periodicDataTimer = new Timer(UpdateSeriesDataTimerCallback, null, 0, 5000);
 
@@ -399,13 +399,13 @@ namespace TsAnalyser
                 ReceivingNetworkWorkerThread(UdpClient, localEp);
             });
 
-            var receiverThread = new Thread(ts) { Priority = ThreadPriority.Highest };
+        //    var receiverThread = new Thread(ts) { Priority = ThreadPriority.Highest };
 
-            receiverThread.Start();
+        //    receiverThread.Start();
 
-            var queueThread = new Thread(ProcessQueueWorkerThread) { Priority = ThreadPriority.AboveNormal };
+        //    var queueThread = new Thread(ProcessQueueWorkerThread) { Priority = ThreadPriority.AboveNormal };
 
-            queueThread.Start();
+        //    queueThread.Start();
         }
 
         private static void StartStreamingFile(string fileName)
@@ -417,7 +417,8 @@ namespace TsAnalyser
                 FileStreamWorkerThread(fs);
             });
 
-            var receiverThread = new Thread(ts) { Priority = ThreadPriority.Highest };
+           // var receiverThread = new Thread(ts) { Priority = ThreadPriority.Highest };
+            var receiverThread = new Thread(ts);
 
             receiverThread.Start();
         }
@@ -453,21 +454,21 @@ namespace TsAnalyser
 
         private static void ReceivingNetworkWorkerThread(UdpClient client, IPEndPoint localEp)
         {
-            while (_receiving)
-            {
-                var data = client.Receive(ref localEp);
-                if (data == null) continue;
+            //while (_receiving)
+            //{
+            //    var data = client.Receive(ref localEp);
+            //    if (data == null) continue;
 
-                if (_warmedUp)
-                {
-                    RingBuffer.Add(ref data);
-                }
-                else
-                {
-                    if (DateTime.UtcNow.Subtract(_startTime) > new TimeSpan(0, 0, 0, 0, WarmUpTime))
-                        _warmedUp = true;
-                }
-            }
+            //    if (_warmedUp)
+            //    {
+            //        RingBuffer.Add(ref data);
+            //    }
+            //    else
+            //    {
+            //        if (DateTime.UtcNow.Subtract(_startTime) > new TimeSpan(0, 0, 0, 0, WarmUpTime))
+            //            _warmedUp = true;
+            //    }
+            //}
         }
 
         private static void ProcessQueueWorkerThread()

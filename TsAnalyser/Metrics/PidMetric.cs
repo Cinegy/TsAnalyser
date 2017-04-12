@@ -139,7 +139,7 @@ namespace TsAnalyser.Metrics
                 if (drift > _periodLargestPcrDrift)
                 {
                     _periodLargestPcrDrift = drift;
-                    Debug.Print("Highest drift:" + _periodLargestPcrDrift);
+                    Debug.WriteLine("Highest drift:" + _periodLargestPcrDrift);
                 }
 
                 if (drift > PcrDriftLimit)
@@ -151,7 +151,7 @@ namespace TsAnalyser.Metrics
                 if (drift > _periodLowestPcrDrift)
                 {
                     _periodLowestPcrDrift = drift;
-                    Debug.Print("Lowest drift:" + _periodLowestPcrDrift);
+                    Debug.WriteLine("Lowest drift:" + _periodLowestPcrDrift);
                 }
 
                 if (drift > PcrDriftLimit)

@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp1.1</TargetFramework>
+    <AssemblyName>TsAnalyser</AssemblyName>
+    <RootNamespace>Cinegy.TsAnalyser</RootNamespace>
+    <PackageId>Cinegy.TsAnalyser</PackageId>
+    <Authors>Cinegy GmbH</Authors>
+    <Company>Cinegy GmbH</Company>
+    <Description>Cinegy Transport Stream Analyser - for all your TS analysis and logging needs</Description>
+    <Version>2.0.0</Version>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <Copyright>2017 Cinegy GmbH</Copyright>
+    <PackageLicenseUrl>http://www.apache.org/licenses/LICENSE-2.0</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/Cinegy/TsAnalyser</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Cinegy/TsAnalyser</RepositoryUrl>
+    <PackageTags>MPEG Transport Stream TS Analysis</PackageTags>
+    <PackageReleaseNotes>New version running under NET Core framework</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Cinegy.Telemetry" Version="2.0.7-alpha1" />
+    <PackageReference Include="Cinegy.TtxDecoder" Version="2.0.18-alpha1" />
+    <PackageReference Include="CommandLineParser" Version="2.1.1-beta" />
+  </ItemGroup>
+
+</Project>
