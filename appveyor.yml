@@ -19,6 +19,6 @@ build:
   verbosity: minimal
 after_build:
 - cmd: >-
-    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\TsAnalyser\bin\release\*.*
+    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip %APPVEYOR_BUILD_FOLDER%\TsAnalyser\bin\release\*.*
     
     appveyor PushArtifact TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip
