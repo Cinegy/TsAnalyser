@@ -38,7 +38,7 @@ namespace Cinegy.TsAnalyser
         private static bool _receiving;
         private static Options _options;
         private static bool _warmedUp;
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private static  Logger Logger;
         private static readonly Analyser _analyser = new Analyser();
         private static DateTime _startTime = DateTime.UtcNow;
         private static bool _pendingExit;
@@ -127,9 +127,14 @@ namespace Cinegy.TsAnalyser
         {
             Console.CancelKeyPress += Console_CancelKeyPress;
 
+            Logger = LogManager.GetCurrentClassLogger();
+
             LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags, "https://telemetry.cinegy.com", opts.TelemetryEnabled, false);
 
             var location = Assembly.GetEntryAssembly().Location;
+
+
+            Logger.Info($"Dumb test)");
 
             if (location != null)
                 Logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location)})");

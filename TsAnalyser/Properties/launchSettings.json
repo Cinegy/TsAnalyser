@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "TsAnalyser": {
-      "commandName": "Project",
-      "commandLineArgs": "stream -m 239.5.2.1 -g 6670 -a 10.186.3.41 -c"
-    }
-  }
-}
