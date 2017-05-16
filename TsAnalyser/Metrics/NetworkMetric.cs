@@ -270,9 +270,9 @@ namespace TsAnalyser.Metrics
 
                 _currentPacketTime = recvTimeMs;
                 
-                var timeBetweenLastPacket = (_currentPacketTime - _lastPacketTime);
+                var timeBetweenLastPacket = ((long)_currentPacketTime - _lastPacketTime);
                
-                TimeBetweenLastPacket = timeBetweenLastPacket;
+                TimeBetweenLastPacket =(long) timeBetweenLastPacket;
 
                 _lastPacketTime = _currentPacketTime;
 

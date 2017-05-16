@@ -2,7 +2,7 @@
   "profiles": {
     "TsAnalyser": {
       "commandName": "Project",
-      "commandLineArgs": "read -f \"C:\\Data\\OneDrive\\Temp\\BBCHD-DVBS2Mux-19thSept2016-20160919-105050.ts\""
+      "commandLineArgs": "stream -m 239.5.2.1 -g 6670 -a 10.186.3.41 -c"
     }
   }
 }

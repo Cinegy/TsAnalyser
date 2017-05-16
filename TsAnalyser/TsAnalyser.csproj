@@ -20,8 +20,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Cinegy.Telemetry" Version="2.0.7-alpha1" />
-    <PackageReference Include="Cinegy.TtxDecoder" Version="2.0.18-alpha1" />
+    <Compile Remove="Logging\**" />
+    <Compile Remove="Metrics\**" />
+    <EmbeddedResource Remove="Logging\**" />
+    <EmbeddedResource Remove="Metrics\**" />
+    <None Remove="Logging\**" />
+    <None Remove="Metrics\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Cinegy.TsAnalysis" Version="0.0.4-alpha" />
     <PackageReference Include="CommandLineParser" Version="2.1.1-beta" />
   </ItemGroup>
 

@@ -1,7 +1,7 @@
 ﻿using System.Runtime.Serialization;
-using TsAnalyser.Metrics;
+using TsAnalysis.Metrics;
 
-namespace TsAnalyser.Logging
+namespace Cinegy.TsAnalyser.Logging
 {
     [DataContract]
     internal class TsMetricLogRecord
