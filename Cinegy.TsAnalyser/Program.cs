@@ -39,7 +39,7 @@ namespace Cinegy.TsAnalyser
         private static Options _options;
         private static bool _warmedUp;
         private static  Logger Logger;
-        private static readonly Analyser _analyser = new Analyser();
+        private static Analyser _analyser;
         private static DateTime _startTime = DateTime.UtcNow;
         private static bool _pendingExit;
         private static readonly UdpClient UdpClient = new UdpClient { ExclusiveAddressUse = false };
@@ -131,9 +131,10 @@ namespace Cinegy.TsAnalyser
 
             LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags, "https://telemetry.cinegy.com", opts.TelemetryEnabled, false);
 
+            _analyser = new Analyser(Logger);
+
             var location = Assembly.GetEntryAssembly().Location;
-
-
+            
             Logger.Info($"Dumb test)");
 
             if (location != null)
