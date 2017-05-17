@@ -3,7 +3,6 @@ branches:
   only:
   - master
   - pre-master
-image: Visual Studio 2017
 configuration: Release
 platform: Any CPU
 assembly_info:
@@ -11,11 +10,11 @@ assembly_info:
   file: '**\AssemblyInfo.*'
   assembly_version: '{version}'
   assembly_file_version: '{version}'
-  assembly_informational_version: '{version}-alpha1'
+  assembly_informational_version: '{version}-alpha2'
 before_build:
 - cmd: nuget restore
 build:
-  project: TsAnalyser.sln
+  project: Cinegy.TsAnalyser.sln
   verbosity: minimal
 after_build:
 - cmd: >-
