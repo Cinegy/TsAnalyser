@@ -1,6 +1,8 @@
 # Cinegy TS Analyser Tool
 
-Use this tool to view inbound network, RTP and TS packet details. Use newly introduce powers to view into the service description tables, and even decode a teletext stream!
+Use this tool to view inbound network, RTP and TS packet details. Use newly introduced powers to view into the service description tables, and even decode a teletext stream!
+
+New with V2 - integrated telemetry options, so you can stream quality metrics into the Cinegy cloud (or your own).
 
 ## How easy is it?
 
@@ -8,7 +10,7 @@ Well, we've added everything you need into a single teeny-tiny EXE again, which 
 
 Just run the EXE from inside a command-prompt, and you will be offered a basic interactive mode to get cracking checking out your stream.
 
-Now in v1.3, you can check out a .TS file and scan through it - just drag / drop the .TS file onto the EXE!
+From v1.3, you can check out a .TS file and scan through it - just drag / drop the .TS file onto the EXE!
 
 If you start launching things with arguments (maybe from a BAT file), try enabling the embedded web service - then you can browse to:
 
@@ -23,8 +25,8 @@ You can print live Teletext decoding, and you can use the tool to generate input
 Double click, or just run without (or with incorrect) arguments, and you'll see this:
 
 ```
-TsAnalyser 1.3.118.0
-Copyright © Cinegy GmbH 2016
+Cinegy 2.0.177.0
+Copyright ©Cinegy GmbH 2017
 
 ERROR(S):
   No verb selected.
@@ -44,55 +46,47 @@ The help details for the 'stream' verb look like this:
 ```
 c:\> TsAnalyser.exe  help stream      
                                                          
-TsAnalyser 1.3.118.0                                                                    
-Copyright © Cinegy GmbH 2016                                                         
-                                                                            
+Cinegy 2.0.177.0
+Copyright ©Cinegy GmbH 2017
+
   -m, --multicastaddress             Required. Input multicast address to read from.
 
   -g, --mulicastgroup                Required. Input multicast group port to read from.
 
-  -e, --timeserieslogfile            Optional file to record time slice metric data to.
+  -a, --adapter                      IP address of the adapter to listen for multicasts (if not set, tries first
+                                     binding adapter).
 
-  -a, --adapter                      IP address of the adapter to listen for multicasts
-                                     (if not set, tries first binding adapter).
+  -n, --nortpheaders                 (Default: false) Optional instruction to skip the expected 12 byte RTP
+                                     headers (meaning plain MPEGTS inside UDP is expected
 
-  -n, --nortpheaders                 (Default: false) Optional instruction to skip the
-                                     expected 12 byte RTP headers (meaning plain MPEGTS
-                                     inside UDP is expected
+  -i, --interarrivaltime             (Default: 40) Maximum permitted time between UDP packets before alarming.
 
-  -i, --interarrivaltime             (Default: 40) Maximum permitted time between UDP
-                                     packets before alarming.
+  -h, --savehistoricaldata           (Default: false) Optional instruction to save and then flush to disk recent
+                                     TS data on stream problems.
 
-  -h, --savehistoricaldata           (Default: false) Optional instruction to save and
-                                     then flush to disk recent TS data on stream
-                                     problems.
+  -e, --timeserieslogging            Record time slice metric data to log file.
 
-  -q, --quiet                        (Default: false) Don't print anything to the
-                                     console
+  -q, --quiet                        (Default: false) Don't print anything to the console
 
   -l, --logfile                      Optional file to record events to.
 
-  -w, --webservices                  (Default: false) Enable Web Services (control page
-                                     available on http://localhost:8124/index.html by
-                                     default).
+  -s, --skipdecodetransportstream    (Default: false) Optional instruction to skip decoding further TS and DVB
+                                     data and metadata
 
-  -u, --serviceurl                   (Default: http://localhost:8124/) Optional service
-                                     URL for REST web services (must change if running
-                                     multiple instances with web services enabled).
+  -c, --teletextdecode               (Default: false) Optional instruction to decode DVB teletext subtitles /
+                                     captions from default program
 
-  -s, --skipdecodetransportstream    (Default: false) Optional instruction to skip
-                                     decoding further TS and DVB data and metadata
+  -p, --programnumber                Pick a specific program / service to inspect (otherwise picks default).
 
-  -t, --teletextdecode               (Default: false) Optional instruction to decode
-                                     DVB teletext subtitles from default program
-                                     (experimental)
+  -d, --descriptortags               (Default: ) Comma separated tag values added to all log entries for instance
+                                     and machine identification
 
-  -p, --programnumber                Pick a specific program / service to inspect
-                                     (otherwise picks default).
+  -v, --verboselogging               Creates event logs for all discontinuities and skips.
 
-  -d, --descriptortags               (Default: ) Comma separated tag values added to
-                                     all log entries for instance and machine
-                                     identification
+  -t, --telemetry                    (Default: false) Enable telemetry to Cinegy Telemetry Server
+
+  -o, --organization                 Tag all telemetry with this organization (needed to indentify and access
+                                     telemetry from Cinegy Analytics portal
 
   --help                             Display this help screen.
 
@@ -103,34 +97,37 @@ Copyright © Cinegy GmbH 2016
 So - what does this look like when you point it at a complex live stream? Here is a shot from a UK DVB-T2 stream:
 
 ```
-URL: rtp://@239.1.1.1:1234      Running time: 00:00:11
+URL: rtp://@239.5.2.1:6670      Running time: 00:00:08
 
 Network Details
 ----------------
-Total Packets Rcvd: 47381       Buffer Usage: 0.00%/5
-Total Data (MB): 60             Packets per sec:4232
-Time Between Packets (ms): 0    Shortest/Longest: 0/3
-Bitrates (Mbps): 42.92/42.86/42.98/42.83 (Current/Avg/Peak/Low)
+Total Packets Rcvd: 35422       Buffer Usage: 0.09%/(Peak: 0.68%)
+Total Data (MB): 44             Packets per sec:4229
+Period Max Packet Jitter (ms): 6
+Bitrates (Mbps): 42.85/42.85/42.93/0.00 (Current/Avg/Peak/Low)
 
 RTP Details
 ----------------
-Seq Num: 49141  Min Lost Pkts: 0
-Timestamp: 3188860157   SSRC: 3194950522
+Seq Num: 4348   Min Lost Pkts: 0
+Timestamp: 2186342583   SSRC: 0
 
-PID Details - Unique PIDs: 58, (10 shown by packet count)
+PCR Value: 09:38:03.4968494
 ----------------
-TS PID: 8191    Packet Count: 184466            CC Error Count: 0
-TS PID: 5500    Packet Count: 32484             CC Error Count: 0
-TS PID: 5600    Packet Count: 31731             CC Error Count: 0
-TS PID: 5400    Packet Count: 17151             CC Error Count: 0
-TS PID: 5300    Packet Count: 16778             CC Error Count: 0
-TS PID: 2322    Packet Count: 11175             CC Error Count: 0
-TS PID: 3847    Packet Count: 5215              CC Error Count: 0
-TS PID: 2321    Packet Count: 3726              CC Error Count: 0
-TS PID: 192     Packet Count: 2462              CC Error Count: 0
-TS PID: 50      Packet Count: 2208              CC Error Count: 0
 
-Service Information - Service Count: 8, (5 shown)
+PID Details - Unique PIDs: 59, (10 shown by packet count)
+----------------
+TS PID: 8191    Packet Count: 105577            CC Error Count: 0
+TS PID: 5500    Packet Count: 36759             CC Error Count: 0
+TS PID: 5600    Packet Count: 31223             CC Error Count: 0
+TS PID: 5400    Packet Count: 19812             CC Error Count: 0
+TS PID: 5300    Packet Count: 18008             CC Error Count: 0
+TS PID: 2322    Packet Count: 8354              CC Error Count: 0
+TS PID: 3847    Packet Count: 3899              CC Error Count: 0
+TS PID: 2321    Packet Count: 2784              CC Error Count: 0
+TS PID: 192     Packet Count: 1913              CC Error Count: 0
+TS PID: 3843    Packet Count: 1710              CC Error Count: 0
+
+Service Information - Service Count: 9, (5 shown)
 ----------------
 Service 6940: BBC Two HD (BSkyB) - H.264/AVC HD digital television service
 Service 6941: BBC One HD (BSkyB) - H.264/AVC HD digital television service
@@ -138,7 +135,7 @@ Service 6943: BBC One NI HD (BSkyB) - H.264/AVC HD digital television service
 Service 6945: 6945 (BSkyB) - H.264/AVC HD digital television service
 Service 6952: CBBC HD (BSkyB) - H.264/AVC HD digital television service
 
-Elements - Selected Program BBC Two HD (ID:6940) (first 5 shown)
+Elements - Selected Program: BBC Two HD (ID:6940) (first 5 shown)
 ----------------
 PID: 5500 (H.264 video)
 PID: 5502 (MPEG-1 audio)
@@ -146,11 +143,14 @@ PID: 5504 (MPEG-2 packetized data privately defined)
 PID: 5503 (MPEG-2 packetized data privately defined)
 PID: 5501 (MPEG-2 packetized data privately defined)
 
-TeleText Subtitles - decoding from Service ID 6940
+Teletext Subtitles (eng)- decoding from Service ID 6940, PID: 5503
+Total Pages: 2, Total Clears: 1
 ----------------
-Live Decoding Page 888
+Live Decoding Page 8136
 
-party. If he is elected,
+       shown by young lads
+    who had acted as lookouts
+   and helped guard prisoners.
 
 ```
 
