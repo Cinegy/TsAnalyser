@@ -144,6 +144,7 @@ namespace Cinegy.TsAnalyser
             {
                 Console.CursorVisible = false;
                 Console.SetWindowSize(120, 60);
+                Console.OutputEncoding = Encoding.Unicode;
             }
             catch
             {
@@ -332,7 +333,8 @@ namespace Cinegy.TsAnalyser
                 Console.Clear();
             }
 
-            Console.WriteLine(ConsoleDisplay.ToString());
+            var result = ConsoleDisplay.ToString();
+            Console.WriteLine(result);
             ConsoleDisplay.Clear();
         }
 

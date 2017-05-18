@@ -44,8 +44,8 @@
       <HintPath>..\packages\Cinegy.TsAnalysis.0.0.5-alpha\lib\netstandard1.3\Cinegy.TsAnalysis.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Cinegy.TsDecoder, Version=2.0.48.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cinegy.TsDecoder.2.0.48\lib\netstandard1.3\Cinegy.TsDecoder.dll</HintPath>
+    <Reference Include="Cinegy.TsDecoder, Version=2.0.49.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Cinegy.TsDecoder.2.0.49\lib\netstandard1.3\Cinegy.TsDecoder.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Cinegy.TtxDecoder, Version=2.0.29.0, Culture=neutral, processorArchitecture=MSIL">
