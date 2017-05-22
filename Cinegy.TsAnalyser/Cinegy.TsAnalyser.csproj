@@ -40,12 +40,12 @@
       <HintPath>..\packages\Cinegy.Telemetry.2.0.10-alpha1\lib\netstandard1.3\Cinegy.Telemetry.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Cinegy.TsAnalysis, Version=0.0.6.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cinegy.TsAnalysis.0.0.6-alpha\lib\netstandard1.3\Cinegy.TsAnalysis.dll</HintPath>
+    <Reference Include="Cinegy.TsAnalysis, Version=0.0.8.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Cinegy.TsAnalysis.0.0.8-alpha\lib\netstandard1.3\Cinegy.TsAnalysis.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Cinegy.TsDecoder, Version=2.0.53.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cinegy.TsDecoder.2.0.53\lib\netstandard1.3\Cinegy.TsDecoder.dll</HintPath>
+    <Reference Include="Cinegy.TsDecoder, Version=2.0.54.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Cinegy.TsDecoder.2.0.54\lib\netstandard1.3\Cinegy.TsDecoder.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Cinegy.TtxDecoder, Version=2.0.29.0, Culture=neutral, processorArchitecture=MSIL">
@@ -168,7 +168,9 @@
     <None Include="App.config">
       <SubType>Designer</SubType>
     </None>
-    <None Include="packages.config" />
+    <None Include="packages.config">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <None Include="FodyWeavers.xml" />
@@ -182,10 +184,8 @@
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\Fody.2.0.9\build\dotnet\Fody.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Fody.2.0.9\build\dotnet\Fody.targets'))" />
-    <Error Condition="!Exists('..\packages\Costura.Fody.1.5.0\build\dotnet\Costura.Fody.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Costura.Fody.1.5.0\build\dotnet\Costura.Fody.targets'))" />
   </Target>
   <Import Project="..\packages\Fody.2.0.9\build\dotnet\Fody.targets" Condition="Exists('..\packages\Fody.2.0.9\build\dotnet\Fody.targets')" />
-  <Import Project="..\packages\Costura.Fody.1.5.0\build\dotnet\Costura.Fody.targets" Condition="Exists('..\packages\Costura.Fody.1.5.0\build\dotnet\Costura.Fody.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
