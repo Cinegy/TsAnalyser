@@ -171,7 +171,8 @@ namespace Cinegy.TsAnalyser
             _receiving = true;
 
             LogMessage($"Logging started {Assembly.GetEntryAssembly().GetName().Version}.");
-                
+
+            _analyser.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
             _analyser.InspectTeletext = _options.DecodeTeletext;
             _analyser.InspectTsPackets = !_options.SkipDecodeTransportStream;
             _analyser.SelectedProgramNumber = _options.ProgramNumber;
@@ -214,6 +215,15 @@ namespace Cinegy.TsAnalyser
             }
 
             LogMessage("Logging stopped.");
+        }
+
+        private static void TsDecoder_TableChangeDetected(object sender, TableChangedEventArgs args)
+        {
+            if ((args.TableType == TableType.Pat) || (args.TableType == TableType.Pmt) || (args.TableType == TableType.Sdt))
+            {
+                //abuse occasional table refresh to clear all content on screen
+                Console.Clear();
+            }
         }
 
         private static void PrintConsoleFeedback()
