@@ -230,7 +230,7 @@ namespace Cinegy.TsAnalyser
             if (args.TableType == TableType.Eit)
             {
                 var decoder = sender as TsDecoder.TransportStream.TsDecoder;
-                //Debug.WriteLine(decoder. .VersionNumber);
+                Debug.WriteLine(decoder.EventInformationTable.VersionNumber);
             }
         }
 
