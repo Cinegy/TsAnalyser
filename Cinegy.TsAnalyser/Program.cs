@@ -14,6 +14,7 @@
 */
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -144,6 +145,7 @@ namespace Cinegy.TsAnalyser
             {
                 Console.CursorVisible = false;
                 Console.SetWindowSize(120, 60);
+                Console.OutputEncoding = Encoding.Unicode;
             }
             catch
             {
@@ -170,7 +172,7 @@ namespace Cinegy.TsAnalyser
             _receiving = true;
 
             LogMessage($"Logging started {Assembly.GetEntryAssembly().GetName().Version}.");
-                
+
             _analyser.InspectTeletext = _options.DecodeTeletext;
             _analyser.InspectTsPackets = !_options.SkipDecodeTransportStream;
             _analyser.SelectedProgramNumber = _options.ProgramNumber;
@@ -183,6 +185,7 @@ namespace Cinegy.TsAnalyser
             if (!string.IsNullOrEmpty(filePath))
             {
                 _analyser.Setup();
+                _analyser.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
                 StartStreamingFile(filePath);
             }
 
@@ -190,6 +193,7 @@ namespace Cinegy.TsAnalyser
             {
                 _analyser.HasRtpHeaders = !streamOptions.NoRtpHeaders;
                 _analyser.Setup(streamOptions.MulticastAddress,streamOptions.MulticastGroup);
+                _analyser.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
 
                 if (_analyser.InspectTeletext)
                 {
@@ -209,10 +213,25 @@ namespace Cinegy.TsAnalyser
                     PrintConsoleFeedback();
                 }
 
-                Thread.Sleep(20);
+                Thread.Sleep(30);
             }
 
             LogMessage("Logging stopped.");
+        }
+
+        private static void TsDecoder_TableChangeDetected(object sender, TableChangedEventArgs args)
+        {
+            if ((args.TableType == TableType.Pat) || (args.TableType == TableType.Pmt) || (args.TableType == TableType.Sdt))
+            {
+                //abuse occasional table refresh to clear all content on screen
+                Console.Clear();
+            }
+
+            if (args.TableType == TableType.Eit)
+            {
+                var decoder = sender as TsDecoder.TransportStream.TsDecoder;
+                Debug.WriteLine(decoder.EventInformationTable.VersionNumber);
+            }
         }
 
         private static void PrintConsoleFeedback()
@@ -306,7 +325,7 @@ namespace Cinegy.TsAnalyser
                     PrintToConsole(serviceDesc != null
                         ? $"\t\t\t\nElements - Selected Program: {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)\n----------------\t\t\t\t"
                         : $"\t\t\t\nElements - Selected Program Service ID {pmt?.ProgramNumber} (first 5 shown)\n----------------\t\t\t\t");
-
+                    
                     if (pmt?.EsStreams != null)
                     {
                         foreach (var stream in pmt.EsStreams.Take(5))
@@ -332,8 +351,11 @@ namespace Cinegy.TsAnalyser
                 Console.Clear();
             }
 
-            Console.WriteLine(ConsoleDisplay.ToString());
+            var result = ConsoleDisplay.ToString();
+            
+            Console.WriteLine(result);
             ConsoleDisplay.Clear();
+            
         }
 
         private static void PrintTeletext()
