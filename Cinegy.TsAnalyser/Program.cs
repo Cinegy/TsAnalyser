@@ -230,7 +230,7 @@ namespace Cinegy.TsAnalyser
                 var _rtpMetric = _analyser.RtpMetric;
 
                 PrintToConsole(
-                    "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/(Peak: {2:0.00}%)\t\t\nTotal Data (MB): {3}\t\tPackets per sec:{4}",
+                    "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/(Peak: {2:0.00}%)\t\t\nTotal Data (MB): {3}\t\tPackets per sec:{4}\t",
                     _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, _networkMetric.PeriodMaxNetworkBufferUsage,
                     _networkMetric.TotalData / 1048576,
                     _networkMetric.PacketsPerSecond);
