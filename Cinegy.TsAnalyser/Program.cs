@@ -14,6 +14,7 @@
 */
 
 using System;
+using System.CodeDom;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -21,6 +22,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Cinegy.Telemetry;
@@ -331,10 +333,53 @@ namespace Cinegy.TsAnalyser
                         foreach (var stream in pmt.EsStreams.Take(5))
                         {
                             if (stream != null)
-                                PrintToConsole(
-                                    "PID: {0} ({1})", stream.ElementaryPid,
-                                    DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
-                                        stream.StreamType]);
+                            {
+                                if (stream.StreamType != 6)
+                                {
+                                    PrintToConsole(
+                                        "PID: {0} ({1})", stream.ElementaryPid,
+                                        DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
+                                            stream.StreamType]);
+                                }
+                                else
+                                {
+                                    if (stream.Descriptors.OfType<Ac3Descriptor>().Any())
+                                    {
+                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "AC-3 / Dolby Digital");
+                                        continue;
+                                    }
+                                    if (stream.Descriptors.OfType<Eac3Descriptor>().Any())
+                                    {
+                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "EAC-3 / Dolby Digital Plus");
+                                        continue;
+                                    }
+                                    if (stream.Descriptors.OfType<SubtitlingDescriptor>().Any())
+                                    {
+                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "DVB Subtitles");
+                                        continue;
+                                    }
+                                    if (stream.Descriptors.OfType<TeletextDescriptor>().Any())
+                                    {
+                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "Teletext");
+                                        continue;
+                                    }
+                                    if (stream.Descriptors.OfType<RegistrationDescriptor>().Any())
+                                    {
+                                        if (stream.Descriptors.OfType<RegistrationDescriptor>().First().Organization == "2LND")
+                                        {
+                                            PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "Cinegy DANIEL2");
+                                            continue;
+                                        }
+                                    }
+                                    
+                                    PrintToConsole(
+                                        "PID: {0} ({1})", stream.ElementaryPid,
+                                        DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
+                                            stream.StreamType]);
+
+                                }
+                            }
+                                
                         }
                     }
                 }
