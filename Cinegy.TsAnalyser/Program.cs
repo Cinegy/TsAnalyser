@@ -132,7 +132,9 @@ namespace Cinegy.TsAnalyser
 
             Logger = LogManager.GetCurrentClassLogger();
 
-            LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags, "https://telemetry.cinegy.com", opts.TelemetryEnabled, false);
+            var buildVersion = Assembly.GetEntryAssembly().GetName().Version.ToString();
+            
+            LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags, "http://telemetry.cinegy.com", opts.TelemetryEnabled, false, "TSAnalyser", buildVersion );
 
             _analyser = new Analyser(Logger);
 
@@ -146,7 +148,7 @@ namespace Cinegy.TsAnalyser
             try
             {
                 Console.CursorVisible = false;
-                Console.SetWindowSize(120, 60);
+                Console.SetWindowSize(120, 50);
                 Console.OutputEncoding = Encoding.Unicode;
             }
             catch
