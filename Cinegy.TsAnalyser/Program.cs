@@ -134,7 +134,7 @@ namespace Cinegy.TsAnalyser
 
             var buildVersion = Assembly.GetEntryAssembly().GetName().Version.ToString();
             
-            LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags, "http://telemetry.cinegy.com", opts.TelemetryEnabled, false, "TSAnalyser", buildVersion );
+            LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags, "https://telemetry.cinegy.com", opts.TelemetryEnabled, false, "TSAnalyser", buildVersion );
 
             _analyser = new Analyser(Logger);
 
