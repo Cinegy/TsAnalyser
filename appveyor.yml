@@ -2,15 +2,16 @@ version: 2.0.{build}
 branches:
   only:
   - master
-  - pre-master
+image: Visual Studio 2017
 configuration: Release
-platform: Any CPU
-assembly_info:
+dotnet_csproj:
   patch: true
-  file: '**\AssemblyInfo.*'
+  file: '**\*.csproj'
+  version: '{version}-beta'
+  package_version: '{version}-beta'
   assembly_version: '{version}'
-  assembly_file_version: '{version}'
-  assembly_informational_version: '{version}-alpha2'
+  file_version: '{version}'
+  informational_version: '{version}-beta'
 before_build:
 - cmd: nuget restore
 build:
@@ -18,10 +19,10 @@ build:
   verbosity: minimal
 after_build:
 - cmd: >-
-    7z a TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\Cinegy.TsAnalyser\bin\release\TsAnalyser.exe
+    7z a TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\Cinegy.TsAnalyser\bin\Release\net461\TsAnalyser.exe
 
     appveyor PushArtifact TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip
 
-    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip %APPVEYOR_BUILD_FOLDER%\Cinegy.TsAnalyser\bin\release\*.*
+    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip %APPVEYOR_BUILD_FOLDER%\Cinegy.TsAnalyser\bin\release
     
     appveyor PushArtifact TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip
