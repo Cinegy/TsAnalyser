@@ -20,7 +20,7 @@ namespace Cinegy.TsAnalyser
         HelpText = "Optional instruction to decode DVB teletext subtitles / captions from default program")]
         public bool DecodeTeletext { get; set; }
         
-        [Option('p', "programnumber", Required = false,
+        [Option("programnumber", Required = false,
         HelpText = "Pick a specific program / service to inspect (otherwise picks default).")]
         public ushort ProgramNumber { get; set; }
 
@@ -45,12 +45,12 @@ namespace Cinegy.TsAnalyser
     [Verb("stream", HelpText = "Stream from the network.")]
     internal class StreamOptions : Options
     {
-        [Option('m', "multicastaddress", Required = true,
-        HelpText = "Input multicast address to read from.")]
+        [Option('m', "multicastaddress", Required = false,
+        HelpText = "Input multicast address to read from - if left blank, assumes unicast.")]
         public string MulticastAddress { get; set; }
 
-        [Option('g', "mulicastgroup", Required = true,
-        HelpText = "Input multicast group port to read from.")]
+        [Option('p', "port", Required = true,
+        HelpText = "Input UDP network port to read from.")]
         public int MulticastGroup { get; set; }
         
         [Option('a', "adapter", Required = false,

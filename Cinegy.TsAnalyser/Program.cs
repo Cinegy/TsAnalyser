@@ -14,15 +14,12 @@
 */
 
 using System;
-using System.CodeDom;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Cinegy.Telemetry;
@@ -140,10 +137,7 @@ namespace Cinegy.TsAnalyser
 
             var location = Assembly.GetEntryAssembly().Location;
             
-            Logger.Info($"Dumb test)");
-
-            if (location != null)
-                Logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location)})");
+            Logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location)})");
 
             try
             {
@@ -190,6 +184,13 @@ namespace Cinegy.TsAnalyser
             {
                 _analyser.Setup();
                 _analyser.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
+
+                if (_analyser.InspectTeletext)
+                {
+                    _analyser.TeletextDecoder.Service.TeletextPageReady += Service_TeletextPageReady;
+                    _analyser.TeletextDecoder.Service.TeletextPageCleared += Service_TeletextPageCleared;
+                }
+
                 StartStreamingFile(filePath);
             }
 
@@ -231,11 +232,10 @@ namespace Cinegy.TsAnalyser
                 Console.Clear();
             }
 
-            if (args.TableType == TableType.Eit)
-            {
-                var decoder = sender as TsDecoder.TransportStream.TsDecoder;
-                Debug.WriteLine(decoder.EventInformationTable.VersionNumber);
-            }
+            if (args.TableType != TableType.Eit) return;
+
+            //Todo: finish implementing better EIT support
+            //if (sender is TsDecoder.TransportStream.TsDecoder decoder) Debug.WriteLine("EIT Version Num: " + decoder.EventInformationTable.VersionNumber);
         }
 
         private static void PrintConsoleFeedback()
@@ -246,7 +246,10 @@ namespace Cinegy.TsAnalyser
 
             if ((_options as StreamOptions) != null)
             {
-                PrintToConsole("URL: rtp://@{0}:{1}\tRunning time: {2:hh\\:mm\\:ss}\t\t", ((StreamOptions)_options).MulticastAddress,
+                PrintToConsole("URL: {0}://{1}:{2}\tRunning time: {3:hh\\:mm\\:ss}\t\t",
+                    ((StreamOptions)_options).NoRtpHeaders ? "udp" : "rtp",
+                    string.IsNullOrWhiteSpace(((StreamOptions)_options).MulticastAddress) ?
+                        "127.0.0.1" : $"@{((StreamOptions)_options).MulticastAddress}",
                     ((StreamOptions)_options).MulticastGroup, runningTime);
 
                 var _networkMetric = _analyser.NetworkMetric;
@@ -412,24 +415,25 @@ namespace Cinegy.TsAnalyser
             const string clearLine = "\t\t\t\t\t\t\t\t\t";
             var ttxRender = new[] { clearLine, clearLine, clearLine, clearLine };
 
-            if (DecodedSubtitlePage != null)
+            if (_decodedSubtitlePage != null)
             {
-                lock (DecodedSubtitlePage)
+                lock (_decodedSubtitlePage)
                 {
-                    var defaultLang = DecodedSubtitlePage.ParentMagazine.ParentService.AssociatedDescriptor.Languages
+                    var defaultLang = _decodedSubtitlePage.ParentMagazine.ParentService.AssociatedDescriptor.Languages
                         .FirstOrDefault();
+
+                    if (defaultLang != null)
+                        PrintToConsole(
+                            $"\nTeletext Subtitles ({defaultLang.Iso639LanguageCode})- decoding from Service ID {_decodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {_decodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}");
                     
                     PrintToConsole(
-                        $"\nTeletext Subtitles ({defaultLang.Iso639LanguageCode})- decoding from Service ID {DecodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {DecodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}");
+                        $"Total Pages: {_analyser.TeletextMetric.TtxPageReadyCount}, Total Clears: {_analyser.TeletextMetric.TtxPageClearCount}\n----------------");
 
-                    PrintToConsole(
-                        $"Total Pages: {_analyser.TeletextDecoder.Service.Metric.TtxPageReadyCount}, Total Clears: {_analyser.TeletextDecoder.Service.Metric.TtxPageClearCount}\n----------------");
-
-                    PrintToConsole($"Live Decoding Page {DecodedSubtitlePage.ParentMagazine.MagazineNum}{DecodedSubtitlePage.PageNum:00}\n");
+                    PrintToConsole($"Live Decoding Page {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:00}\n");
                     
                     var i = 0;
 
-                    foreach (var row in DecodedSubtitlePage.Rows)
+                    foreach (var row in _decodedSubtitlePage.Rows)
                     {
                         if (!row.IsChanged() || string.IsNullOrWhiteSpace(row.GetPlainRow())) continue;
                         ttxRender[i] = $"{row.GetPlainRow()}\t\t\t";
@@ -444,13 +448,13 @@ namespace Cinegy.TsAnalyser
             }
         }
         
-        private static void StartListeningToNetwork(string multicastAddress, int multicastGroup,
+        private static void StartListeningToNetwork(string multicastAddress, int networkPort,
             string listenAdapter = "")
         {
 
             var listenAddress = string.IsNullOrEmpty(listenAdapter) ? IPAddress.Any : IPAddress.Parse(listenAdapter);
 
-            var localEp = new IPEndPoint(listenAddress, multicastGroup);
+            var localEp = new IPEndPoint(listenAddress, networkPort);
 
             UdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             UdpClient.Client.ReceiveBufferSize = 1500 * 3000;
@@ -458,8 +462,11 @@ namespace Cinegy.TsAnalyser
             UdpClient.Client.Bind(localEp);
             _analyser.NetworkMetric.UdpClient = UdpClient;
 
-            var parsedMcastAddr = IPAddress.Parse(multicastAddress);
-            UdpClient.JoinMulticastGroup(parsedMcastAddr, listenAddress);
+            if (!string.IsNullOrWhiteSpace(multicastAddress))
+            {
+                var parsedMcastAddr = IPAddress.Parse(multicastAddress);
+                UdpClient.JoinMulticastGroup(parsedMcastAddr, listenAddress);
+            }
 
             var ts = new ThreadStart(delegate
             {
@@ -469,7 +476,6 @@ namespace Cinegy.TsAnalyser
             var receiverThread = new Thread(ts) { };
 
             receiverThread.Start();
-
        
         }
 
@@ -520,9 +526,13 @@ namespace Cinegy.TsAnalyser
         {
             while (_receiving && !_pendingExit)
             {
-                var data = client.ReceiveAsync().Result.Buffer;
+                var ep = client.Client.LocalEndPoint as IPEndPoint;
+                var data = client.Receive(ref ep);
+                
+                //async seems to really kill CPU - don't know why, probably creates lots of threading...
+                //var data = client.ReceiveAsync().Result.Buffer;
 
-                if (data == null) continue;
+                //if (data == null) continue;
 
                 if (_warmedUp)
                 {
@@ -536,7 +546,7 @@ namespace Cinegy.TsAnalyser
             }
         }
         
-        private static TeletextPage DecodedSubtitlePage;
+        private static TeletextPage _decodedSubtitlePage;
 
         private static void Service_TeletextPageReady(object sender, EventArgs e)
         {
@@ -544,15 +554,15 @@ namespace Cinegy.TsAnalyser
 
             if (ttxE == null) return;
 
-            DecodedSubtitlePage = ttxE.Page;
+            _decodedSubtitlePage = ttxE.Page;
         }
 
         private static void Service_TeletextPageCleared(object sender, EventArgs e)
         {
             var ttxE = (TeletextPageClearedEventArgs)e;
 
-            if (DecodedSubtitlePage?.PageNum == ttxE.PageNumber)
-                DecodedSubtitlePage = null;
+            if (_decodedSubtitlePage?.PageNum == ttxE.PageNumber)
+                _decodedSubtitlePage = null;
         }
 
         private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
