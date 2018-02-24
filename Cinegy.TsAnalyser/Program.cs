@@ -42,7 +42,7 @@ namespace Cinegy.TsAnalyser
         private static Analyser _analyser;
         private static DateTime _startTime = DateTime.UtcNow;
         private static bool _pendingExit;
-        private static readonly UdpClient UdpClient = new UdpClient { ExclusiveAddressUse = false };
+        private static readonly UdpClient UdpClient = new UdpClient();// { ExclusiveAddressUse = false };
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
         
@@ -429,7 +429,7 @@ namespace Cinegy.TsAnalyser
                     PrintToConsole(
                         $"Total Pages: {_analyser.TeletextMetric.TtxPageReadyCount}, Total Clears: {_analyser.TeletextMetric.TtxPageClearCount}\n----------------");
 
-                    PrintToConsole($"Live Decoding Page {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:00}\n");
+                    PrintToConsole($"Live Decoding Page {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:x00}\n");
                     
                     var i = 0;
 
@@ -458,7 +458,7 @@ namespace Cinegy.TsAnalyser
 
             UdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             UdpClient.Client.ReceiveBufferSize = 1500 * 3000;
-            UdpClient.ExclusiveAddressUse = false;
+            //UdpClient.ExclusiveAddressUse = false;
             UdpClient.Client.Bind(localEp);
             _analyser.NetworkMetric.UdpClient = UdpClient;
 

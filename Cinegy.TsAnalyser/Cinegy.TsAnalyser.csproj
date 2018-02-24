@@ -18,7 +18,7 @@
 
   <ItemGroup>
     <PackageReference Include="Cinegy.Telemetry" Version="2.0.19-beta" />
-    <PackageReference Include="Cinegy.TsAnalysis" Version="0.0.19-beta" />
+    <PackageReference Include="Cinegy.TsAnalysis" Version="0.0.21-beta" />
     <PackageReference Include="Cinegy.TsDecoder" Version="3.0.101-beta" />
     <PackageReference Include="Cinegy.TtxDecoder" Version="2.0.34-beta" />
     <PackageReference Include="CommandLineParser" Version="2.2.1" />
