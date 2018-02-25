@@ -11,9 +11,10 @@
     <PackageTags>Transport Stream MPEGTS Analyzer</PackageTags>
     <PackageLicenseUrl>http://www.apache.org/licenses/LICENSE-2.0</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/Cinegy/TsAnalysis</PackageProjectUrl>
-    <PackageReleaseNotes>Project retooled and dependencies updated</PackageReleaseNotes>
+    <PackageReleaseNotes>Overhaul to support multi-targetting completed, resharper cleanup and code reviewed - now a release candidate, because supporting libraries have pre-release flags set</PackageReleaseNotes>
     <NeutralLanguage />
     <AssemblyName>TsAnalyser</AssemblyName>
+    <RepositoryUrl>https://github.com/Cinegy/TsAnalysis</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

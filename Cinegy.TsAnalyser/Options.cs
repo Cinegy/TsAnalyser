@@ -41,7 +41,7 @@ namespace Cinegy.TsAnalyser
         public string OrganizationId { get; set; }
     }
     
-    // Define a class to receive parsed values
+    // Define a class to receive parsed values using stream verb
     [Verb("stream", HelpText = "Stream from the network.")]
     internal class StreamOptions : Options
     {
@@ -51,7 +51,7 @@ namespace Cinegy.TsAnalyser
 
         [Option('p', "port", Required = true,
         HelpText = "Input UDP network port to read from.")]
-        public int MulticastGroup { get; set; }
+        public int UdpPort { get; set; }
         
         [Option('a', "adapter", Required = false,
         HelpText = "IP address of the adapter to listen for multicasts (if not set, tries first binding adapter).")]
@@ -75,9 +75,9 @@ namespace Cinegy.TsAnalyser
 
     }
 
-    // Define a class to receive parsed values
+    // Define a class to receive parsed values read verb
     [Verb("read", HelpText = "Read from a file.")]
-    class ReadOptions : Options
+    internal class ReadOptions : Options
     {
         [Option('f', "filename", Required = false, Default = "",
         HelpText = "Allow a .TS file to be opened, instead of a Multicast (experimental)")]

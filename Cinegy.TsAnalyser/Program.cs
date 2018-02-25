@@ -1,4 +1,4 @@
-﻿/*   Copyright 2017 Cinegy GmbH
+﻿/*   Copyright 2018 Cinegy GmbH
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -38,11 +38,11 @@ namespace Cinegy.TsAnalyser
         private static bool _receiving;
         private static Options _options;
         private static bool _warmedUp;
-        private static  Logger Logger;
+        private static  Logger _logger;
         private static Analyser _analyser;
-        private static DateTime _startTime = DateTime.UtcNow;
+        private static readonly DateTime StartTime = DateTime.UtcNow;
         private static bool _pendingExit;
-        private static readonly UdpClient UdpClient = new UdpClient();// { ExclusiveAddressUse = false };
+        private static readonly UdpClient UdpClient = new UdpClient();
         private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
         private static int _lastPrintedTsCount;
         
@@ -53,7 +53,7 @@ namespace Cinegy.TsAnalyser
                 return RunStreamInteractive();
             }
 
-            if ((args.Length == 1) && (File.Exists(args[0])))
+            if (args.Length == 1 && (File.Exists(args[0])))
             {
                 //a single argument was used, and it was a file - so skip all other parsing
                 return Run(new ReadOptions { FileInput = args[0] });
@@ -107,7 +107,7 @@ namespace Cinegy.TsAnalyser
                 port = "1234";
             }
 
-            newOpts.MulticastGroup = int.Parse(port);
+            newOpts.UdpPort = int.Parse(port);
 
             Console.Write("Please enter the adapter address to listen for multicast packets [0.0.0.0]: ");
 
@@ -127,17 +127,17 @@ namespace Cinegy.TsAnalyser
         {
             Console.CancelKeyPress += Console_CancelKeyPress;
 
-            Logger = LogManager.GetCurrentClassLogger();
+            _logger = LogManager.GetCurrentClassLogger();
 
             var buildVersion = Assembly.GetEntryAssembly().GetName().Version.ToString();
             
             LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags, "https://telemetry.cinegy.com", opts.TelemetryEnabled, false, "TSAnalyser", buildVersion );
 
-            _analyser = new Analyser(Logger);
+            _analyser = new Analyser(_logger);
 
             var location = Assembly.GetEntryAssembly().Location;
             
-            Logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location)})");
+            _logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location)})");
 
             try
             {
@@ -176,8 +176,6 @@ namespace Cinegy.TsAnalyser
             _analyser.SelectedProgramNumber = _options.ProgramNumber;
             _analyser.VerboseLogging = _options.VerboseLogging;
 
-            var streamOptions = _options as StreamOptions;
-
             var filePath = (_options as ReadOptions)?.FileInput;
 
             if (!string.IsNullOrEmpty(filePath))
@@ -194,21 +192,21 @@ namespace Cinegy.TsAnalyser
                 StartStreamingFile(filePath);
             }
 
-            if (streamOptions != null)
+            if (_options is StreamOptions streamOptions)
             {
                 _analyser.HasRtpHeaders = !streamOptions.NoRtpHeaders;
-                _analyser.Setup(streamOptions.MulticastAddress,streamOptions.MulticastGroup);
+                _analyser.Setup(streamOptions.MulticastAddress, streamOptions.UdpPort);
                 _analyser.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
 
                 if (_analyser.InspectTeletext)
                 {
                     _analyser.TeletextDecoder.Service.TeletextPageReady += Service_TeletextPageReady;
-                    _analyser.TeletextDecoder.Service.TeletextPageCleared += Service_TeletextPageCleared;                        
+                    _analyser.TeletextDecoder.Service.TeletextPageCleared += Service_TeletextPageCleared;
                 }
 
-                StartListeningToNetwork(streamOptions.MulticastAddress, streamOptions.MulticastGroup, streamOptions.AdapterAddress);
+                StartListeningToNetwork(streamOptions.MulticastAddress, streamOptions.UdpPort, streamOptions.AdapterAddress);
             }
-        
+
             Console.Clear();
 
             while (!_pendingExit)
@@ -232,15 +230,14 @@ namespace Cinegy.TsAnalyser
                 Console.Clear();
             }
 
-            if (args.TableType != TableType.Eit) return;
-
             //Todo: finish implementing better EIT support
+            //if (args.TableType != TableType.Eit) return;
             //if (sender is TsDecoder.TransportStream.TsDecoder decoder) Debug.WriteLine("EIT Version Num: " + decoder.EventInformationTable.VersionNumber);
         }
 
         private static void PrintConsoleFeedback()
         {
-            var runningTime = DateTime.UtcNow.Subtract(_startTime);
+            var runningTime = DateTime.UtcNow.Subtract(StartTime);
 
             Console.SetCursorPosition(0, 0);
 
@@ -250,60 +247,60 @@ namespace Cinegy.TsAnalyser
                     ((StreamOptions)_options).NoRtpHeaders ? "udp" : "rtp",
                     string.IsNullOrWhiteSpace(((StreamOptions)_options).MulticastAddress) ?
                         "127.0.0.1" : $"@{((StreamOptions)_options).MulticastAddress}",
-                    ((StreamOptions)_options).MulticastGroup, runningTime);
+                    ((StreamOptions)_options).UdpPort, runningTime);
 
-                var _networkMetric = _analyser.NetworkMetric;
-                var _rtpMetric = _analyser.RtpMetric;
+                var networkMetric = _analyser.NetworkMetric;
+                var rtpMetric = _analyser.RtpMetric;
 
                 PrintToConsole(
                     "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/(Peak: {2:0.00}%)\t\t\nTotal Data (MB): {3}\t\tPackets per sec:{4}\t",
-                    _networkMetric.TotalPackets, _networkMetric.NetworkBufferUsage, _networkMetric.PeriodMaxNetworkBufferUsage,
-                    _networkMetric.TotalData / 1048576,
-                    _networkMetric.PacketsPerSecond);
+                    networkMetric.TotalPackets, networkMetric.NetworkBufferUsage, networkMetric.PeriodMaxNetworkBufferUsage,
+                    networkMetric.TotalData / 1048576,
+                    networkMetric.PacketsPerSecond);
 
                 PrintToConsole("Period Max Packet Jitter (ms): {0}\t\t",
-                    _networkMetric.PeriodLongestTimeBetweenPackets);
+                    networkMetric.PeriodLongestTimeBetweenPackets);
 
                 PrintToConsole(
                     "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
-                    (_networkMetric.CurrentBitrate / 1048576.0), _networkMetric.AverageBitrate / 1048576.0,
-                    (_networkMetric.HighestBitrate / 1048576.0), (_networkMetric.LowestBitrate / 1048576.0));
+                    (networkMetric.CurrentBitrate / 1048576.0), networkMetric.AverageBitrate / 1048576.0,
+                    (networkMetric.HighestBitrate / 1048576.0), (networkMetric.LowestBitrate / 1048576.0));
 
                 if (!((StreamOptions)_options).NoRtpHeaders)
                 {
                     PrintToConsole(
                         "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
-                        _rtpMetric.LastSequenceNumber, _rtpMetric.EstimatedLostPackets, _rtpMetric.LastTimestamp,
-                        _rtpMetric.Ssrc);
+                        rtpMetric.LastSequenceNumber, rtpMetric.EstimatedLostPackets, rtpMetric.LastTimestamp,
+                        rtpMetric.Ssrc);
                 }
             }
 
-            var _pidMetrics = _analyser.PidMetrics;
+            var pidMetrics = _analyser.PidMetrics;
 
-            lock (_pidMetrics)
+            lock (pidMetrics)
             {
 
                 var span = new TimeSpan((long)(_analyser.LastPcr / 2.7));
                 PrintToConsole(_analyser.LastPcr > 0 ? $"\nPCR Value: {span}\n----------------" : "\n\n");
 
-                PrintToConsole(_pidMetrics.Count < 10
-                    ? $"\nPID Details - Unique PIDs: {_pidMetrics.Count}\n----------------"
-                    : $"\nPID Details - Unique PIDs: {_pidMetrics.Count}, (10 shown by packet count)\n----------------");
+                PrintToConsole(pidMetrics.Count < 10
+                    ? $"\nPID Details - Unique PIDs: {pidMetrics.Count}\n----------------"
+                    : $"\nPID Details - Unique PIDs: {pidMetrics.Count}, (10 shown by packet count)\n----------------");
 
-                foreach (var pidMetric in _pidMetrics.OrderByDescending(m => m.PacketCount).Take(10))
+                foreach (var pidMetric in pidMetrics.OrderByDescending(m => m.PacketCount).Take(10))
                 {
                     PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", pidMetric.Pid,
                         pidMetric.PacketCount, pidMetric.CcErrorCount);
                 }
             }
 
-            var _tsDecoder = _analyser.TsDecoder;
+            var tsDecoder = _analyser.TsDecoder;
 
-            if (_tsDecoder != null)
+            if (tsDecoder != null)
             {                
-                lock (_tsDecoder)
+                lock (tsDecoder)
                 {
-                    var pmts = _tsDecoder?.ProgramMapTables.OrderBy(p => p.ProgramNumber).ToList();
+                    var pmts = tsDecoder.ProgramMapTables.OrderBy(p => p.ProgramNumber).ToList();
 
                     PrintToConsole(pmts.Count < 5
                         ? $"\t\t\t\nService Information - Service Count: {pmts.Count}\n----------------\t\t\t\t"
@@ -311,7 +308,7 @@ namespace Cinegy.TsAnalyser
 
                     foreach (var pmtable in pmts.Take(5))
                     {
-                        var desc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmtable?.ProgramNumber);
+                        var desc = tsDecoder.GetServiceDescriptorForProgramNumber(pmtable?.ProgramNumber);
                         if (desc != null)
                         {
                             PrintToConsole(
@@ -320,14 +317,14 @@ namespace Cinegy.TsAnalyser
                         }
                     }
 
-                    var pmt = _tsDecoder.GetSelectedPmt(_options.ProgramNumber);
+                    var pmt = tsDecoder.GetSelectedPmt(_options.ProgramNumber);
                     if (pmt != null)
                     {
                         _options.ProgramNumber = pmt.ProgramNumber;
                         _analyser.SelectedPcrPid = pmt.PcrPid;
                     }
 
-                    var serviceDesc = _tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
+                    var serviceDesc = tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
 
                     PrintToConsole(serviceDesc != null
                         ? $"\t\t\t\nElements - Selected Program: {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)\n----------------\t\t\t\t"
@@ -337,54 +334,52 @@ namespace Cinegy.TsAnalyser
                     {
                         foreach (var stream in pmt.EsStreams.Take(5))
                         {
-                            if (stream != null)
+                            if (stream == null) continue;
+                            if (stream.StreamType != 6)
                             {
-                                if (stream.StreamType != 6)
-                                {
-                                    PrintToConsole(
-                                        "PID: {0} ({1})", stream.ElementaryPid,
-                                        DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
-                                            stream.StreamType]);
-                                }
-                                else
-                                {
-                                    if (stream.Descriptors.OfType<Ac3Descriptor>().Any())
-                                    {
-                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "AC-3 / Dolby Digital");
-                                        continue;
-                                    }
-                                    if (stream.Descriptors.OfType<Eac3Descriptor>().Any())
-                                    {
-                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "EAC-3 / Dolby Digital Plus");
-                                        continue;
-                                    }
-                                    if (stream.Descriptors.OfType<SubtitlingDescriptor>().Any())
-                                    {
-                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "DVB Subtitles");
-                                        continue;
-                                    }
-                                    if (stream.Descriptors.OfType<TeletextDescriptor>().Any())
-                                    {
-                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "Teletext");
-                                        continue;
-                                    }
-                                    if (stream.Descriptors.OfType<RegistrationDescriptor>().Any())
-                                    {
-                                        if (stream.Descriptors.OfType<RegistrationDescriptor>().First().Organization == "2LND")
-                                        {
-                                            PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "Cinegy DANIEL2");
-                                            continue;
-                                        }
-                                    }
-                                    
-                                    PrintToConsole(
-                                        "PID: {0} ({1})", stream.ElementaryPid,
-                                        DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
-                                            stream.StreamType]);
-
-                                }
+                                PrintToConsole(
+                                    "PID: {0} ({1})", stream.ElementaryPid,
+                                    DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
+                                        stream.StreamType]);
                             }
-                                
+                            else
+                            {
+                                if (stream.Descriptors.OfType<Ac3Descriptor>().Any())
+                                {
+                                    PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "AC-3 / Dolby Digital");
+                                    continue;
+                                }
+                                if (stream.Descriptors.OfType<Eac3Descriptor>().Any())
+                                {
+                                    PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "EAC-3 / Dolby Digital Plus");
+                                    continue;
+                                }
+                                if (stream.Descriptors.OfType<SubtitlingDescriptor>().Any())
+                                {
+                                    PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "DVB Subtitles");
+                                    continue;
+                                }
+                                if (stream.Descriptors.OfType<TeletextDescriptor>().Any())
+                                {
+                                    PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "Teletext");
+                                    continue;
+                                }
+                                if (stream.Descriptors.OfType<RegistrationDescriptor>().Any())
+                                {
+                                    if (stream.Descriptors.OfType<RegistrationDescriptor>().First().Organization == "2LND")
+                                    {
+                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "Cinegy DANIEL2");
+                                        continue;
+                                    }
+                                }
+                                    
+                                PrintToConsole(
+                                    "PID: {0} ({1})", stream.ElementaryPid,
+                                    DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
+                                        stream.StreamType]);
+
+                            }
+
                         }
                     }
                 }
@@ -395,9 +390,9 @@ namespace Cinegy.TsAnalyser
                 }
             }
 
-            if (_lastPrintedTsCount != _pidMetrics.Count)
+            if (_lastPrintedTsCount != pidMetrics.Count)
             {
-                _lastPrintedTsCount = _pidMetrics.Count;
+                _lastPrintedTsCount = pidMetrics.Count;
                 Console.Clear();
             }
 
@@ -458,7 +453,6 @@ namespace Cinegy.TsAnalyser
 
             UdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             UdpClient.Client.ReceiveBufferSize = 1500 * 3000;
-            //UdpClient.ExclusiveAddressUse = false;
             UdpClient.Client.Bind(localEp);
             _analyser.NetworkMetric.UdpClient = UdpClient;
 
@@ -473,7 +467,7 @@ namespace Cinegy.TsAnalyser
                 ReceivingNetworkWorkerThread(UdpClient);
             });
 
-            var receiverThread = new Thread(ts) { };
+            var receiverThread = new Thread(ts);
 
             receiverThread.Start();
        
@@ -540,7 +534,7 @@ namespace Cinegy.TsAnalyser
                 }
                 else
                 {
-                    if (DateTime.UtcNow.Subtract(_startTime) > new TimeSpan(0, 0, 0, 0, WarmUpTime))
+                    if (DateTime.UtcNow.Subtract(StartTime) > new TimeSpan(0, 0, 0, 0, WarmUpTime))
                         _warmedUp = true;
                 }
             }
@@ -590,7 +584,7 @@ namespace Cinegy.TsAnalyser
                 Message = message
             };
 
-            Logger.Log(lei);
+            _logger.Log(lei);
         }
         
     }
