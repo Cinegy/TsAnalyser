@@ -419,12 +419,13 @@ namespace Cinegy.TsAnalyser
 
                     if (defaultLang != null)
                         PrintToConsole(
-                            $"\nTeletext Subtitles ({defaultLang.Iso639LanguageCode})- decoding from Service ID {_decodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {_decodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}");
-                    
-                    PrintToConsole(
-                        $"Total Pages: {_analyser.TeletextMetric.TtxPageReadyCount}, Total Clears: {_analyser.TeletextMetric.TtxPageClearCount}\n----------------");
+                            $"\nTeletext Subtitles ({defaultLang.Iso639LanguageCode}) - decoding from Service ID {_decodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {_decodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}\n----------------");
 
-                    PrintToConsole($"Live Decoding Page {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:x00}\n");
+                    PrintToConsole($"Live Decoding Page {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:x00}");
+
+                    PrintToConsole(
+                        $"Packets (Period/Total): {_analyser.TeletextMetric.PeriodTtxPacketCount}/{_analyser.TeletextMetric.TtxPacketCount}, Total Pages: {_analyser.TeletextMetric.TtxPageReadyCount}, Total Clears: {_analyser.TeletextMetric.TtxPageClearCount}\n");
+
                     
                     var i = 0;
 
