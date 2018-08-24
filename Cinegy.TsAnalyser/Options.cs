@@ -79,7 +79,7 @@ namespace Cinegy.TsAnalyser
     [Verb("read", HelpText = "Read from a file.")]
     internal class ReadOptions : Options
     {
-        [Option('f', "filename", Required = false, Default = "",
+        [Option('f', "filename", Required = true,
         HelpText = "Allow a .TS file to be opened, instead of a Multicast (experimental)")]
         public string FileInput { get; set; }
         

@@ -2,7 +2,7 @@
   "profiles": {
     "Cinegy.TsAnalyser": {
       "commandName": "Project",
-      "commandLineArgs": "stream -m 239.1.1.1 -p 1234 -a 10.10.10.1 -c"
+      "commandLineArgs": "read -f \"C:\\Users\\lewis\\OneDrive\\Temp\\BBCHD-DVBS2Mux-19thSept2016-20160919-105050.ts\""
     }
   }
 }

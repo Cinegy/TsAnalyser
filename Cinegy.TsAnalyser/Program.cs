@@ -13,6 +13,12 @@
    limitations under the License.
 */
 
+using Cinegy.Telemetry;
+using Cinegy.TsAnalysis;
+using Cinegy.TsDecoder.TransportStream;
+using Cinegy.TtxDecoder.Teletext;
+using CommandLine;
+using NLog;
 using System;
 using System.IO;
 using System.Linq;
@@ -22,12 +28,6 @@ using System.Reflection;
 using System.Runtime;
 using System.Text;
 using System.Threading;
-using Cinegy.Telemetry;
-using Cinegy.TsAnalysis;
-using Cinegy.TsDecoder.TransportStream;
-using Cinegy.TtxDecoder.Teletext;
-using CommandLine;
-using NLog;
 
 namespace Cinegy.TsAnalyser
 {
@@ -167,7 +167,7 @@ namespace Cinegy.TsAnalyser
         {
             Console.Clear();
             
-            _receiving = true;
+             _receiving = true;
 
             LogMessage($"Logging started {Assembly.GetEntryAssembly().GetName().Version}.");
 
