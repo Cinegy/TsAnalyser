@@ -2,7 +2,7 @@
 
 Use this tool to view inbound network, RTP and TS packet details. Use newly introduced powers to view into the service description tables, and even decode a teletext stream!
 
-New with V2 - integrated telemetry options, so you can stream quality metrics into the Cinegy cloud (or your own).
+New with V2 - integrated telemetry options, so you can stream quality metrics into the Cinegy cloud (or your own). V2 is not 'release' officially yet, since I'm waiting for NET Core 3 to hit release to target that with it's new AOT compilation features.
 
 ## How easy is it?
 
