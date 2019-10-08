@@ -13,6 +13,7 @@
     <PackageReleaseNotes>Updated to latest base libraries - now a release candidate, because supporting libraries have pre-release flags set - but if application behaves well in tests will be updated with these flags removed</PackageReleaseNotes>
     <NeutralLanguage />
     <AssemblyName>TsAnalyser</AssemblyName>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
     <RepositoryUrl>https://github.com/Cinegy/TsAnalysis</RepositoryUrl>
   </PropertyGroup>
 
