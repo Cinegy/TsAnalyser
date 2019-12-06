@@ -13,6 +13,7 @@
     <PackageReleaseNotes>Migrated to Net Core 3</PackageReleaseNotes>
     <NeutralLanguage />
     <AssemblyName>TsAnalyser</AssemblyName>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
     <RepositoryUrl>https://github.com/Cinegy/TsAnalysis</RepositoryUrl>
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
   </PropertyGroup>
