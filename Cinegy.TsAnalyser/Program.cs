@@ -219,7 +219,7 @@ namespace Cinegy.TsAnalyser
                     PrintConsoleFeedback();
                 }
 
-                Thread.Sleep(30);
+                Thread.Sleep(60);
             }
 
             LogMessage("Logging stopped.");
