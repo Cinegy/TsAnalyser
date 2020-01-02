@@ -1,28 +1,24 @@
-version: 2.0.{build}
-branches:
-  only:
-  - master
-image: Visual Studio 2017
+version: 3.0.{build}
+image: Visual Studio 2019
 configuration: Release
+platform: Any CPU
 dotnet_csproj:
   patch: true
   file: '**\*.csproj'
-  version: '{version}-beta'
-  package_version: '{version}-beta'
+  version: '{version}'
+  version_prefix: '{version}'
+  package_version: '{version}'
   assembly_version: '{version}'
   file_version: '{version}'
-  informational_version: '{version}-beta'
+  informational_version: '{version}'
 before_build:
-- cmd: nuget restore
+- pwsh: nuget restore
 build:
   project: Cinegy.TsAnalyser.sln
+  publish_core_console: true
   verbosity: minimal
 after_build:
 - cmd: >-
-    7z a TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\Cinegy.TsAnalyser\bin\Release\net461\TsAnalyser.exe
+    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip %APPVEYOR_BUILD_FOLDER%
 
-    appveyor PushArtifact TsAnalyser-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip
-
-    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip %APPVEYOR_BUILD_FOLDER%\Cinegy.TsAnalyser\bin\release
-    
     appveyor PushArtifact TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip
