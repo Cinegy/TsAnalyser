@@ -5,12 +5,6 @@ VisualStudioVersion = 16.0.29509.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.TsAnalyser", "Cinegy.TsAnalyser\Cinegy.TsAnalyser.csproj", "{49AFFA46-0559-4616-89A7-5D7DF7CD4AC7}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.TsAnalysis", "..\TsAnalysis\Cinegy.TsAnalysis\Cinegy.TsAnalysis.csproj", "{E6E5488A-119B-423F-B306-5E79E305A63E}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.TsDecoder", "..\TsDecoder\Cinegy.TsDecoder\Cinegy.TsDecoder.csproj", "{0DB510EB-EB16-4515-90D0-4A8286672581}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.TtxDecoder", "..\TtxDecoder\Cinegy.TtxDecoder\Cinegy.TtxDecoder.csproj", "{3FB5B5E7-5CD4-48E3-9733-326DC14053F3}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,18 +15,6 @@ Global
 		{49AFFA46-0559-4616-89A7-5D7DF7CD4AC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{49AFFA46-0559-4616-89A7-5D7DF7CD4AC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{49AFFA46-0559-4616-89A7-5D7DF7CD4AC7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{E6E5488A-119B-423F-B306-5E79E305A63E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E6E5488A-119B-423F-B306-5E79E305A63E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E6E5488A-119B-423F-B306-5E79E305A63E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E6E5488A-119B-423F-B306-5E79E305A63E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0DB510EB-EB16-4515-90D0-4A8286672581}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0DB510EB-EB16-4515-90D0-4A8286672581}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0DB510EB-EB16-4515-90D0-4A8286672581}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0DB510EB-EB16-4515-90D0-4A8286672581}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3FB5B5E7-5CD4-48E3-9733-326DC14053F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3FB5B5E7-5CD4-48E3-9733-326DC14053F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3FB5B5E7-5CD4-48E3-9733-326DC14053F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3FB5B5E7-5CD4-48E3-9733-326DC14053F3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
