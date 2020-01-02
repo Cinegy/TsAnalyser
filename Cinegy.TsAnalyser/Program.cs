@@ -27,7 +27,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 
@@ -47,7 +46,7 @@ namespace Cinegy.TsAnalyser
         private static bool _pendingExit;
         private static readonly UdpClient UdpClient = new UdpClient();
         private static readonly List<string> ConsoleLines = new List<string>(1024);
-        private static string TeletextLockString = string.Empty;
+        private static string _teletextLockString = string.Empty;
         
         static int Main(string[] args)
         {
@@ -238,16 +237,9 @@ namespace Cinegy.TsAnalyser
             
             if (_options is StreamOptions)
             {
-                //PrintToConsole("URL: {0}://{1}:{2}\tRunning time: {3:hh\\:mm\\:ss}",
-                //    ((StreamOptions)_options).NoRtpHeaders ? "udp" : "rtp",
-                //    string.IsNullOrWhiteSpace(((StreamOptions)_options).MulticastAddress) ?
-                //        "127.0.0.1" : $"@{((StreamOptions)_options).MulticastAddress}",
-                //    ((StreamOptions)_options).UdpPort, runningTime);
-
                 var networkMetric = _analyser.NetworkMetric;
                 var rtpMetric = _analyser.RtpMetric;
                 
-                //PrintClearLineToConsole();
                 PrintToConsole("Network Details - {0}://{1}:{2}\t\tRunning: {3:hh\\:mm\\:ss}", ((StreamOptions)_options).NoRtpHeaders ? "udp" : "rtp",
                     string.IsNullOrWhiteSpace(((StreamOptions)_options).MulticastAddress) ?
                         "127.0.0.1" : $"@{((StreamOptions)_options).MulticastAddress}",
@@ -434,20 +426,20 @@ namespace Cinegy.TsAnalyser
 
             lock (_decodedSubtitlePage)
             {
-                if (string.IsNullOrEmpty(TeletextLockString))
+                if (string.IsNullOrEmpty(_teletextLockString))
                 {
                     var defaultLang = _decodedSubtitlePage.ParentMagazine.ParentService.AssociatedDescriptor
                         .Languages
                         .FirstOrDefault();
 
                     if (defaultLang != null)
-                        TeletextLockString =
+                        _teletextLockString =
                             $"Teletext {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:x00} ({defaultLang.Iso639LanguageCode}) - decoding Service ID {_decodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {_decodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}";
                 }
 
                 PrintClearLineToConsole();
                    
-                PrintToConsole($"{TeletextLockString}, PTS: {_decodedSubtitlePage.Pts}");
+                PrintToConsole($"{_teletextLockString}, PTS: {_decodedSubtitlePage.Pts}");
                     
                 PrintToConsole(LineBreak);
                     
