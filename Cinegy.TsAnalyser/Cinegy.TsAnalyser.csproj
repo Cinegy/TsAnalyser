@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.0</TargetFramework> 
+    <TargetFramework>netcoreapp3.1</TargetFramework> 
 	  <Version>3.0.1</Version>
     <Authors>Lewis Kirkaldie</Authors>
     <Company>Cinegy GmbH</Company>
@@ -28,7 +28,7 @@
 
   <ItemGroup>
     <PackageReference Include="Cinegy.Telemetry" Version="2.0.22-beta" />
-    <PackageReference Include="Cinegy.TsAnalysis" Version="0.0.24-beta" />
+    <PackageReference Include="Cinegy.TsAnalysis" Version="1.0.25" />
     <PackageReference Include="CommandLineParser" Version="2.7.82" />
   </ItemGroup>
   

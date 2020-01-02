@@ -1,4 +1,4 @@
-﻿/*   Copyright 2018 Cinegy GmbH
+﻿/*   Copyright 2016-2020 Cinegy GmbH
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,12 +20,14 @@ using Cinegy.TtxDecoder.Teletext;
 using CommandLine;
 using NLog;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 
@@ -35,6 +37,7 @@ namespace Cinegy.TsAnalyser
     internal class Program
     {
         private const int WarmUpTime = 500;
+        private const string LineBreak = "---------------------------------------------------------------------";
         private static bool _receiving;
         private static Options _options;
         private static bool _warmedUp;
@@ -43,8 +46,8 @@ namespace Cinegy.TsAnalyser
         private static readonly DateTime StartTime = DateTime.UtcNow;
         private static bool _pendingExit;
         private static readonly UdpClient UdpClient = new UdpClient();
-        private static readonly StringBuilder ConsoleDisplay = new StringBuilder(1024);
-        private static int _lastPrintedTsCount;
+        private static readonly List<string> ConsoleLines = new List<string>(1024);
+        private static string TeletextLockString = string.Empty;
         
         static int Main(string[] args)
         {
@@ -53,7 +56,7 @@ namespace Cinegy.TsAnalyser
                 return RunStreamInteractive();
             }
 
-            if (args.Length == 1 && (File.Exists(args[0])))
+            if (args.Length == 1 && File.Exists(args[0]))
             {
                 //a single argument was used, and it was a file - so skip all other parsing
                 return Run(new ReadOptions { FileInput = args[0] });
@@ -129,13 +132,13 @@ namespace Cinegy.TsAnalyser
 
             _logger = LogManager.GetCurrentClassLogger();
 
-            var buildVersion = Assembly.GetEntryAssembly().GetName().Version.ToString();
+            var buildVersion = Assembly.GetEntryAssembly()?.GetName().Version.ToString();
             
             LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags, "https://telemetry.cinegy.com", opts.TelemetryEnabled, false, "TSAnalyser", buildVersion );
 
             _analyser = new Analyser(_logger);
 
-            var location = Assembly.GetEntryAssembly().Location;
+            var location = Assembly.GetEntryAssembly()?.Location;
             
             _logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location)})");
 
@@ -169,7 +172,7 @@ namespace Cinegy.TsAnalyser
             
              _receiving = true;
 
-            LogMessage($"Logging started {Assembly.GetEntryAssembly().GetName().Version}.");
+            LogMessage($"Logging started {Assembly.GetEntryAssembly()?.GetName().Version}.");
 
             _analyser.InspectTeletext = _options.DecodeTeletext;
             _analyser.InspectTsPackets = !_options.SkipDecodeTransportStream;
@@ -224,12 +227,6 @@ namespace Cinegy.TsAnalyser
 
         private static void TsDecoder_TableChangeDetected(object sender, TableChangedEventArgs args)
         {
-            if ((args.TableType == TableType.Pat) || (args.TableType == TableType.Pmt) || (args.TableType == TableType.Sdt))
-            {
-                //abuse occasional table refresh to clear all content on screen
-                Console.Clear();
-            }
-
             //Todo: finish implementing better EIT support
             //if (args.TableType != TableType.Eit) return;
             //if (sender is TsDecoder.TransportStream.TsDecoder decoder) Debug.WriteLine("EIT Version Num: " + decoder.EventInformationTable.VersionNumber);
@@ -238,40 +235,51 @@ namespace Cinegy.TsAnalyser
         private static void PrintConsoleFeedback()
         {
             var runningTime = DateTime.UtcNow.Subtract(StartTime);
-
-            Console.SetCursorPosition(0, 0);
-
-            if ((_options as StreamOptions) != null)
+            
+            if (_options is StreamOptions)
             {
-                PrintToConsole("URL: {0}://{1}:{2}\tRunning time: {3:hh\\:mm\\:ss}\t\t",
-                    ((StreamOptions)_options).NoRtpHeaders ? "udp" : "rtp",
+                //PrintToConsole("URL: {0}://{1}:{2}\tRunning time: {3:hh\\:mm\\:ss}",
+                //    ((StreamOptions)_options).NoRtpHeaders ? "udp" : "rtp",
+                //    string.IsNullOrWhiteSpace(((StreamOptions)_options).MulticastAddress) ?
+                //        "127.0.0.1" : $"@{((StreamOptions)_options).MulticastAddress}",
+                //    ((StreamOptions)_options).UdpPort, runningTime);
+
+                var networkMetric = _analyser.NetworkMetric;
+                var rtpMetric = _analyser.RtpMetric;
+                
+                //PrintClearLineToConsole();
+                PrintToConsole("Network Details - {0}://{1}:{2}\t\tRunning: {3:hh\\:mm\\:ss}", ((StreamOptions)_options).NoRtpHeaders ? "udp" : "rtp",
                     string.IsNullOrWhiteSpace(((StreamOptions)_options).MulticastAddress) ?
                         "127.0.0.1" : $"@{((StreamOptions)_options).MulticastAddress}",
                     ((StreamOptions)_options).UdpPort, runningTime);
 
-                var networkMetric = _analyser.NetworkMetric;
-                var rtpMetric = _analyser.RtpMetric;
+                PrintToConsole(LineBreak);
 
                 PrintToConsole(
-                    "\nNetwork Details\n----------------\nTotal Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/(Peak: {2:0.00}%)\t\t\nTotal Data (MB): {3}\t\tPackets per sec:{4}\t",
-                    networkMetric.TotalPackets, networkMetric.NetworkBufferUsage, networkMetric.PeriodMaxNetworkBufferUsage,
+                    "Total Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/(Peak: {2:0.00}%)",
+                    networkMetric.TotalPackets, networkMetric.NetworkBufferUsage, networkMetric.PeriodMaxNetworkBufferUsage);
+
+                PrintToConsole(
+                    "Total Data (MB): {0}\t\tPackets per sec:{1}",
                     networkMetric.TotalData / 1048576,
                     networkMetric.PacketsPerSecond);
 
-                PrintToConsole("Period Max Packet Jitter (ms): {0}\t\t",
+                PrintToConsole("Period Max Packet Jitter (ms): {0}",
                     networkMetric.PeriodLongestTimeBetweenPackets);
 
                 PrintToConsole(
-                    "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)\t\t\t",
-                    (networkMetric.CurrentBitrate / 1048576.0), networkMetric.AverageBitrate / 1048576.0,
-                    (networkMetric.HighestBitrate / 1048576.0), (networkMetric.LowestBitrate / 1048576.0));
+                    "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)",
+                    networkMetric.CurrentBitrate / 1048576.0, networkMetric.AverageBitrate / 1048576.0,
+                    networkMetric.HighestBitrate / 1048576.0, networkMetric.LowestBitrate / 1048576.0);
 
                 if (!((StreamOptions)_options).NoRtpHeaders)
                 {
+                    PrintClearLineToConsole();
+                    PrintToConsole($"RTP Details - SSRC: {rtpMetric.Ssrc}");
+                    PrintToConsole(LineBreak);
                     PrintToConsole(
-                        "\nRTP Details\n----------------\nSeq Num: {0}\tMin Lost Pkts: {1}\nTimestamp: {2}\tSSRC: {3}\t",
-                        rtpMetric.LastSequenceNumber, rtpMetric.EstimatedLostPackets, rtpMetric.LastTimestamp,
-                        rtpMetric.Ssrc);
+                        "Seq Num: {0}\tTimestamp: {1}\tMin Lost Pkts: {2}",
+                        rtpMetric.LastSequenceNumber, rtpMetric.LastTimestamp, rtpMetric.EstimatedLostPackets);
                 }
             }
 
@@ -279,18 +287,20 @@ namespace Cinegy.TsAnalyser
 
             lock (pidMetrics)
             {
-
                 var span = new TimeSpan((long)(_analyser.LastPcr / 2.7));
-                PrintToConsole(_analyser.LastPcr > 0 ? $"\nPCR Value: {span}" : "\n\n");
-                //PrintToConsole(_analyser.LastPcr > 0 ? $"RAW PCR / PTS: {_analyser.LastPcr } / {_analyser.LastVidPts * 8} / {_analyser.LastSubPts * 8}\n----------------" : "\n\n");
+                
+                PrintToConsole($"PCR Value: {span}");
+                //PrintToConsole($"RAW PCR / PTS: {_analyser.LastPcr } / {_analyser.LastVidPts * 8} / {_analyser.LastSubPts * 8}");
+                PrintClearLineToConsole();
 
                 PrintToConsole(pidMetrics.Count < 10
-                    ? $"\nPID Details - Unique PIDs: {pidMetrics.Count}\n----------------"
-                    : $"\nPID Details - Unique PIDs: {pidMetrics.Count}, (10 shown by packet count)\n----------------");
+                    ? $"PID Details - Unique PIDs: {pidMetrics.Count}"
+                    : $"PID Details - Unique PIDs: {pidMetrics.Count}, (10 shown by packet count)");
+                PrintToConsole(LineBreak);
 
                 foreach (var pidMetric in pidMetrics.OrderByDescending(m => m.PacketCount).Take(10))
                 {
-                    PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}\t", pidMetric.Pid,
+                    PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}", pidMetric.Pid,
                         pidMetric.PacketCount, pidMetric.CcErrorCount);
                 }
             }
@@ -303,9 +313,13 @@ namespace Cinegy.TsAnalyser
                 {
                     var pmts = tsDecoder.ProgramMapTables.OrderBy(p => p.ProgramNumber).ToList();
 
+                    PrintClearLineToConsole();
+
                     PrintToConsole(pmts.Count < 5
-                        ? $"\t\t\t\nService Information - Service Count: {pmts.Count}\n----------------\t\t\t\t"
-                        : $"\t\t\t\nService Information - Service Count: {pmts.Count}, (5 shown)\n----------------\t\t\t\t");
+                        ? $"Service Information - Service Count: {pmts.Count}"
+                        : $"Service Information - Service Count: {pmts.Count}, (5 shown)");
+
+                    PrintToConsole(LineBreak);
 
                     foreach (var pmtable in pmts.Take(5))
                     {
@@ -313,7 +327,7 @@ namespace Cinegy.TsAnalyser
                         if (desc != null)
                         {
                             PrintToConsole(
-                                $"Service {pmtable?.ProgramNumber}: {desc.ServiceName.Value} ({desc.ServiceProviderName.Value}) - {desc.ServiceTypeDescription}\t\t\t"
+                                $"Service {pmtable?.ProgramNumber}: {desc.ServiceName.Value} ({desc.ServiceProviderName.Value}) - {desc.ServiceTypeDescription}"
                                 );
                         }
                     }
@@ -327,10 +341,13 @@ namespace Cinegy.TsAnalyser
 
                     var serviceDesc = tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
 
+                    PrintClearLineToConsole();
+
                     PrintToConsole(serviceDesc != null
-                        ? $"\t\t\t\nElements - Selected Program: {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)\n----------------\t\t\t\t"
-                        : $"\t\t\t\nElements - Selected Program Service ID {pmt?.ProgramNumber} (first 5 shown)\n----------------\t\t\t\t");
-                    
+                        ? $"Elements - Selected Program: {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)"
+                        : $"Elements - Selected Program Service ID {pmt?.ProgramNumber} (first 5 shown)");
+                    PrintToConsole(LineBreak);
+
                     if (pmt?.EsStreams != null)
                     {
                         foreach (var stream in pmt.EsStreams.Take(5))
@@ -390,18 +407,20 @@ namespace Cinegy.TsAnalyser
                     PrintTeletext();
                 }
             }
+            
+            Console.CursorVisible = false;
+            Console.SetCursorPosition(0, 0);
 
-            if (_lastPrintedTsCount != pidMetrics.Count)
+            foreach (var consoleLine in ConsoleLines)
             {
-                _lastPrintedTsCount = pidMetrics.Count;
-                Console.Clear();
+                ClearCurrentConsoleLine();
+                Console.WriteLine(consoleLine);
             }
 
-            var result = ConsoleDisplay.ToString();
-            
-            Console.WriteLine(result);
-            ConsoleDisplay.Clear();
-            
+            Console.CursorVisible = true;
+
+            ConsoleLines.Clear();
+
         }
 
         private static void PrintTeletext()
@@ -409,33 +428,41 @@ namespace Cinegy.TsAnalyser
             //some strangeness here to get around the fact we just append to console, to clear out
             //a fixed 4 lines of space for TTX render
             const string clearLine = "\t\t\t\t\t\t\t\t\t";
-            var ttxRender = new[] { clearLine, clearLine, clearLine, clearLine };
+            var ttxRender = new [] { clearLine, clearLine, clearLine, clearLine };
 
-            if (_decodedSubtitlePage != null)
+            if (_decodedSubtitlePage == null) return;
+
+            lock (_decodedSubtitlePage)
             {
-                lock (_decodedSubtitlePage)
+                if (string.IsNullOrEmpty(TeletextLockString))
                 {
-                    var defaultLang = _decodedSubtitlePage.ParentMagazine.ParentService.AssociatedDescriptor.Languages
+                    var defaultLang = _decodedSubtitlePage.ParentMagazine.ParentService.AssociatedDescriptor
+                        .Languages
                         .FirstOrDefault();
 
                     if (defaultLang != null)
-                        PrintToConsole(
-                            $"\nTeletext ({defaultLang.Iso639LanguageCode}) - decoding Service ID {_decodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {_decodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}, PTS: {_decodedSubtitlePage.Pts} \n----------------");
+                        TeletextLockString =
+                            $"Teletext {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:x00} ({defaultLang.Iso639LanguageCode}) - decoding Service ID {_decodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {_decodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}";
+                }
 
-                    PrintToConsole($"Live Decoding Page {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:x00}");
-
-                    PrintToConsole(
-                        $"Packets (Period/Total): {_analyser.TeletextMetric.PeriodTtxPacketCount}/{_analyser.TeletextMetric.TtxPacketCount}, Total Pages: {_analyser.TeletextMetric.TtxPageReadyCount}, Total Clears: {_analyser.TeletextMetric.TtxPageClearCount}\n");
-
+                PrintClearLineToConsole();
+                   
+                PrintToConsole($"{TeletextLockString}, PTS: {_decodedSubtitlePage.Pts}");
                     
-                    var i = 0;
+                PrintToConsole(LineBreak);
+                    
+                PrintToConsole(
+                    $"Packets (Period/Total): {_analyser.TeletextMetric.PeriodTtxPacketCount}/{_analyser.TeletextMetric.TtxPacketCount}, Total Pages: {_analyser.TeletextMetric.TtxPageReadyCount}, Total Clears: {_analyser.TeletextMetric.TtxPageClearCount}");
 
-                    foreach (var row in _decodedSubtitlePage.Rows)
-                    {
-                        if (!row.IsChanged() || string.IsNullOrWhiteSpace(row.GetPlainRow())) continue;
-                        ttxRender[i] = $"{row.RowNum} - {row.GetPlainRow()}\t\t\t";
-                        i++;
-                    }
+                PrintClearLineToConsole();
+
+                var i = 0;
+
+                foreach (var row in _decodedSubtitlePage.Rows)
+                {
+                    if (i>3  || string.IsNullOrWhiteSpace(row.GetPlainRow())) continue;
+                    ttxRender[i] = $"{row.RowNum} - {row.GetPlainRow()}";
+                    i++;
                 }
             }
 
@@ -443,6 +470,7 @@ namespace Cinegy.TsAnalyser
             {
                 PrintToConsole(val);
             }
+
         }
         
         private static void StartListeningToNetwork(string multicastAddress, int networkPort,
@@ -469,7 +497,7 @@ namespace Cinegy.TsAnalyser
                 ReceivingNetworkWorkerThread(UdpClient);
             });
 
-            var receiverThread = new Thread(ts);
+            var receiverThread = new Thread(ts) {Priority = ThreadPriority.Highest};
 
             receiverThread.Start();
        
@@ -520,15 +548,11 @@ namespace Cinegy.TsAnalyser
 
         private static void ReceivingNetworkWorkerThread(UdpClient client)
         {
+            var ep = client.Client.LocalEndPoint as IPEndPoint;
+
             while (_receiving && !_pendingExit)
             {
-                var ep = client.Client.LocalEndPoint as IPEndPoint;
                 var data = client.Receive(ref ep);
-                
-                //async seems to really kill CPU - don't know why, probably creates lots of threading...
-                //var data = client.ReceiveAsync().Result.Buffer;
-
-                //if (data == null) continue;
 
                 if (_warmedUp)
                 {
@@ -569,12 +593,23 @@ namespace Cinegy.TsAnalyser
             _analyser.Cancel();
             e.Cancel = true;
         }
-        
+
+        private static void PrintClearLineToConsole()
+        {
+            if (_options.SuppressOutput) return;
+            ConsoleLines.Add("\t"); //use a tab for a clear line, to ensure that an operation runs
+        }
+
         private static void PrintToConsole(string message, params object[] arguments)
         {
             if (_options.SuppressOutput) return;
+            ConsoleLines.Add(string.Format(message, arguments));
+        }
 
-            ConsoleDisplay.AppendLine(string.Format(message, arguments));
+        private static void ClearCurrentConsoleLine()
+        {
+            // Write space to end of line, and then CR with no LF
+            Console.Write("\r".PadLeft(Console.WindowWidth - Console.CursorLeft - 1));
         }
 
         private static void LogMessage(string message)

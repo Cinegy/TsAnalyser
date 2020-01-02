@@ -18,7 +18,5 @@ build:
   publish_core_console: true
   verbosity: minimal
 after_build:
-- cmd: >-
-    7z a TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip %APPVEYOR_BUILD_FOLDER%
-
-    appveyor PushArtifact TsAnalyser-%APPVEYOR_BUILD_VERSION%-PDB.zip
+- pwsh: >-
+    dotnet publish -C Release -
