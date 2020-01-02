@@ -2,33 +2,34 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net461;netcoreapp2.1</TargetFrameworks> 
-	<Version>2.0.0</Version>
+    <TargetFramework>netcoreapp3.0</TargetFramework> 
+	  <Version>3.0.1</Version>
     <Authors>Lewis Kirkaldie</Authors>
     <Company>Cinegy GmbH</Company>
     <Description>An MPEG2 Transport Stream Analyzer with Telemetry</Description>
     <Copyright>Cinegy GmbH</Copyright>
     <PackageTags>Transport Stream MPEGTS Analyzer</PackageTags>
-    <PackageLicenseUrl>http://www.apache.org/licenses/LICENSE-2.0</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/Cinegy/TsAnalysis</PackageProjectUrl>
-    <PackageReleaseNotes>Updated to latest base libraries - now a release candidate, because supporting libraries have pre-release flags set - but if application behaves well in tests will be updated with these flags removed</PackageReleaseNotes>
+    <PackageReleaseNotes>Migrated to Net Core 3</PackageReleaseNotes>
     <NeutralLanguage />
     <AssemblyName>TsAnalyser</AssemblyName>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
     <RepositoryUrl>https://github.com/Cinegy/TsAnalysis</RepositoryUrl>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+
+  <PropertyGroup>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishTrimmed>true</PublishTrimmed>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Cinegy.Telemetry" Version="2.0.20-beta" />
-    <PackageReference Include="Cinegy.TsAnalysis" Version="0.0.23-beta" />
-    <PackageReference Include="Cinegy.TsDecoder" Version="3.0.113-beta" />
-    <PackageReference Include="Cinegy.TtxDecoder" Version="2.0.37-beta" />
-    <PackageReference Include="CommandLineParser" Version="2.3.0" />
-
+    <PackageReference Include="Cinegy.Telemetry" Version="2.0.22-beta" />
+    <PackageReference Include="Cinegy.TsAnalysis" Version="0.0.24-beta" />
+    <PackageReference Include="CommandLineParser" Version="2.7.82" />
   </ItemGroup>
   
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
-    <PackageReference Include="Costura.Fody" Version="1.6.2" />
-    <PackageReference Include="Fody" Version="2.4.4" />
-  </ItemGroup>
-
 </Project>

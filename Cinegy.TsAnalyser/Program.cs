@@ -281,7 +281,8 @@ namespace Cinegy.TsAnalyser
             {
 
                 var span = new TimeSpan((long)(_analyser.LastPcr / 2.7));
-                PrintToConsole(_analyser.LastPcr > 0 ? $"\nPCR Value: {span}\n----------------" : "\n\n");
+                PrintToConsole(_analyser.LastPcr > 0 ? $"\nPCR Value: {span}" : "\n\n");
+                //PrintToConsole(_analyser.LastPcr > 0 ? $"RAW PCR / PTS: {_analyser.LastPcr } / {_analyser.LastVidPts * 8} / {_analyser.LastSubPts * 8}\n----------------" : "\n\n");
 
                 PrintToConsole(pidMetrics.Count < 10
                     ? $"\nPID Details - Unique PIDs: {pidMetrics.Count}\n----------------"
@@ -419,7 +420,7 @@ namespace Cinegy.TsAnalyser
 
                     if (defaultLang != null)
                         PrintToConsole(
-                            $"\nTeletext Subtitles ({defaultLang.Iso639LanguageCode}) - decoding from Service ID {_decodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {_decodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}\n----------------");
+                            $"\nTeletext ({defaultLang.Iso639LanguageCode}) - decoding Service ID {_decodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {_decodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}, PTS: {_decodedSubtitlePage.Pts} \n----------------");
 
                     PrintToConsole($"Live Decoding Page {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:x00}");
 
@@ -432,7 +433,7 @@ namespace Cinegy.TsAnalyser
                     foreach (var row in _decodedSubtitlePage.Rows)
                     {
                         if (!row.IsChanged() || string.IsNullOrWhiteSpace(row.GetPlainRow())) continue;
-                        ttxRender[i] = $"{row.GetPlainRow()}\t\t\t";
+                        ttxRender[i] = $"{row.RowNum} - {row.GetPlainRow()}\t\t\t";
                         i++;
                     }
                 }

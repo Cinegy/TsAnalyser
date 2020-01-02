@@ -2,21 +2,15 @@
 
 Use this tool to view inbound network, RTP and TS packet details. Use newly introduced powers to view into the service description tables, and even decode a teletext stream!
 
-New with V2 - integrated telemetry options, so you can stream quality metrics into the Cinegy cloud (or your own). V2 is not 'release' officially yet, since I'm waiting for NET Core 3 to hit release to target that with it's new AOT compilation features.
+New with V3 - now built with Net Core 3, using single-file-exe features with an integrated runtime, making deployment dependencies incredibly low! This also means that operation on Linux and MacOS are possible (although should be considered beta - it is not particularly tested).
 
 ## How easy is it?
 
-Well, we've added everything you need into a single teeny-tiny EXE again, which just depends on .NET 4.5. And then we gave it all a nice Apache license, so you can tinker and throw the tool wherever you need to on the planet.
+Well, we've added everything you need into a single EXE again, which holds the Net Core 3.1 runtime - so if you have the basics installed on a machine, you should be pretty much good to go. We gave it all a nice Apache license, so you can tinker and throw the tool wherever you need to on the planet.
 
 Just run the EXE from inside a command-prompt, and you will be offered a basic interactive mode to get cracking checking out your stream.
 
 From v1.3, you can check out a .TS file and scan through it - just drag / drop the .TS file onto the EXE!
-
-If you start launching things with arguments (maybe from a BAT file), try enabling the embedded web service - then you can browse to:
-
-http://localhost:8124/index.html 
-
-And see some realtime things displayed in your browser (great if you run the analyser headless on remote machines).
 
 You can print live Teletext decoding, and you can use the tool to generate input logs for 'big data' analysis (which is very cool).
 
@@ -25,8 +19,8 @@ You can print live Teletext decoding, and you can use the tool to generate input
 Double click, or just run without (or with incorrect) arguments, and you'll see this:
 
 ```
-Cinegy 2.0.177.0
-Copyright ©Cinegy GmbH 2017
+TsAnalyser 3.0.198
+Cinegy GmbH
 
 ERROR(S):
   No verb selected.
@@ -46,23 +40,22 @@ The help details for the 'stream' verb look like this:
 ```
 c:\> TsAnalyser.exe  help stream      
                                                          
-Cinegy 2.0.177.0
-Copyright ©Cinegy GmbH 2017
+TsAnalyser 3.0.198
+Cinegy GmbH
 
-  -m, --multicastaddress             Required. Input multicast address to read from.
+  -m, --multicastaddress             Input multicast address to read from - if left blank, assumes unicast.
 
-  -g, --mulicastgroup                Required. Input multicast group port to read from.
+  -p, --port                         Required. Input UDP network port to read from.
 
-  -a, --adapter                      IP address of the adapter to listen for multicasts (if not set, tries first
-                                     binding adapter).
+  -a, --adapter                      IP address of the adapter to listen for multicasts (if not set, tries first binding adapter).
 
-  -n, --nortpheaders                 (Default: false) Optional instruction to skip the expected 12 byte RTP
-                                     headers (meaning plain MPEGTS inside UDP is expected
+  -n, --nortpheaders                 (Default: false) Optional instruction to skip the expected 12 byte RTP headers (meaning plain
+                                     MPEGTS inside UDP is expected
 
   -i, --interarrivaltime             (Default: 40) Maximum permitted time between UDP packets before alarming.
 
-  -h, --savehistoricaldata           (Default: false) Optional instruction to save and then flush to disk recent
-                                     TS data on stream problems.
+  -h, --savehistoricaldata           (Default: false) Optional instruction to save and then flush to disk recent TS data on stream
+                                     problems.
 
   -e, --timeserieslogging            Record time slice metric data to log file.
 
@@ -70,23 +63,22 @@ Copyright ©Cinegy GmbH 2017
 
   -l, --logfile                      Optional file to record events to.
 
-  -s, --skipdecodetransportstream    (Default: false) Optional instruction to skip decoding further TS and DVB
-                                     data and metadata
+  -s, --skipdecodetransportstream    (Default: false) Optional instruction to skip decoding further TS and DVB data and metadata
 
-  -c, --teletextdecode               (Default: false) Optional instruction to decode DVB teletext subtitles /
-                                     captions from default program
+  -c, --teletextdecode               (Default: false) Optional instruction to decode DVB teletext subtitles / captions from default
+                                     program
 
-  -p, --programnumber                Pick a specific program / service to inspect (otherwise picks default).
+  --programnumber                    Pick a specific program / service to inspect (otherwise picks default).
 
-  -d, --descriptortags               (Default: ) Comma separated tag values added to all log entries for instance
-                                     and machine identification
+  -d, --descriptortags               (Default: ) Comma separated tag values added to all log entries for instance and machine
+                                     identification
 
   -v, --verboselogging               Creates event logs for all discontinuities and skips.
 
   -t, --telemetry                    (Default: false) Enable telemetry to Cinegy Telemetry Server
 
-  -o, --organization                 Tag all telemetry with this organization (needed to indentify and access
-                                     telemetry from Cinegy Analytics portal
+  -o, --organization                 Tag all telemetry with this organization (needed to indentify and access telemetry from Cinegy
+                                     Analytics portal
 
   --help                             Display this help screen.
 
