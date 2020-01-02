@@ -49,101 +49,81 @@ Cinegy GmbH
 
   -a, --adapter                      IP address of the adapter to listen for multicasts (if not set, tries first binding adapter).
 
-  -n, --nortpheaders                 (Default: false) Optional instruction to skip the expected 12 byte RTP headers (meaning plain
-                                     MPEGTS inside UDP is expected
-
-  -i, --interarrivaltime             (Default: 40) Maximum permitted time between UDP packets before alarming.
-
-  -h, --savehistoricaldata           (Default: false) Optional instruction to save and then flush to disk recent TS data on stream
-                                     problems.
-
-  -e, --timeserieslogging            Record time slice metric data to log file.
+  -n, --nortpheaders                 (Default: false) Optional instruction to skip the expected 12 byte RTP headers (meaning plain MPEGTS inside UDP is expected
 
   -q, --quiet                        (Default: false) Don't print anything to the console
 
-  -l, --logfile                      Optional file to record events to.
-
   -s, --skipdecodetransportstream    (Default: false) Optional instruction to skip decoding further TS and DVB data and metadata
 
-  -c, --teletextdecode               (Default: false) Optional instruction to decode DVB teletext subtitles / captions from default
-                                     program
+  -c, --teletextdecode               (Default: false) Optional instruction to decode DVB teletext subtitles / captions from default program
 
   --programnumber                    Pick a specific program / service to inspect (otherwise picks default).
 
-  -d, --descriptortags               (Default: ) Comma separated tag values added to all log entries for instance and machine
-                                     identification
+  -d, --descriptortags               (Default: ) Comma separated tag values added to all log entries for instance and machine identification
 
   -v, --verboselogging               Creates event logs for all discontinuities and skips.
 
   -t, --telemetry                    (Default: false) Enable telemetry to Cinegy Telemetry Server
 
-  -o, --organization                 Tag all telemetry with this organization (needed to indentify and access telemetry from Cinegy
-                                     Analytics portal
+  -o, --organization                 Tag all telemetry with this organization (needed to indentify and access telemetry from Cinegy Analytics portal
 
   --help                             Display this help screen.
 
   --version                          Display version information.
+
 
 ```
 
 So - what does this look like when you point it at a complex live stream? Here is a shot from a UK DVB-T2 stream:
 
 ```
-URL: rtp://@239.5.2.1:6670      Running time: 00:00:08
-
-Network Details
-----------------
-Total Packets Rcvd: 35422       Buffer Usage: 0.09%/(Peak: 0.68%)
-Total Data (MB): 44             Packets per sec:4229
+Network Details - rtp://@239.5.2.1:6670         Running: 00:00:22
+---------------------------------------------------------------------
+Total Packets Rcvd: 103514      Buffer Usage: 0.00%/(Peak: 0.27%)
+Total Data (MB): 131            Packets per sec:4757
 Period Max Packet Jitter (ms): 6
-Bitrates (Mbps): 42.85/42.85/42.93/0.00 (Current/Avg/Peak/Low)
+Bitrates (Mbps): 0.00/0.00/0.00/0.00 (Current/Avg/Peak/Low)
 
-RTP Details
-----------------
-Seq Num: 4348   Min Lost Pkts: 0
-Timestamp: 2186342583   SSRC: 0
+RTP Details - SSRC: 0
+---------------------------------------------------------------------
+Seq Num: 59290  Timestamp: 3987292082   Min Lost Pkts: 0
+PCR Value: 08:52:49.2610044
 
-PCR Value: 09:38:03.4968494
-----------------
+PID Details - Unique PIDs: 62, (10 shown by packet count)
+---------------------------------------------------------------------
+TS PID: 8191    Packet Count: 279916            CC Error Count: 0
+TS PID: 5700    Packet Count: 88463             CC Error Count: 0
+TS PID: 5500    Packet Count: 87038             CC Error Count: 0
+TS PID: 5600    Packet Count: 84393             CC Error Count: 0
+TS PID: 5400    Packet Count: 43627             CC Error Count: 0
+TS PID: 5300    Packet Count: 42413             CC Error Count: 0
+TS PID: 2322    Packet Count: 21701             CC Error Count: 0
+TS PID: 3847    Packet Count: 10128             CC Error Count: 0
+TS PID: 2321    Packet Count: 7234              CC Error Count: 0
+TS PID: 192     Packet Count: 5370              CC Error Count: 0
 
-PID Details - Unique PIDs: 59, (10 shown by packet count)
-----------------
-TS PID: 8191    Packet Count: 105577            CC Error Count: 0
-TS PID: 5500    Packet Count: 36759             CC Error Count: 0
-TS PID: 5600    Packet Count: 31223             CC Error Count: 0
-TS PID: 5400    Packet Count: 19812             CC Error Count: 0
-TS PID: 5300    Packet Count: 18008             CC Error Count: 0
-TS PID: 2322    Packet Count: 8354              CC Error Count: 0
-TS PID: 3847    Packet Count: 3899              CC Error Count: 0
-TS PID: 2321    Packet Count: 2784              CC Error Count: 0
-TS PID: 192     Packet Count: 1913              CC Error Count: 0
-TS PID: 3843    Packet Count: 1710              CC Error Count: 0
-
-Service Information - Service Count: 9, (5 shown)
-----------------
+Service Information - Service Count: 10, (5 shown)
+---------------------------------------------------------------------
+Service 6912: BBC Two Wal HD (BSkyB) - H.264/AVC HD digital television service
 Service 6940: BBC Two HD (BSkyB) - H.264/AVC HD digital television service
 Service 6941: BBC One HD (BSkyB) - H.264/AVC HD digital television service
 Service 6943: BBC One NI HD (BSkyB) - H.264/AVC HD digital television service
 Service 6945: 6945 (BSkyB) - H.264/AVC HD digital television service
-Service 6952: CBBC HD (BSkyB) - H.264/AVC HD digital television service
 
-Elements - Selected Program: BBC Two HD (ID:6940) (first 5 shown)
-----------------
-PID: 5500 (H.264 video)
-PID: 5502 (MPEG-1 audio)
-PID: 5504 (MPEG-2 packetized data privately defined)
-PID: 5503 (MPEG-2 packetized data privately defined)
-PID: 5501 (MPEG-2 packetized data privately defined)
+Elements - Selected Program: BBC Two Wal HD (ID:6912) (first 5 shown)
+---------------------------------------------------------------------
+PID: 5700 (H.264 video)
+PID: 5703 (Teletext)
+PID: 5704 (DVB Subtitles)
+PID: 5701 (AC-3 / Dolby Digital)
+PID: 2322 (MPEG-2 tabled data)
 
-Teletext Subtitles (eng)- decoding from Service ID 6940, PID: 5503
-Total Pages: 2, Total Clears: 1
-----------------
-Live Decoding Page 8136
+Teletext 888 (eng) - decoding Service ID 6912, PID: 5703, PTS: 2877230998
+---------------------------------------------------------------------
+Packets (Period/Total): 375/1608, Total Pages: 10, Total Clears: 9
 
-       shown by young lads
-    who had acted as lookouts
-   and helped guard prisoners.
-
+20 -      If you're happy for us
+22 - to deal with his master about...
 ```
 
 Just to make your life easier, we auto-build this using AppVeyor - here is how we are doing right now: 
