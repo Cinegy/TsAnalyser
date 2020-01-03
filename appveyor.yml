@@ -19,4 +19,4 @@ build:
   verbosity: minimal
 after_build:
 - pwsh: >-
-    dotnet publish -C Release -
+    dotnet publish -c Release -r linux-x64

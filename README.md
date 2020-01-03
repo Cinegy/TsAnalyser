@@ -82,7 +82,7 @@ Network Details - rtp://@239.5.2.1:6670         Running: 00:00:22
 Total Packets Rcvd: 103514      Buffer Usage: 0.00%/(Peak: 0.27%)
 Total Data (MB): 131            Packets per sec:4757
 Period Max Packet Jitter (ms): 6
-Bitrates (Mbps): 0.00/0.00/0.00/0.00 (Current/Avg/Peak/Low)
+Bitrates (Mbps): 48.19/43.54/102.32/0.26 (Current/Avg/Peak/Low)
 
 RTP Details - SSRC: 0
 ---------------------------------------------------------------------
