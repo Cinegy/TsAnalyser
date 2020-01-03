@@ -15,8 +15,17 @@ before_build:
 - pwsh: nuget restore
 build:
   project: Cinegy.TsAnalyser.sln
-  publish_core_console: true
   verbosity: minimal
 after_build:
 - pwsh: >-
+    dotnet publish -c Release -r win-x64
+    
+    7z a TSAnalyser-Win-x64-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\bin\Release\netcoreapp3.1\win-x64\publish\
+    
+    appveyor PushArtifact TSAnalyser-Win-x64-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip
+
     dotnet publish -c Release -r linux-x64
+
+    7z a TSAnalyser-Linux-x64-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\bin\Release\netcoreapp3.1\linux-x64\publish\
+    
+    appveyor PushArtifact TSAnalyser-Linux-x64-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_BUILD_VERSION%.zip
