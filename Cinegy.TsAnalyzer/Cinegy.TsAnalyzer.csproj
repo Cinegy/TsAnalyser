@@ -27,7 +27,7 @@
 
   <ItemGroup>
     <PackageReference Include="Cinegy.Telemetry" Version="2.0.24" />
-    <PackageReference Include="Cinegy.TsAnalysis" Version="1.0.29" />
+    <PackageReference Include="Cinegy.TsAnalysis" Version="1.0.31" />
     <PackageReference Include="CommandLineParser" Version="2.7.82" />
   </ItemGroup>
 
