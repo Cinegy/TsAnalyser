@@ -2,7 +2,10 @@
   "profiles": {
     "Cinegy.TsAnalyser": {
       "commandName": "Project",
-      "commandLineArgs": "stream -m 239.5.2.1 -p 6670 -c -a 10.186.3.42"
+      "commandLineArgs": "stream -m 239.5.2.1 -p 6670 -c -a 10.186.3.42 -t -o sandpit",
+      "environmentVariables": {
+        "OVERRIDE_CINEGY_TELEMETRY_TARGET": "http://telemetry.cinegy.com"
+      }
     }
   }
 }
