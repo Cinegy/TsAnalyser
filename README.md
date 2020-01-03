@@ -4,6 +4,8 @@ Use this tool to view inbound network, RTP and TS packet details. Use newly intr
 
 New with V3 - now built with Net Core 3, using single-file-exe features with an integrated runtime, making deployment dependencies incredibly low! This also means that operation on Linux and MacOS are possible (although should be considered beta - it is not particularly tested).
 
+Linux builds, for Intel/AMD 64-bit, and for Arm64, are now created by the AppVeyor build (tested on Ubuntu 16.04 / 18.04 and on RPi4 with 18.04 Arm64).
+
 ## How easy is it?
 
 Well, we've added everything you need into a single EXE again, which holds the Net Core 3.1 runtime - so if you have the basics installed on a machine, you should be pretty much good to go. We gave it all a nice Apache license, so you can tinker and throw the tool wherever you need to on the planet.

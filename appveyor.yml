@@ -29,3 +29,9 @@ after_build:
     7z a TSAnalyzer-Linux-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\netcoreapp3.1\linux-x64\publish\tsanalyzer
     
     appveyor PushArtifact TSAnalyzer-Linux-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip
+
+    dotnet publish -c Release -r linux-arm64
+
+    7z a TSAnalyzer-Linux-Arm64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\netcoreapp3.1\linux-arm64\publish\tsanalyzer
+    
+    appveyor PushArtifact TSAnalyzer-Linux-arm64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip
