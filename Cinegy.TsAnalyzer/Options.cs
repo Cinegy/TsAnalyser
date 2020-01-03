@@ -1,6 +1,6 @@
 ﻿using CommandLine;
 
-namespace Cinegy.TsAnalyser
+namespace Cinegy.TsAnalyzer
 {
     internal class Options
     {

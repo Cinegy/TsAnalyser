@@ -10,9 +10,9 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/Cinegy.TsAnalyser/bin/Debug/netcoreapp3.0/TsAnalyser.dll",
+            "program": "${workspaceFolder}/Cinegy.TsAnalyzer/bin/Debug/netcoreapp3.1/TsAnalyzer.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/Cinegy.TsAnalyser",
+            "cwd": "${workspaceFolder}/Cinegy.TsAnalyzer",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
             "stopAtEntry": false

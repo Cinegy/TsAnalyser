@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/Cinegy.TsAnalyser/Cinegy.TsAnalyser.csproj"
+                "${workspaceFolder}/Cinegy.TsAnalyzer/Cinegy.TsAnalyzer.csproj"
             ],
             "problemMatcher": "$tsc"
         },
@@ -17,7 +17,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/Cinegy.TsAnalyser/Cinegy.TsAnalyser.csproj"
+                "${workspaceFolder}/Cinegy.TsAnalyzer/Cinegy.TsAnalyzer.csproj"
             ],
             "problemMatcher": "$tsc"
         },
@@ -28,7 +28,7 @@
             "args": [
                 "watch",
                 "run",
-                "${workspaceFolder}/Cinegy.TsAnalyser/Cinegy.TsAnalyser.csproj"
+                "${workspaceFolder}/Cinegy.TsAnalyzer/Cinegy.TsAnalyzer.csproj"
             ],
             "problemMatcher": "$tsc"
         }

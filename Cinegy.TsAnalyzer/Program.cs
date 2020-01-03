@@ -13,12 +13,6 @@
    limitations under the License.
 */
 
-using Cinegy.Telemetry;
-using Cinegy.TsAnalysis;
-using Cinegy.TsDecoder.TransportStream;
-using Cinegy.TtxDecoder.Teletext;
-using CommandLine;
-using NLog;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -29,8 +23,14 @@ using System.Reflection;
 using System.Runtime;
 using System.Text;
 using System.Threading;
+using Cinegy.Telemetry;
+using Cinegy.TsAnalysis;
+using Cinegy.TsDecoder.TransportStream;
+using Cinegy.TtxDecoder.Teletext;
+using CommandLine;
+using NLog;
 
-namespace Cinegy.TsAnalyser
+namespace Cinegy.TsAnalyzer
 {
     // ReSharper disable once ClassNeverInstantiated.Global
     internal class Program
@@ -41,7 +41,7 @@ namespace Cinegy.TsAnalyser
         private static Options _options;
         private static bool _warmedUp;
         private static  Logger _logger;
-        private static Analyser _analyser;
+        private static Analyser _analyzer;
         private static readonly DateTime StartTime = DateTime.UtcNow;
         private static bool _pendingExit;
         private static readonly UdpClient UdpClient = new UdpClient();
@@ -133,9 +133,9 @@ namespace Cinegy.TsAnalyser
 
             var buildVersion = Assembly.GetEntryAssembly()?.GetName().Version.ToString();
             
-            LogSetup.ConfigureLogger("tsanalyser", opts.OrganizationId, opts.DescriptorTags, "https://telemetry.cinegy.com", opts.TelemetryEnabled, false, "TSAnalyser", buildVersion );
+            LogSetup.ConfigureLogger("tsanalyzer", opts.OrganizationId, opts.DescriptorTags, "https://telemetry.cinegy.com", opts.TelemetryEnabled, false, "TSAnalyzer", buildVersion );
 
-            _analyser = new Analyser(_logger);
+            _analyzer = new Analyser(_logger);
 
             var location = Assembly.GetEntryAssembly()?.Location;
             
@@ -173,22 +173,22 @@ namespace Cinegy.TsAnalyser
 
             LogMessage($"Logging started {Assembly.GetEntryAssembly()?.GetName().Version}.");
 
-            _analyser.InspectTeletext = _options.DecodeTeletext;
-            _analyser.InspectTsPackets = !_options.SkipDecodeTransportStream;
-            _analyser.SelectedProgramNumber = _options.ProgramNumber;
-            _analyser.VerboseLogging = _options.VerboseLogging;
+            _analyzer.InspectTeletext = _options.DecodeTeletext;
+            _analyzer.InspectTsPackets = !_options.SkipDecodeTransportStream;
+            _analyzer.SelectedProgramNumber = _options.ProgramNumber;
+            _analyzer.VerboseLogging = _options.VerboseLogging;
 
             var filePath = (_options as ReadOptions)?.FileInput;
 
             if (!string.IsNullOrEmpty(filePath))
             {
-                _analyser.Setup();
-                _analyser.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
+                _analyzer.Setup();
+                _analyzer.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
 
-                if (_analyser.InspectTeletext)
+                if (_analyzer.InspectTeletext)
                 {
-                    _analyser.TeletextDecoder.Service.TeletextPageReady += Service_TeletextPageReady;
-                    _analyser.TeletextDecoder.Service.TeletextPageCleared += Service_TeletextPageCleared;
+                    _analyzer.TeletextDecoder.Service.TeletextPageReady += Service_TeletextPageReady;
+                    _analyzer.TeletextDecoder.Service.TeletextPageCleared += Service_TeletextPageCleared;
                 }
 
                 StartStreamingFile(filePath);
@@ -196,14 +196,14 @@ namespace Cinegy.TsAnalyser
 
             if (_options is StreamOptions streamOptions)
             {
-                _analyser.HasRtpHeaders = !streamOptions.NoRtpHeaders;
-                _analyser.Setup(streamOptions.MulticastAddress, streamOptions.UdpPort);
-                _analyser.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
+                _analyzer.HasRtpHeaders = !streamOptions.NoRtpHeaders;
+                _analyzer.Setup(streamOptions.MulticastAddress, streamOptions.UdpPort);
+                _analyzer.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
 
-                if (_analyser.InspectTeletext)
+                if (_analyzer.InspectTeletext)
                 {
-                    _analyser.TeletextDecoder.Service.TeletextPageReady += Service_TeletextPageReady;
-                    _analyser.TeletextDecoder.Service.TeletextPageCleared += Service_TeletextPageCleared;
+                    _analyzer.TeletextDecoder.Service.TeletextPageReady += Service_TeletextPageReady;
+                    _analyzer.TeletextDecoder.Service.TeletextPageCleared += Service_TeletextPageCleared;
                 }
 
                 StartListeningToNetwork(streamOptions.MulticastAddress, streamOptions.UdpPort, streamOptions.AdapterAddress);
@@ -237,8 +237,8 @@ namespace Cinegy.TsAnalyser
             
             if (_options is StreamOptions)
             {
-                var networkMetric = _analyser.NetworkMetric;
-                var rtpMetric = _analyser.RtpMetric;
+                var networkMetric = _analyzer.NetworkMetric;
+                var rtpMetric = _analyzer.RtpMetric;
                 
                 PrintToConsole("Network Details - {0}://{1}:{2}\t\tRunning: {3:hh\\:mm\\:ss}", ((StreamOptions)_options).NoRtpHeaders ? "udp" : "rtp",
                     string.IsNullOrWhiteSpace(((StreamOptions)_options).MulticastAddress) ?
@@ -275,14 +275,14 @@ namespace Cinegy.TsAnalyser
                 }
             }
 
-            var pidMetrics = _analyser.PidMetrics;
+            var pidMetrics = _analyzer.PidMetrics;
 
             lock (pidMetrics)
             {
-                var span = new TimeSpan((long)(_analyser.LastPcr / 2.7));
+                var span = new TimeSpan((long)(_analyzer.LastPcr / 2.7));
                 
                 PrintToConsole($"PCR Value: {span}");
-                //PrintToConsole($"RAW PCR / PTS: {_analyser.LastPcr } / {_analyser.LastVidPts * 8} / {_analyser.LastSubPts * 8}");
+                //PrintToConsole($"RAW PCR / PTS: {_analyzer.LastPcr } / {_analyzer.LastVidPts * 8} / {_analyzer.LastSubPts * 8}");
                 PrintClearLineToConsole();
 
                 PrintToConsole(pidMetrics.Count < 10
@@ -297,7 +297,7 @@ namespace Cinegy.TsAnalyser
                 }
             }
 
-            var tsDecoder = _analyser.TsDecoder;
+            var tsDecoder = _analyzer.TsDecoder;
 
             if (tsDecoder != null)
             {                
@@ -328,7 +328,7 @@ namespace Cinegy.TsAnalyser
                     if (pmt != null)
                     {
                         _options.ProgramNumber = pmt.ProgramNumber;
-                        _analyser.SelectedPcrPid = pmt.PcrPid;
+                        _analyzer.SelectedPcrPid = pmt.PcrPid;
                     }
 
                     var serviceDesc = tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
@@ -444,7 +444,7 @@ namespace Cinegy.TsAnalyser
                 PrintToConsole(LineBreak);
                     
                 PrintToConsole(
-                    $"Packets (Period/Total): {_analyser.TeletextMetric.PeriodTtxPacketCount}/{_analyser.TeletextMetric.TtxPacketCount}, Total Pages: {_analyser.TeletextMetric.TtxPageReadyCount}, Total Clears: {_analyser.TeletextMetric.TtxPageClearCount}");
+                    $"Packets (Period/Total): {_analyzer.TeletextMetric.PeriodTtxPacketCount}/{_analyzer.TeletextMetric.TtxPacketCount}, Total Pages: {_analyzer.TeletextMetric.TtxPageReadyCount}, Total Clears: {_analyzer.TeletextMetric.TtxPageClearCount}");
 
                 PrintClearLineToConsole();
 
@@ -476,7 +476,7 @@ namespace Cinegy.TsAnalyser
             UdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             UdpClient.Client.ReceiveBufferSize = 1500 * 3000;
             UdpClient.Client.Bind(localEp);
-            _analyser.NetworkMetric.UdpClient = UdpClient;
+            _analyzer.NetworkMetric.UdpClient = UdpClient;
 
             if (!string.IsNullOrWhiteSpace(multicastAddress))
             {
@@ -522,7 +522,7 @@ namespace Cinegy.TsAnalyser
 
                     if (tsPackets == null) break;
 
-                    _analyser.AnalysePackets(tsPackets);
+                    _analyzer.AnalysePackets(tsPackets);
 
                 }
                 catch (Exception ex)
@@ -548,7 +548,7 @@ namespace Cinegy.TsAnalyser
 
                 if (_warmedUp)
                 {
-                    _analyser.RingBuffer.Add(ref data);
+                    _analyzer.RingBuffer.Add(ref data);
                 }
                 else
                 {
@@ -582,7 +582,7 @@ namespace Cinegy.TsAnalyser
             Console.CursorVisible = true;
             if (_pendingExit) return; //already trying to exit - allow normal behaviour on subsequent presses
             _pendingExit = true;
-            _analyser.Cancel();
+            _analyzer.Cancel();
             e.Cancel = true;
         }
 

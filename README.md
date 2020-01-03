@@ -1,4 +1,4 @@
-# Cinegy TS Analyser Tool
+# Cinegy TS Analyzer Tool
 
 Use this tool to view inbound network, RTP and TS packet details. Use newly introduced powers to view into the service description tables, and even decode a teletext stream!
 
@@ -19,7 +19,7 @@ You can print live Teletext decoding, and you can use the tool to generate input
 Double click, or just run without (or with incorrect) arguments, and you'll see this:
 
 ```
-TsAnalyser 3.0.198
+TsAnalyzer 3.0.198
 Cinegy GmbH
 
 ERROR(S):
@@ -38,9 +38,9 @@ ERROR(S):
 The help details for the 'stream' verb look like this:
 
 ```
-c:\> TsAnalyser.exe  help stream      
+c:\> tsanalyzer.exe  help stream      
                                                          
-TsAnalyser 3.0.198
+TsAnalyzer 3.0.198
 Cinegy GmbH
 
   -m, --multicastaddress             Input multicast address to read from - if left blank, assumes unicast.
@@ -132,5 +132,5 @@ Just to make your life easier, we auto-build this using AppVeyor - here is how w
 
 You can check out the latest compiled binary from the master or pre-master code here:
 
-[AppVeyor TSAnalyser Project Builder](https://ci.appveyor.com/project/cinegy/tsanalyser/build/artifacts)
+[AppVeyor TSAnalyzer Project Builder](https://ci.appveyor.com/project/cinegy/tsanalyser/build/artifacts)
 
