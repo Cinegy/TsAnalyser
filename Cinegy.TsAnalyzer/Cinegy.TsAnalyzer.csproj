@@ -9,12 +9,12 @@
     <Description>An MPEG2 Transport Stream Analyzer with Telemetry</Description>
     <Copyright>Cinegy GmbH</Copyright>
     <PackageTags>Transport Stream MPEGTS Analyzer</PackageTags>
-    <PackageProjectUrl>https://github.com/Cinegy/TsAnalysis</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/Cinegy/TsAnalyser</PackageProjectUrl>
     <PackageReleaseNotes>Migrated to Net Core 3</PackageReleaseNotes>
     <NeutralLanguage />
     <AssemblyName>tsanalyzer</AssemblyName>
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
-    <RepositoryUrl>https://github.com/Cinegy/TsAnalysis</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Cinegy/TsAnalyser</RepositoryUrl>
   </PropertyGroup>
 
 
@@ -27,7 +27,7 @@
 
   <ItemGroup>
     <PackageReference Include="Cinegy.Telemetry" Version="2.0.24" />
-    <PackageReference Include="Cinegy.TsAnalysis" Version="1.0.28" />
+    <PackageReference Include="Cinegy.TsAnalysis" Version="1.0.29" />
     <PackageReference Include="CommandLineParser" Version="2.7.82" />
   </ItemGroup>
 

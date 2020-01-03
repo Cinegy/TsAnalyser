@@ -20,12 +20,12 @@ after_build:
 - pwsh: >-
     dotnet publish -c Release -r win-x64
     
-    7z a TSAnalyzer-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\bin\Release\netcoreapp3.1\win-x64\publish\tsanalyzer.exe
+    7z a TSAnalyzer-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\netcoreapp3.1\win-x64\publish\tsanalyzer.exe
     
     appveyor PushArtifact TSAnalyzer-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip
 
     dotnet publish -c Release -r linux-x64
 
-    7z a TSAnalyzer-Linux-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\bin\Release\netcoreapp3.1\linux-x64\publish\tsanalyzer
+    7z a TSAnalyzer-Linux-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\netcoreapp3.1\linux-x64\publish\tsanalyzer
     
     appveyor PushArtifact TSAnalyzer-Linux-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip
