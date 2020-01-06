@@ -9,6 +9,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.TsAnalysis", "..\TsA
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.Telemetry", "..\Telemetry\Cinegy.Telemetry\Cinegy.Telemetry.csproj", "{9AACF467-9BFB-4755-9614-2AA66CC5D529}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.TsDecoder", "..\TsDecoder\Cinegy.TsDecoder\Cinegy.TsDecoder.csproj", "{17B8E869-C946-4B6B-870D-AF6CF0F86C29}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.TtxDecoder", "..\TtxDecoder\Cinegy.TtxDecoder\Cinegy.TtxDecoder.csproj", "{091CEF36-ACF7-4C4D-A5C8-484C7BFA426B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +31,14 @@ Global
 		{9AACF467-9BFB-4755-9614-2AA66CC5D529}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9AACF467-9BFB-4755-9614-2AA66CC5D529}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9AACF467-9BFB-4755-9614-2AA66CC5D529}.Release|Any CPU.Build.0 = Release|Any CPU
+		{17B8E869-C946-4B6B-870D-AF6CF0F86C29}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{17B8E869-C946-4B6B-870D-AF6CF0F86C29}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{17B8E869-C946-4B6B-870D-AF6CF0F86C29}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{17B8E869-C946-4B6B-870D-AF6CF0F86C29}.Release|Any CPU.Build.0 = Release|Any CPU
+		{091CEF36-ACF7-4C4D-A5C8-484C7BFA426B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{091CEF36-ACF7-4C4D-A5C8-484C7BFA426B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{091CEF36-ACF7-4C4D-A5C8-484C7BFA426B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{091CEF36-ACF7-4C4D-A5C8-484C7BFA426B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

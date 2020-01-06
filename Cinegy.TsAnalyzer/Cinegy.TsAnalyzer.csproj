@@ -25,10 +25,18 @@
     <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Cinegy.Telemetry" Version="2.0.24" />
+  <ItemGroup Condition="'$(Configuration)'=='Release'">
     <PackageReference Include="Cinegy.TsAnalysis" Version="1.0.31" />
+    <PackageReference Include="Cinegy.Telemetry" Version="2.0.24" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.7.82" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)'=='Debug'">
+    <ProjectReference Include="..\..\TsAnalysis\Cinegy.TsAnalysis\Cinegy.TsAnalysis.csproj" />
+    <ProjectReference Include="..\..\Telemetry\Cinegy.Telemetry\Cinegy.Telemetry.csproj" />
   </ItemGroup>
 
 </Project>

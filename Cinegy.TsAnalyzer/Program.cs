@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -25,6 +26,7 @@ using System.Text;
 using System.Threading;
 using Cinegy.Telemetry;
 using Cinegy.TsAnalysis;
+using Cinegy.TsDecoder.Buffers;
 using Cinegy.TsDecoder.TransportStream;
 using Cinegy.TtxDecoder.Teletext;
 using CommandLine;
@@ -468,7 +470,6 @@ namespace Cinegy.TsAnalyzer
         private static void StartListeningToNetwork(string multicastAddress, int networkPort,
             string listenAdapter = "")
         {
-
             var listenAddress = string.IsNullOrEmpty(listenAdapter) ? IPAddress.Any : IPAddress.Parse(listenAdapter);
 
             var localEp = new IPEndPoint(listenAddress, networkPort);
@@ -481,7 +482,8 @@ namespace Cinegy.TsAnalyzer
             if (!string.IsNullOrWhiteSpace(multicastAddress))
             {
                 var parsedMcastAddr = IPAddress.Parse(multicastAddress);
-                UdpClient.JoinMulticastGroup(parsedMcastAddr, listenAddress);
+                UdpClient.JoinMulticastGroup(parsedMcastAddr);
+                //UdpClient.JoinMulticastGroup(parsedMcastAddr, listenAddress);
             }
 
             var ts = new ThreadStart(delegate
@@ -540,15 +542,18 @@ namespace Cinegy.TsAnalyzer
 
         private static void ReceivingNetworkWorkerThread(UdpClient client)
         {
-            var ep = client.Client.LocalEndPoint as IPEndPoint;
+            IPEndPoint receivedFromEndPoint = null;
+
+            var ticksPerMs = Stopwatch.Frequency / 1000;
 
             while (_receiving && !_pendingExit)
             {
-                var data = client.Receive(ref ep);
+                var data = client.Receive(ref receivedFromEndPoint);
 
                 if (_warmedUp)
                 {
-                    _analyzer.RingBuffer.Add(ref data);
+                    var currentTime = (ulong)(Stopwatch.GetTimestamp() / ticksPerMs);
+                    _analyzer.RingBuffer.Add(ref data, currentTime);
                 }
                 else
                 {
