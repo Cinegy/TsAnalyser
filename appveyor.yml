@@ -12,7 +12,7 @@ dotnet_csproj:
   file_version: '{version}'
   informational_version: '{version}'
 before_build:
-- pwsh: nuget restore
+- pwsh: nuget restore Cinegy.TsAnalyzer.sln
 build:
   project: Cinegy.TsAnalyzer.sln
   verbosity: minimal
