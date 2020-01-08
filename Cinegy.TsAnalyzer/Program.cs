@@ -281,9 +281,17 @@ namespace Cinegy.TsAnalyzer
 
             lock (pidMetrics)
             {
-                var span = new TimeSpan((long)(_analyzer.LastPcr / 2.7));
-                
-                PrintToConsole($"PCR Value: {span}");
+                var pcrPid = pidMetrics.FirstOrDefault(m => _analyzer.SelectedPcrPid > 0 && m.Pid == _analyzer.SelectedPcrPid);
+
+                if (pcrPid!=null)
+                {
+                    var span = new TimeSpan((long)(_analyzer.LastPcr / 2.7));
+                    var largestDrift = pcrPid.PeriodLowestPcrDrift;
+                    if (pcrPid.PeriodLargestPcrDrift > largestDrift) largestDrift = pcrPid.PeriodLargestPcrDrift;
+                    PrintToConsole(
+                        $"PCR Value: {span:hh\\:mm\\:ss\\.fff}, Period Drift: {largestDrift}");
+                }
+
                 //PrintToConsole($"RAW PCR / PTS: {_analyzer.LastPcr } / {_analyzer.LastVidPts * 8} / {_analyzer.LastSubPts * 8}");
                 PrintClearLineToConsole();
 
