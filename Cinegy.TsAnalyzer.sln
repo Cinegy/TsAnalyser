@@ -5,10 +5,6 @@ VisualStudioVersion = 16.0.29509.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.TsAnalyzer", "Cinegy.TsAnalyzer\Cinegy.TsAnalyzer.csproj", "{49AFFA46-0559-4616-89A7-5D7DF7CD4AC7}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.TsAnalysis", "..\TsAnalysis\Cinegy.TsAnalysis\Cinegy.TsAnalysis.csproj", "{856708DF-0A08-4B78-896C-DC6957C9E61D}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cinegy.Telemetry", "..\Telemetry\Cinegy.Telemetry\Cinegy.Telemetry.csproj", "{9AACF467-9BFB-4755-9614-2AA66CC5D529}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,14 +15,6 @@ Global
 		{49AFFA46-0559-4616-89A7-5D7DF7CD4AC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{49AFFA46-0559-4616-89A7-5D7DF7CD4AC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{49AFFA46-0559-4616-89A7-5D7DF7CD4AC7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{856708DF-0A08-4B78-896C-DC6957C9E61D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{856708DF-0A08-4B78-896C-DC6957C9E61D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{856708DF-0A08-4B78-896C-DC6957C9E61D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{856708DF-0A08-4B78-896C-DC6957C9E61D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9AACF467-9BFB-4755-9614-2AA66CC5D529}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9AACF467-9BFB-4755-9614-2AA66CC5D529}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9AACF467-9BFB-4755-9614-2AA66CC5D529}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9AACF467-9BFB-4755-9614-2AA66CC5D529}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -9,7 +9,7 @@
                 "build",
                 "${workspaceFolder}/Cinegy.TsAnalyzer/Cinegy.TsAnalyzer.csproj"
             ],
-            "problemMatcher": "$tsc"
+            "problemMatcher": "$msCompile"
         },
         {
             "label": "publish",
@@ -19,7 +19,10 @@
                 "publish",
                 "${workspaceFolder}/Cinegy.TsAnalyzer/Cinegy.TsAnalyzer.csproj"
             ],
-            "problemMatcher": "$tsc"
+            "windows": {
+                "command": "${cwd}\\publish.bat"
+            },
+            "problemMatcher": []
         },
         {
             "label": "watch",
