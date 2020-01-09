@@ -258,8 +258,8 @@ namespace Cinegy.TsAnalyzer
                     networkMetric.TotalData / 1048576,
                     networkMetric.PacketsPerSecond);
 
-                PrintToConsole("Period Max Packet Jitter (ms): {0}",
-                    networkMetric.PeriodLongestTimeBetweenPackets);
+                PrintToConsole("Period Max Packet Jitter (ms): {0:0.0}",
+                    networkMetric.PeriodLongestTimeBetweenPackets * 1000);
 
                 PrintToConsole(
                     "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)",
@@ -289,7 +289,7 @@ namespace Cinegy.TsAnalyzer
                     var largestDrift = pcrPid.PeriodLowestPcrDrift;
                     if (pcrPid.PeriodLargestPcrDrift > largestDrift) largestDrift = pcrPid.PeriodLargestPcrDrift;
                     PrintToConsole(
-                        $"PCR Value: {span:hh\\:mm\\:ss\\.fff}, Period Drift: {largestDrift}");
+                        $"PCR Value: {span:hh\\:mm\\:ss\\.fff}, Period Drift (ms): {largestDrift:0.00}");
                 }
 
                 //PrintToConsole($"RAW PCR / PTS: {_analyzer.LastPcr } / {_analyzer.LastVidPts * 8} / {_analyzer.LastSubPts * 8}");
@@ -480,7 +480,7 @@ namespace Cinegy.TsAnalyzer
         {
             var listenAddress = string.IsNullOrEmpty(listenAdapter) ? IPAddress.Any : IPAddress.Parse(listenAdapter);
 
-            var localEp = new IPEndPoint(listenAddress, networkPort);
+            var localEp = new IPEndPoint(IPAddress.Any, networkPort);
 
             UdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             UdpClient.Client.ReceiveBufferSize = 1500 * 3000;
@@ -490,8 +490,7 @@ namespace Cinegy.TsAnalyzer
             if (!string.IsNullOrWhiteSpace(multicastAddress))
             {
                 var parsedMcastAddr = IPAddress.Parse(multicastAddress);
-                UdpClient.JoinMulticastGroup(parsedMcastAddr);
-                //UdpClient.JoinMulticastGroup(parsedMcastAddr, listenAddress);
+                UdpClient.JoinMulticastGroup(parsedMcastAddr, listenAddress);
             }
 
             var ts = new ThreadStart(delegate
@@ -552,7 +551,7 @@ namespace Cinegy.TsAnalyzer
         {
             IPEndPoint receivedFromEndPoint = null;
 
-            var ticksPerMs = Stopwatch.Frequency / 1000;
+           // var ticksPerMs = Stopwatch.Frequency / 1000;
 
             while (_receiving && !_pendingExit)
             {
@@ -560,7 +559,7 @@ namespace Cinegy.TsAnalyzer
 
                 if (_warmedUp)
                 {
-                    var currentTime = (ulong)(Stopwatch.GetTimestamp() / ticksPerMs);
+                    var currentTime = (ulong)Stopwatch.GetTimestamp();
                     _analyzer.RingBuffer.Add(ref data, currentTime);
                 }
                 else

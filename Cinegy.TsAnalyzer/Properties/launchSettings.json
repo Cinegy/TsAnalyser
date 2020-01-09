@@ -2,7 +2,7 @@
   "profiles": {
     "Cinegy.TsAnalyzer": {
       "commandName": "Project",
-      "commandLineArgs": "stream -m 239.5.2.1 -p 6670 -t -c -o sandpit -a 10.186.3.42"
+      "commandLineArgs": "stream -m 239.186.31.22 -p 1234 -t -c -o sandpit -a 10.186.3.42"
     }
   }
 }
