@@ -26,7 +26,6 @@ using System.Text;
 using System.Threading;
 using Cinegy.Telemetry;
 using Cinegy.TsAnalysis;
-using Cinegy.TsDecoder.Buffers;
 using Cinegy.TsDecoder.TransportStream;
 using Cinegy.TtxDecoder.Teletext;
 using CommandLine;
@@ -550,8 +549,6 @@ namespace Cinegy.TsAnalyzer
         private static void ReceivingNetworkWorkerThread(UdpClient client)
         {
             IPEndPoint receivedFromEndPoint = null;
-
-           // var ticksPerMs = Stopwatch.Frequency / 1000;
 
             while (_receiving && !_pendingExit)
             {

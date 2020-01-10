@@ -26,7 +26,7 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Release'">
-    <PackageReference Include="Cinegy.TsAnalysis" Version="1.0.34" />
+    <PackageReference Include="Cinegy.TsAnalysis" Version="1.0.36" />
     <PackageReference Include="Cinegy.Telemetry" Version="3.0.0" />
   </ItemGroup>
 
