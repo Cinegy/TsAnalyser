@@ -1,7 +1,7 @@
-version: 3.0.{build}
-image: Visual Studio 2019
+version: 4.0.{build}
+image: Visual Studio 2022
 configuration: Release
-platform: Any CPU
+platform: x64
 dotnet_csproj:
   patch: true
   file: '**\*.csproj'
@@ -20,24 +20,12 @@ after_build:
 - pwsh: >-
     dotnet publish Cinegy.TsAnalyzer\Cinegy.TsAnalyzer.csproj -c Release -r win-x64
     
-    7z a TSAnalyzer-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\netcoreapp3.1\win-x64\publish\tsanalyzer.exe
+    7z a TSAnalyzer-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\net6.0\win-x64\publish\tsanalyzer.exe
     
     appveyor PushArtifact TSAnalyzer-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip
 
     dotnet publish Cinegy.TsAnalyzer\Cinegy.TsAnalyzer.csproj -c Release -r linux-x64
 
-    7z a TSAnalyzer-Linux-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\netcoreapp3.1\linux-x64\publish\tsanalyzer
+    7z a TSAnalyzer-Linux-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\net6.0\linux-x64\publish\tsanalyzer
     
     appveyor PushArtifact TSAnalyzer-Linux-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip
-
-    dotnet publish Cinegy.TsAnalyzer\Cinegy.TsAnalyzer.csproj -c Release -r linux-arm64
-
-    7z a TSAnalyzer-Linux-arm64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\netcoreapp3.1\linux-arm64\publish\tsanalyzer
-    
-    appveyor PushArtifact TSAnalyzer-Linux-arm64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip
-    
-    dotnet publish Cinegy.TsAnalyzer\Cinegy.TsAnalyzer.csproj -c Release -r linux-arm
-
-    7z a TSAnalyzer-Linux-arm32-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER\Cinegy.TsAnalyzer\bin\Release\netcoreapp3.1\linux-arm\publish\tsanalyzer
-    
-    appveyor PushArtifact TSAnalyzer-Linux-arm32-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip

@@ -1,10 +1,8 @@
 # Cinegy TS Analyzer Tool
 
-Use this tool to view inbound network, RTP and TS packet details. Use newly introduced powers to view into the service description tables, and even decode a teletext stream!
+Use this tool to view inbound network, RTP, SRT and plain UDP TS packet details. 
 
-New with V3 - now built with Net Core 3, using single-file-exe features with an integrated runtime, making deployment dependencies incredibly low! This also means that operation on Linux and MacOS are possible (although should be considered beta - it is not particularly tested).
-
-Linux builds, for Intel/AMD 64-bit, and for Arm64, are now created by the AppVeyor build (tested on Ubuntu 16.04 / 18.04 and on RPi4 with 18.04 Arm64).
+Linux builds, for Intel/AMD 64-bit are now created by the AppVeyor build but the general expectation for use on Linux would be to be running inside a Docker Container!
 
 ## How easy is it?
 
@@ -14,118 +12,88 @@ Just run the EXE from inside a command-prompt, and you will be offered a basic i
 
 From v1.3, you can check out a .TS file and scan through it - just drag / drop the .TS file onto the EXE!
 
-You can print live Teletext decoding, and you can use the tool to generate input logs for 'big data' analysis (which is very cool).
+Starting with V4, there is a Dockerfile, so you can build your own container and use it like so:
+
+`
+docker build . -t mylocaltsanalyzer:latest -f .\Cinegy.TsAnalyzer\Dockerfile
+`
+
+You can then run it with something like this:
+
+`
+docker run --rm -it docker.io/library/tsanalyzer --sourceurl=srt://srt.cinegy.com:6000
+`
 
 ## Command line arguments:
 
-Double click, or just run without (or with incorrect) arguments, and you'll see this:
+With the migration to containers, the magic command-line arguments auto-documentation got broken - but we cleaned up the logic to encapsulate a more 'URL' style model instead. You can set up an appsettings.json file, set environment VARS, or inject command-line arguments like so:
 
+Argument:
 ```
-TsAnalyzer 3.0.198
-Cinegy GmbH
-
-ERROR(S):
-  No verb selected.
-
-  stream     Stream from the network.
-
-  read       Read from a file.
-
-  help       Display more information on a specific command.
-
-  version    Display version information.
-
+--sourceurl=srt://srt.cinegy.com:9000
 ```
 
-The help details for the 'stream' verb look like this:
+ENV VAR:
+```
+CINEGYTSA_SourceURL=srt://srt.cinegy.com:9000
+```
+
+appsettings.json:
+```
+{
+  "sourceUrl": "srt://srt.cinegy.com:9000"
+}
+```
+
+Here is the list of settable parameters (in command-line-args style):
 
 ```
-c:\> tsanalyzer.exe  help stream      
-                                                         
-TsAnalyzer 3.0.198
-Cinegy GmbH
+//Core settings
+--ident="Analyzer1" //value tagged to core metric, which can be used in statistics aggregation and identification
+--label="Cinegy Test Stream" //value tagged to core metric, which can be used in statistics aggregation and identification
+--sourceUrl="srt://srt.cinegy.com:9000" //URL format of source - supports srt, rtp and udp schemes with optional source-specific formatting
+--liveConsole=true //note - this is only supported on Windows, since more aggressive Console.Write operations fail on Linux
 
-  -m, --multicastaddress             Input multicast address to read from - if left blank, assumes unicast.
-
-  -p, --port                         Required. Input UDP network port to read from.
-
-  -a, --adapter                      IP address of the adapter to listen for multicasts (if not set, tries first binding adapter).
-
-  -n, --nortpheaders                 (Default: false) Optional instruction to skip the expected 12 byte RTP headers (meaning plain MPEGTS inside UDP is expected
-
-  -q, --quiet                        (Default: false) Don't print anything to the console
-
-  -s, --skipdecodetransportstream    (Default: false) Optional instruction to skip decoding further TS and DVB data and metadata
-
-  -c, --teletextdecode               (Default: false) Optional instruction to decode DVB teletext subtitles / captions from default program
-
-  --programnumber                    Pick a specific program / service to inspect (otherwise picks default).
-
-  -d, --descriptortags               (Default: ) Comma separated tag values added to all log entries for instance and machine identification
-
-  -v, --verboselogging               Creates event logs for all discontinuities and skips.
-
-  -t, --telemetry                    (Default: false) Enable telemetry to Cinegy Telemetry Server
-
-  -o, --organization                 Tag all telemetry with this organization (needed to indentify and access telemetry from Cinegy Analytics portal
-
-  --help                             Display this help screen.
-
-  --version                          Display version information.
-
+//Metrics-related settings
+--metrics:enabled=false //default is true
+--metrics:consoleExporterEnabled=true //default is false - used to enable console output of OTEL metrics
+--metrics:openTelemetryExporterEnabled=true //default is false - used to enable exporting of OTEL metrics to endpoint
+--metrics:openTelemetryEndpoint="http://localhost:4317" //default is that localhost value - used to specify OTEL collection endpoint URL
+--metrics:openTelemetryPeriodicExportInterval=1000 //in milliseconds, default is 10 seconds - used to control frequency of data samples pushed via OTEL
 
 ```
+
+To read more about how these settings can work, and how to transform console arguments to JSON or ENV vars, see the MS documentation here:
+
+https://learn.microsoft.com/en-us/dotnet/core/extensions/configuration
+
 
 So - what does this look like when you point it at a complex live stream? Here is a shot from a UK DVB-T2 stream:
 
 ```
-Network Details - rtp://@239.5.2.1:6670         Running: 00:00:22
+Network Details - srt://srt.cinegy.com:9000             Running: 00:00:01
 ---------------------------------------------------------------------
-Total Packets Rcvd: 103514      Buffer Usage: 0.00%/(Peak: 0.27%)
-Total Data (MB): 131            Packets per sec:4757
-Period Max Packet Jitter (ms): 6
-Bitrates (Mbps): 48.19/43.54/102.32/0.26 (Current/Avg/Peak/Low)
+Total Packets Rcvd: 694
+Total Data (MB): 0              Packets per sec:636
+Period Max Packet Jitter (ms): 0.0      Corrupt TS Packets: 0
+Bitrates (Mbps): 6.39/6.47/6.39/6.39 (Current/Avg/Peak/Low)
+PCR Value: 21:49:38.425, OPCR Value: 00:00:00.000, Period Drift (ms): 0.00
 
-RTP Details - SSRC: 0
 ---------------------------------------------------------------------
-Seq Num: 59290  Timestamp: 3987292082   Min Lost Pkts: 0
-PCR Value: 08:52:49.2610044
+TS PID: 4095    Packet Count: 4443              CC Error Count: 0
+TS PID: 8191    Packet Count: 265               CC Error Count: 0
+TS PID: 4097    Packet Count: 98                CC Error Count: 0
+TS PID: 4096    Packet Count: 32                CC Error Count: 0
+TS PID: 0       Packet Count: 10                CC Error Count: 0
+TS PID: 256     Packet Count: 10                CC Error Count: 0
 
-PID Details - Unique PIDs: 62, (10 shown by packet count)
+Service Information - Service Count: 1
 ---------------------------------------------------------------------
-TS PID: 8191    Packet Count: 279916            CC Error Count: 0
-TS PID: 5700    Packet Count: 88463             CC Error Count: 0
-TS PID: 5500    Packet Count: 87038             CC Error Count: 0
-TS PID: 5600    Packet Count: 84393             CC Error Count: 0
-TS PID: 5400    Packet Count: 43627             CC Error Count: 0
-TS PID: 5300    Packet Count: 42413             CC Error Count: 0
-TS PID: 2322    Packet Count: 21701             CC Error Count: 0
-TS PID: 3847    Packet Count: 10128             CC Error Count: 0
-TS PID: 2321    Packet Count: 7234              CC Error Count: 0
-TS PID: 192     Packet Count: 5370              CC Error Count: 0
 
-Service Information - Service Count: 10, (5 shown)
+Elements - Selected Program Service ID 1 (first 5 shown)
 ---------------------------------------------------------------------
-Service 6912: BBC Two Wal HD (BSkyB) - H.264/AVC HD digital television service
-Service 6940: BBC Two HD (BSkyB) - H.264/AVC HD digital television service
-Service 6941: BBC One HD (BSkyB) - H.264/AVC HD digital television service
-Service 6943: BBC One NI HD (BSkyB) - H.264/AVC HD digital television service
-Service 6945: 6945 (BSkyB) - H.264/AVC HD digital television service
-
-Elements - Selected Program: BBC Two Wal HD (ID:6912) (first 5 shown)
----------------------------------------------------------------------
-PID: 5700 (H.264 video)
-PID: 5703 (Teletext)
-PID: 5704 (DVB Subtitles)
-PID: 5701 (AC-3 / Dolby Digital)
-PID: 2322 (MPEG-2 tabled data)
-
-Teletext 888 (eng) - decoding Service ID 6912, PID: 5703, PTS: 2877230998
----------------------------------------------------------------------
-Packets (Period/Total): 375/1608, Total Pages: 10, Total Clears: 9
-
-20 -      If you're happy for us
-22 - to deal with his master about...
+PID: 4095 (H.264 video)
+PID: 4097 (MPEG-1 audio)
 ```
 
 Just to make your life easier, we auto-build this using AppVeyor - here is how we are doing right now: 
