@@ -1,630 +1,336 @@
-﻿/*   Copyright 2016-2020 Cinegy GmbH
+﻿/* Copyright 2016-2023 Cinegy GmbH.
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Reflection;
-using System.Runtime;
-using System.Text;
-using System.Threading;
-using Cinegy.Telemetry;
-using Cinegy.TsAnalysis;
-using Cinegy.TsDecoder.TransportStream;
-using Cinegy.TtxDecoder.Teletext;
-using CommandLine;
+using TsAnalyzer.SerializableModels.Settings;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using NLog;
+using NLog.Config;
+using NLog.Extensions.Hosting;
+using NLog.Extensions.Logging;
+using NLog.LayoutRenderers.Wrappers;
+using NLog.Layouts;
+using NLog.Targets;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using TsAnalyzer.Helpers;
+using ILogger = NLog.ILogger;
+using LogLevel = NLog.LogLevel;
+using System.Diagnostics.CodeAnalysis;
+using OpenTelemetry.Logs;
+using System.Diagnostics.Metrics;
+using Cinegy.TsAnalyzer;
 
-namespace Cinegy.TsAnalyzer
+namespace TsAnalyzer
 {
-    // ReSharper disable once ClassNeverInstantiated.Global
     internal class Program
     {
-        private const int WarmUpTime = 500;
-        private const string LineBreak = "---------------------------------------------------------------------";
-        private static bool _receiving;
-        private static Options _options;
-        private static bool _warmedUp;
-        private static  Logger _logger;
-        private static Analyzer _analyzer;
+        #region Constants
+
+        public const string EnvironmentVarPrefix = "CINEGYTSA";
+        public const string DirectoryAppName = "TSAnalyzer";
+        private static readonly string ProgramDataConfigFilePath;
+        private static readonly string ProgramDataDirectory;
+        private static readonly string BaseConfigFilePath;
+        private static readonly string WorkingConfigFilePath;
+        private static readonly string WorkingDirectory;
+
+        #endregion
+
+        #region Fields
+
+        private static IConfigurationRoot _configRoot;
+        private static IHost _host;
+        private static List<KeyValuePair<string,object>> _metricsTags = new();
+        private static readonly Meter MetricsMeter = new("Cinegy.TsAnalyzer");
+        private static readonly ObservableGauge<double> ServiceUptimeGauge;
         private static readonly DateTime StartTime = DateTime.UtcNow;
-        private static bool _pendingExit;
-        private static readonly UdpClient UdpClient = new UdpClient();
-        private static readonly List<string> ConsoleLines = new List<string>(1024);
-        private static string _teletextLockString = string.Empty;
-        
-        static int Main(string[] args)
+
+        #endregion
+
+        #region Constructors
+
+        static Program()
         {
-            if (args == null || args.Length == 0)
+            WorkingDirectory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName) ?? string.Empty;
+
+            if (OperatingSystem.IsWindows())
             {
-                return RunStreamInteractive();
+                ProgramDataDirectory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                    $"Cinegy\\{DirectoryAppName}");
+            }
+            else
+            {
+                ProgramDataDirectory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    $"Cinegy/{DirectoryAppName}");
             }
 
-            if (args.Length == 1 && File.Exists(args[0]))
-            {
-                //a single argument was used, and it was a file - so skip all other parsing
-                return Run(new ReadOptions { FileInput = args[0] });
-            }
+#if DEBUG
+            const string configFilename = "appsettings.Development.json";
+#else
+            const string configFilename = "appsettings.json";
+#endif
 
-            var result = Parser.Default.ParseArguments<StreamOptions, ReadOptions>(args);
-
-            return result.MapResult(
-                (StreamOptions opts) => Run(opts),
-                (ReadOptions opts) => Run(opts),
-                errs => CheckArgumentErrors());
+            BaseConfigFilePath = Path.Combine(AppContext.BaseDirectory, configFilename);
+            WorkingConfigFilePath = Path.Combine(WorkingDirectory, configFilename);
+            ProgramDataConfigFilePath = Path.Combine(ProgramDataDirectory, configFilename);  
+            
+            ServiceUptimeGauge = MetricsMeter.CreateObservableGauge("tsAnalyzerUptime", () => new Measurement<double>(DateTime.UtcNow.Subtract(StartTime).TotalSeconds, _metricsTags), "sec");
         }
 
-        private static int CheckArgumentErrors()
+        #endregion
+
+        #region Static members
+
+        public static void Main(string[] args)
         {
-            //will print using library the appropriate help - now pause the console for the viewer
-            Console.WriteLine("Hit enter to quit");
-            Console.ReadLine();
-            return -1;
-        }
+            Console.CancelKeyPress += async delegate {
+                await _host?.StopAsync();
+                await _host?.WaitForShutdownAsync();
+            };
 
-        private static int RunStreamInteractive()
-        {
-            Console.WriteLine("No arguments supplied - would you like to enter interactive mode? [Y/N]");
-            var response = Console.ReadKey();
+            Activity.DefaultIdFormat = ActivityIdFormat.W3C;
+            var bufferedWarnings = PrepareConfigFile();
+            _configRoot = LoadConfiguration(ProgramDataConfigFilePath, args);
+            var logger = InitializeLogger();
 
-            if (response.Key != ConsoleKey.Y)
-            {
-                Console.WriteLine("\n\n");
-                Parser.Default.ParseArguments<StreamOptions, ReadOptions>(new string[] { });
-                return CheckArgumentErrors();
-            }
-
-            var newOpts = new StreamOptions();
-            //ask the user interactively for an address and group
-            Console.WriteLine(
-                "\nYou chose to run in interactive mode, so now you can now set up a basic stream monitor. Making no entry uses defaults.");
-
-            Console.Write("\nPlease enter the multicast address to listen to [239.1.1.1]: ");
-            var address = Console.ReadLine();
-
-            if (string.IsNullOrWhiteSpace(address)) address = "239.1.1.1";
-
-            newOpts.MulticastAddress = address;
-
-            Console.Write("Please enter the multicast group port [1234]: ");
-            var port = Console.ReadLine();
-
-            if (string.IsNullOrWhiteSpace(port))
-            {
-                port = "1234";
-            }
-
-            newOpts.UdpPort = int.Parse(port);
-
-            Console.Write("Please enter the adapter address to listen for multicast packets [0.0.0.0]: ");
-
-            var adapter = Console.ReadLine();
-
-            if (string.IsNullOrWhiteSpace(adapter))
-            {
-                adapter = "0.0.0.0";
-            }
-
-            newOpts.AdapterAddress = adapter;
-
-            return Run(newOpts);
-        }
-
-        private static int Run(Options opts)
-        {
-            Console.CancelKeyPress += Console_CancelKeyPress;
-
-            _logger = LogManager.GetCurrentClassLogger();
-
-            var buildVersion = Assembly.GetEntryAssembly()?.GetName().Version.ToString();
+            logger.Info("----------------------------------------");
+            logger.Info($"{Product.Name}: {Product.Version} (Built: {Product.BuildTime})");
+            logger.Info($"Executable directory: {WorkingDirectory}");
+            logger.Info($"Operating system: {Environment.OSVersion.Platform} ({Environment.OSVersion.VersionString})");
+            logger.Info($"Application data directory: {ProgramDataDirectory}");
             
-            LogSetup.ConfigureLogger("tsanalyzer", opts.OrganizationId, opts.DescriptorTags, "https://telemetry.cinegy.com", opts.TelemetryEnabled, false, "TSAnalyzer", buildVersion );
+            _metricsTags.Add(new KeyValuePair<string, object>("ProductVersion", Product.Version));
+            _metricsTags.Add(new KeyValuePair<string, object>("OS", $"{Environment.OSVersion.Platform}({Environment.OSVersion.VersionString})"));
 
-            _analyzer = new Analyzer(_logger);
-            
-            var location = Assembly.GetEntryAssembly()?.Location;
-            
-            _logger.Info($"Cinegy Transport Stream Monitoring and Analysis Tool (Built: {File.GetCreationTime(location)})");
+            // since the logger was not available during the initial config file prep, log anything that got queued for display
+            foreach (var bufferedWarning in bufferedWarnings)
+            {
+                logger.Warn(bufferedWarning);
+            }
 
             try
             {
-                Console.CursorVisible = false;
-                Console.SetWindowSize(120, 50);
-                Console.OutputEncoding = Encoding.Unicode;
+                logger.Info($"Configuration running from {ProgramDataConfigFilePath}");
+
+                _host = CreateHostBuilder(args, logger).Build();
+
+                _host.Run();
             }
-            catch
+            catch (Exception exception)
             {
-                Console.WriteLine("Failed to increase console size - probably screen resolution is low");
+                logger.Error(exception, "Stopped program because of exception");
+                throw;
             }
-            _options = opts;
+            finally
+            {
+                // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
+                LogManager.Shutdown();
+            }
 
-            GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
-
-            WorkLoop();
-
-            return 0;
         }
 
-        ~Program()
+        [RequiresUnreferencedCode("Calls Microsoft.Extensions.Configuration.ConfigurationBinder.Get<T>()")]
+        private static IHostBuilder CreateHostBuilder(string[] args, ILogger logger)
         {
-            Console.CursorVisible = true;
-        }
-
-        private static void WorkLoop()
-        {
-            Console.Clear();
+            var config = _configRoot.Get<AppConfig>();
             
-             _receiving = true;
+            _metricsTags.Add(new KeyValuePair<string, object>("Ident", config.Ident));
 
-            LogMessage($"Logging started {Assembly.GetEntryAssembly()?.GetName().Version}.");
-
-            _analyzer.InspectTeletext = _options.DecodeTeletext;
-            _analyzer.InspectTsPackets = !_options.SkipDecodeTransportStream;
-            _analyzer.SelectedProgramNumber = _options.ProgramNumber;
-            _analyzer.VerboseLogging = _options.VerboseLogging;
-
-            var filePath = (_options as ReadOptions)?.FileInput;
-
-            if (!string.IsNullOrEmpty(filePath))
+            if (!string.IsNullOrWhiteSpace(config.Label))
             {
-                _analyzer.Setup();
-                _analyzer.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
-
-                if (_analyzer.InspectTeletext)
-                {
-                    _analyzer.TeletextDecoder.Service.TeletextPageReady += Service_TeletextPageReady;
-                    _analyzer.TeletextDecoder.Service.TeletextPageCleared += Service_TeletextPageCleared;
-                }
-
-                StartStreamingFile(filePath);
+                _metricsTags.Add(new KeyValuePair<string, object>("Label", config.Label));
             }
-
-            if (_options is StreamOptions streamOptions)
-            {
-                _analyzer.HasRtpHeaders = !streamOptions.NoRtpHeaders;
-                _analyzer.Setup(streamOptions.MulticastAddress, streamOptions.UdpPort);
-                _analyzer.TsDecoder.TableChangeDetected += TsDecoder_TableChangeDetected;
-
-                if (_analyzer.InspectTeletext)
-                {
-                    _analyzer.TeletextDecoder.Service.TeletextPageReady += Service_TeletextPageReady;
-                    _analyzer.TeletextDecoder.Service.TeletextPageCleared += Service_TeletextPageCleared;
-                }
-
-                StartListeningToNetwork(streamOptions.MulticastAddress, streamOptions.UdpPort, streamOptions.AdapterAddress);
-            }
-
-            Console.Clear();
-
-            while (!_pendingExit)
-            {
-                if (!_options.SuppressOutput)
-                {
-                    PrintConsoleFeedback();
-                }
-
-                Thread.Sleep(60);
-            }
-
-            LogMessage("Logging stopped.");
-        }
-
-        private static void TsDecoder_TableChangeDetected(object sender, TableChangedEventArgs args)
-        {
-            //Todo: finish implementing better EIT support
-            //if (args.TableType != TableType.Eit) return;
-            //if (sender is TsDecoder.TransportStream.TsDecoder decoder) Debug.WriteLine("EIT Version Num: " + decoder.EventInformationTable.VersionNumber);
-        }
-
-        private static void PrintConsoleFeedback()
-        {
-            var runningTime = DateTime.UtcNow.Subtract(StartTime);
             
-            if (_options is StreamOptions)
+            var hostnameVar = Environment.GetEnvironmentVariable($"{EnvironmentVarPrefix}_Hostname");
+            if (!string.IsNullOrWhiteSpace(hostnameVar))
             {
-                var networkMetric = _analyzer.NetworkMetric;
-                var rtpMetric = _analyzer.RtpMetric;
-                
-                PrintToConsole("Network Details - {0}://{1}:{2}\t\tRunning: {3:hh\\:mm\\:ss}", ((StreamOptions)_options).NoRtpHeaders ? "udp" : "rtp",
-                    string.IsNullOrWhiteSpace(((StreamOptions)_options).MulticastAddress) ?
-                        "127.0.0.1" : $"@{((StreamOptions)_options).MulticastAddress}",
-                    ((StreamOptions)_options).UdpPort, runningTime);
-
-                PrintToConsole(LineBreak);
-
-                PrintToConsole(
-                    "Total Packets Rcvd: {0} \tBuffer Usage: {1:0.00}%/(Peak: {2:0.00}%)",
-                    networkMetric.TotalPackets, networkMetric.NetworkBufferUsage, networkMetric.PeriodMaxNetworkBufferUsage);
-
-                PrintToConsole(
-                    "Total Data (MB): {0}\t\tPackets per sec:{1}",
-                    networkMetric.TotalData / 1048576,
-                    networkMetric.PacketsPerSecond);
-
-                PrintToConsole("Period Max Packet Jitter (ms): {0:0.0}",
-                    networkMetric.PeriodLongestTimeBetweenPackets * 1000);
-
-                PrintToConsole(
-                    "Bitrates (Mbps): {0:0.00}/{1:0.00}/{2:0.00}/{3:0.00} (Current/Avg/Peak/Low)",
-                    networkMetric.CurrentBitrate / 1048576.0, networkMetric.AverageBitrate / 1048576.0,
-                    networkMetric.HighestBitrate / 1048576.0, networkMetric.LowestBitrate / 1048576.0);
-
-                if (!((StreamOptions)_options).NoRtpHeaders)
-                {
-                    PrintClearLineToConsole();
-                    PrintToConsole($"RTP Details - SSRC: {rtpMetric.Ssrc}");
-                    PrintToConsole(LineBreak);
-                    PrintToConsole(
-                        "Seq Num: {0}\tTimestamp: {1}\tMin Lost Pkts: {2}",
-                        rtpMetric.LastSequenceNumber, rtpMetric.LastTimestamp, rtpMetric.EstimatedLostPackets);
-                }
+                _metricsTags.Add(new KeyValuePair<string, object>("Hostname", hostnameVar));
             }
 
-            var pidMetrics = _analyzer.PidMetrics;
-
-            lock (pidMetrics)
-            {
-                var pcrPid = pidMetrics.FirstOrDefault(m => _analyzer.SelectedPcrPid > 0 && m.Pid == _analyzer.SelectedPcrPid);
-
-                if (pcrPid!=null)
+            var telemetryInstanceId = Guid.NewGuid();
+            
+            return Host.CreateDefaultBuilder(args)
+                .ConfigureAppConfiguration(configHost => { configHost.AddConfiguration(_configRoot); })
+                .ConfigureServices((hostContext, services) =>
                 {
-                    var span = new TimeSpan((long)(_analyzer.LastPcr / 2.7));
-                    var largestDrift = pcrPid.PeriodLowestPcrDrift;
-                    if (pcrPid.PeriodLargestPcrDrift > largestDrift) largestDrift = pcrPid.PeriodLargestPcrDrift;
-                    PrintToConsole(
-                        $"PCR Value: {span:hh\\:mm\\:ss\\.fff}, Period Drift (ms): {largestDrift:0.00}");
-                }
-
-                //PrintToConsole($"RAW PCR / PTS: {_analyzer.LastPcr } / {_analyzer.LastVidPts * 8} / {_analyzer.LastSubPts * 8}");
-                PrintClearLineToConsole();
-
-                PrintToConsole(pidMetrics.Count < 10
-                    ? $"PID Details - Unique PIDs: {pidMetrics.Count}"
-                    : $"PID Details - Unique PIDs: {pidMetrics.Count}, (10 shown by packet count)");
-                PrintToConsole(LineBreak);
-
-                foreach (var pidMetric in pidMetrics.OrderByDescending(m => m.PacketCount).Take(10))
-                {
-                    PrintToConsole("TS PID: {0}\tPacket Count: {1} \t\tCC Error Count: {2}", pidMetric.Pid,
-                        pidMetric.PacketCount, pidMetric.CcErrorCount);
-                }
-            }
-
-            var tsDecoder = _analyzer.TsDecoder;
-
-            if (tsDecoder != null)
-            {                
-                lock (tsDecoder)
-                {
-                    var pmts = tsDecoder.ProgramMapTables.OrderBy(p => p.ProgramNumber).ToList();
-
-                    PrintClearLineToConsole();
-
-                    PrintToConsole(pmts.Count < 5
-                        ? $"Service Information - Service Count: {pmts.Count}"
-                        : $"Service Information - Service Count: {pmts.Count}, (5 shown)");
-
-                    PrintToConsole(LineBreak);
-
-                    foreach (var pmtable in pmts.Take(5))
+                    if (config.Metrics?.Enabled == true && !Sdk.SuppressInstrumentation)
                     {
-                        var desc = tsDecoder.GetServiceDescriptorForProgramNumber(pmtable?.ProgramNumber);
-                        if (desc != null)
+                        logger.Log(LogLevel.Info,$"Metrics enabled - tagged with instance ID: {telemetryInstanceId}");
+
+                        services.AddOpenTelemetry().WithMetrics(builder =>
                         {
-                            PrintToConsole(
-                                $"Service {pmtable?.ProgramNumber}: {desc.ServiceName.Value} ({desc.ServiceProviderName.Value}) - {desc.ServiceTypeDescription}"
-                                );
+                            builder
+                                .AddMeter("Cinegy.TsAnalyzer")
+                                .AddMeter("Cinegy.TsDecoder")
+                                .AddMeter("Cinegy.TsAnalysis")
+                                .AddMeter($"Cinegy.TsAnalyzer.{nameof(AnalysisService)}")
+                                .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(Product.TracingName, config.Ident, Product.Version,false, telemetryInstanceId.ToString()));
+
+                            if (config.Metrics.ConsoleExporterEnabled)
+                            {
+                                logger.Log(LogLevel.Warn,"Console metrics enabled - only recommended during debugging metrics issues...");
+                                builder.AddConsoleExporter();
+                            }
+
+                            if (config.Metrics.OpenTelemetryExporterEnabled)
+                            {
+                                logger.Log(LogLevel.Info,$"OpenTelemetry metrics exporter enabled, using endpoint: {config.Metrics.OpenTelemetryEndpoint}");
+                                builder.AddOtlpExporter((o, m) => {
+                                    o.Endpoint = new Uri(config.Metrics.OpenTelemetryEndpoint);
+                                    m.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = config.Metrics.OpenTelemetryPeriodicExportInterval;
+                                });
+                            }
+                        });
+                    }
+
+                    services.AddHostedService<AnalysisService>();
+                })
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddOpenTelemetry(builder =>
+                    {
+                        builder.IncludeFormattedMessage = true;
+                        builder.IncludeScopes = true;
+                        builder.ParseStateValues = true;
+                        builder.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(Product.TracingName, config.Ident, Product.Version,false, telemetryInstanceId.ToString()));
+
+                        //if (config.Metrics?.ConsoleExporterEnabled == true)
+                        //{
+                        //    builder.AddConsoleExporter();
+                        //}
+
+                        if (config.Metrics?.OpenTelemetryExporterEnabled == true)
+                        {
+                            builder.AddOtlpExporter(o => {
+                                o.Endpoint = new Uri(config.Metrics.OpenTelemetryEndpoint);
+                            });
+                        }
+                    });
+                })
+                .UseNLog();
+        }
+
+        private static List<string> PrepareConfigFile()
+        {
+            var bufferedLogWarnMessages = new List<string>();
+            if (ProgramDataConfigFilePath != null && File.Exists(ProgramDataConfigFilePath))
+            {
+                if (File.Exists(WorkingConfigFilePath) && File.GetLastWriteTime(WorkingConfigFilePath) > File.GetLastWriteTime(ProgramDataConfigFilePath))
+                {
+                    if (File.Exists(ProgramDataConfigFilePath))
+                    {
+                        bufferedLogWarnMessages.Add("There was a problem reading the settings file, resetting to defaults");
+                        var programDataConfigFolder = Path.GetDirectoryName(ProgramDataConfigFilePath);
+                        if (ProgramDataConfigFilePath != null && Directory.Exists(programDataConfigFolder))
+                        {
+                            var backupFileSettingsName = $"{Path.GetFileName(ProgramDataConfigFilePath)}-backup_{DateTime.UtcNow.ToFileTimeUtc()}";
+                            bufferedLogWarnMessages.Add($"Problematic settings file has been copied to: {backupFileSettingsName}");
+                            File.Move(ProgramDataConfigFilePath!, Path.Combine(programDataConfigFolder!, backupFileSettingsName));
                         }
                     }
 
-                    var pmt = tsDecoder.GetSelectedPmt(_options.ProgramNumber);
-                    if (pmt != null)
-                    {
-                        _options.ProgramNumber = pmt.ProgramNumber;
-                        _analyzer.SelectedPcrPid = pmt.PcrPid;
-                    }
-
-                    var serviceDesc = tsDecoder.GetServiceDescriptorForProgramNumber(pmt?.ProgramNumber);
-
-                    PrintClearLineToConsole();
-
-                    PrintToConsole(serviceDesc != null
-                        ? $"Elements - Selected Program: {serviceDesc.ServiceName} (ID:{pmt?.ProgramNumber}) (first 5 shown)"
-                        : $"Elements - Selected Program Service ID {pmt?.ProgramNumber} (first 5 shown)");
-                    PrintToConsole(LineBreak);
-
-                    if (pmt?.EsStreams != null)
-                    {
-                        foreach (var stream in pmt.EsStreams.Take(5))
-                        {
-                            if (stream == null) continue;
-                            if (stream.StreamType != 6)
-                            {
-                                PrintToConsole(
-                                    "PID: {0} ({1})", stream.ElementaryPid,
-                                    DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
-                                        stream.StreamType]);
-                            }
-                            else
-                            {
-                                if (stream.Descriptors.OfType<Ac3Descriptor>().Any())
-                                {
-                                    PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "AC-3 / Dolby Digital");
-                                    continue;
-                                }
-                                if (stream.Descriptors.OfType<Eac3Descriptor>().Any())
-                                {
-                                    PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "EAC-3 / Dolby Digital Plus");
-                                    continue;
-                                }
-                                if (stream.Descriptors.OfType<SubtitlingDescriptor>().Any())
-                                {
-                                    PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "DVB Subtitles");
-                                    continue;
-                                }
-                                if (stream.Descriptors.OfType<TeletextDescriptor>().Any())
-                                {
-                                    PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "Teletext");
-                                    continue;
-                                }
-                                if (stream.Descriptors.OfType<RegistrationDescriptor>().Any())
-                                {
-                                    if (stream.Descriptors.OfType<RegistrationDescriptor>().First().Organization == "2LND")
-                                    {
-                                        PrintToConsole("PID: {0} ({1})", stream.ElementaryPid, "Cinegy DANIEL2");
-                                        continue;
-                                    }
-                                }
-                                    
-                                PrintToConsole(
-                                    "PID: {0} ({1})", stream.ElementaryPid,
-                                    DescriptorDictionaries.ShortElementaryStreamTypeDescriptions[
-                                        stream.StreamType]);
-
-                            }
-
-                        }
-                    }
-                }
-
-                if (_options.DecodeTeletext)
-                {
-                    PrintTeletext();
+                    bufferedLogWarnMessages.Add($"Performing import of newer settings from '{WorkingConfigFilePath}' file");
+                    File.Copy(WorkingConfigFilePath, ProgramDataConfigFilePath);
                 }
             }
-            
-            Console.CursorVisible = false;
-            Console.SetCursorPosition(0, 0);
-
-            foreach (var consoleLine in ConsoleLines)
+            else
             {
-                ClearCurrentConsoleLine();
-                Console.WriteLine(consoleLine);
-            }
+                if (!Directory.Exists(ProgramDataDirectory))
+                    Directory.CreateDirectory(ProgramDataDirectory);
 
-            Console.CursorVisible = true;
-
-            ConsoleLines.Clear();
-
-        }
-
-        private static void PrintTeletext()
-        {
-            //some strangeness here to get around the fact we just append to console, to clear out
-            //a fixed 4 lines of space for TTX render
-            const string clearLine = "\t\t\t\t\t\t\t\t\t";
-            var ttxRender = new [] { clearLine, clearLine, clearLine, clearLine };
-
-            if (_decodedSubtitlePage == null) return;
-
-            lock (_decodedSubtitlePage)
-            {
-                if (string.IsNullOrEmpty(_teletextLockString))
+                if (File.Exists(WorkingConfigFilePath))
                 {
-                    var defaultLang = _decodedSubtitlePage.ParentMagazine.ParentService.AssociatedDescriptor
-                        .Languages
-                        .FirstOrDefault();
-
-                    if (defaultLang != null)
-                        _teletextLockString =
-                            $"Teletext {_decodedSubtitlePage.ParentMagazine.MagazineNum}{_decodedSubtitlePage.PageNum:x00} ({defaultLang.Iso639LanguageCode}) - decoding Service ID {_decodedSubtitlePage.ParentMagazine.ParentService.ProgramNumber}, PID: {_decodedSubtitlePage.ParentMagazine.ParentService.TeletextPid}";
-                }
-
-                PrintClearLineToConsole();
-                   
-                PrintToConsole($"{_teletextLockString}, PTS: {_decodedSubtitlePage.Pts}");
-                    
-                PrintToConsole(LineBreak);
-                    
-                PrintToConsole(
-                    $"Packets (Period/Total): {_analyzer.TeletextMetric.PeriodTtxPacketCount}/{_analyzer.TeletextMetric.TtxPacketCount}, Total Pages: {_analyzer.TeletextMetric.TtxPageReadyCount}, Total Clears: {_analyzer.TeletextMetric.TtxPageClearCount}");
-
-                PrintClearLineToConsole();
-
-                var i = 0;
-
-                foreach (var row in _decodedSubtitlePage.Rows)
-                {
-                    if (i>3  || string.IsNullOrWhiteSpace(row.GetPlainRow())) continue;
-                    ttxRender[i] = $"{row.RowNum} - {row.GetPlainRow()}";
-                    i++;
-                }
-            }
-
-            foreach (var val in ttxRender)
-            {
-                PrintToConsole(val);
-            }
-
-        }
-        
-        private static void StartListeningToNetwork(string multicastAddress, int networkPort,
-            string listenAdapter = "")
-        {
-            var listenAddress = string.IsNullOrEmpty(listenAdapter) ? IPAddress.Any : IPAddress.Parse(listenAdapter);
-
-            var localEp = new IPEndPoint(IPAddress.Any, networkPort);
-
-            UdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            UdpClient.Client.ReceiveBufferSize = 1500 * 3000;
-            UdpClient.Client.Bind(localEp);
-            _analyzer.NetworkMetric.UdpClient = UdpClient;
-
-            if (!string.IsNullOrWhiteSpace(multicastAddress))
-            {
-                var parsedMcastAddr = IPAddress.Parse(multicastAddress);
-                UdpClient.JoinMulticastGroup(parsedMcastAddr, listenAddress);
-            }
-
-            var ts = new ThreadStart(delegate
-            {
-                ReceivingNetworkWorkerThread(UdpClient);
-            });
-
-            var receiverThread = new Thread(ts) {Priority = ThreadPriority.Highest};
-
-            receiverThread.Start();
-       
-        }
-
-        private static void StartStreamingFile(string fileName)
-        {
-            var fs = new FileStream(fileName, FileMode.Open);
-
-            var ts = new ThreadStart(delegate
-            {
-                FileStreamWorkerThread(fs);
-            });
-            
-            var receiverThread = new Thread(ts);
-
-            receiverThread.Start();
-        }
-
-        private static void FileStreamWorkerThread(Stream stream)
-        {
-            var data = new byte[188];
-            var factory = new TsPacketFactory();
-
-            while (stream?.Read(data, 0, 188) > 0)
-            {
-                try
-                {
-                    var tsPackets = factory.GetTsPacketsFromData(data);
-
-                    if (tsPackets == null) break;
-
-                    _analyzer.AnalyzePackets(tsPackets);
-
-                }
-                catch (Exception ex)
-                {
-                    LogMessage($@"Unhandled exception within file streamer: {ex.Message}");
-                }
-            }
-
-            _pendingExit = true;
-            Thread.Sleep(250);
-
-            Console.WriteLine("Completed reading of file - hit enter to exit!");
-            Console.ReadLine();
-        }
-
-        private static void ReceivingNetworkWorkerThread(UdpClient client)
-        {
-            IPEndPoint receivedFromEndPoint = null;
-
-            while (_receiving && !_pendingExit)
-            {
-                var data = client.Receive(ref receivedFromEndPoint);
-
-                if (_warmedUp)
-                {
-                    var currentTime = (ulong)Stopwatch.GetTimestamp();
-                    _analyzer.RingBuffer.Add(ref data, currentTime);
+                    bufferedLogWarnMessages.Add($"Performing initial import of settings from '{WorkingConfigFilePath}' file to {ProgramDataConfigFilePath}");
+                    File.Copy(WorkingConfigFilePath, ProgramDataConfigFilePath!);
                 }
                 else
                 {
-                    if (DateTime.UtcNow.Subtract(StartTime) > new TimeSpan(0, 0, 0, 0, WarmUpTime))
-                        _warmedUp = true;
+                    bufferedLogWarnMessages.Add($"Performing import of default settings from '{BaseConfigFilePath}' file");
+                    File.Copy(BaseConfigFilePath, ProgramDataConfigFilePath!);
                 }
             }
-        }
-        
-        private static TeletextPage _decodedSubtitlePage;
-
-        private static void Service_TeletextPageReady(object sender, EventArgs e)
-        {
-            var ttxE = (TeletextPageReadyEventArgs)e;
-
-            if (ttxE == null) return;
-
-            _decodedSubtitlePage = ttxE.Page;
+            return bufferedLogWarnMessages;
         }
 
-        private static void Service_TeletextPageCleared(object sender, EventArgs e)
+        private static ILogger InitializeLogger()
         {
-            var ttxE = (TeletextPageClearedEventArgs)e;
+            var config = _configRoot.Get<AppConfig>();
 
-            if (_decodedSubtitlePage?.PageNum == ttxE.PageNumber)
-                _decodedSubtitlePage = null;
-        }
+            var logger = LogManager.Setup()
+                .LoadConfigurationFromSection(_configRoot)
+                .GetCurrentClassLogger();
 
-        private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
-        {
-            Console.CursorVisible = true;
-            if (_pendingExit) return; //already trying to exit - allow normal behaviour on subsequent presses
-            _pendingExit = true;
-            _analyzer.Cancel();
-            e.Cancel = true;
-        }
-
-        private static void PrintClearLineToConsole()
-        {
-            if (_options.SuppressOutput) return;
-            ConsoleLines.Add("\t"); //use a tab for a clear line, to ensure that an operation runs
-        }
-
-        private static void PrintToConsole(string message, params object[] arguments)
-        {
-            if (_options.SuppressOutput) return;
-            ConsoleLines.Add(string.Format(message, arguments));
-        }
-
-        private static void ClearCurrentConsoleLine()
-        {
-            // Write space to end of line, and then CR with no LF
-            Console.Write("\r".PadLeft(Console.WindowWidth - Console.CursorLeft - 1));
-        }
-
-        private static void LogMessage(string message)
-        {
-            var lei = new TelemetryLogEventInfo
+            if (LogManager.Configuration != null)
             {
-                Level = LogLevel.Info,
-                Key = "GenericEvent",
-                Message = message
+                return logger;
+
+            }
+
+            LogManager.Configuration = new LoggingConfiguration();
+            ConfigurationItemFactory.Default.LayoutRenderers.RegisterDefinition("pad", typeof(PaddingLayoutRendererWrapper));
+
+            var layout = new SimpleLayout
+            {
+                Text = "${longdate} ${pad:padding=-10:inner=(${level:upperCase=true})} " +
+                       "${pad:padding=-20:fixedLength=true:inner=${logger:shortName=true}} " +
+                       "${message} ${exception:format=tostring}"
             };
 
-            _logger.Log(lei);
+            if (config.LiveConsole)
+            {
+                Console.WriteLine("LiveConsole mode is enabled, so normal logging is disabled - disable LiveConsole option for troubleshooting!");
+            }
+            else
+            {
+                var consoleTarget = new ColoredConsoleTarget
+                {
+                    UseDefaultRowHighlightingRules = true,
+                    DetectConsoleAvailable = true,
+                    Layout = layout
+                };
+
+                LogManager.Configuration.AddRule(LogLevel.Info, LogLevel.Fatal, consoleTarget,
+                    "Microsoft.Hosting.Lifetime");
+                LogManager.Configuration.AddRule(LogLevel.Trace, LogLevel.Info, new NullTarget(), "Microsoft.*", true);
+                LogManager.Configuration.AddRule(LogLevel.Info, LogLevel.Fatal, consoleTarget);
+            }
+
+            LogManager.ReconfigExistingLoggers();
+            return LogManager.GetCurrentClassLogger();
         }
-        
+
+        private static IConfigurationRoot LoadConfiguration(string filepath, string[] args)
+        {
+            var configBuilder = new ConfigurationBuilder();
+            var config = configBuilder.AddJsonFile(filepath, false)
+                .AddCommandLine(args)
+                .AddEnvironmentVariables($"{EnvironmentVarPrefix}_")
+                .Build();
+
+            return config;
+        }
+
+        #endregion
+
     }
 }
-

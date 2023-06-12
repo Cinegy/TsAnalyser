@@ -1,8 +1,8 @@
 {
   "profiles": {
-    "Cinegy.TsAnalyzer": {
+    "TsAnalyzer": {
       "commandName": "Project",
-      "commandLineArgs": "stream -m 239.1.1.2 -p 1234 -n -t -c -o sandpit -a 10.183.2.249"
+      "commandLineArgs": "--sourceurl srt://srt.cinegy.com:9000 --metrics:OpenTelemetryPeriodicExportInterval=1000 --metrics:opentelemetryexporterenabled=true --metrics:opentelemetryendpoint=http://otel-local.cinegy.com --liveconsole=true"
     }
   }
 }
